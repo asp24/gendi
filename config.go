@@ -45,7 +45,7 @@ type Service struct {
 	Type               string       `yaml:"type"`
 	Constructor        Constructor  `yaml:"constructor"`
 	Shared             *bool        `yaml:"shared"`
-	Public             bool         `yaml:"public"`
+	Public             bool         `yaml:"public,omitempty"`
 	Decorates          string       `yaml:"decorates"`
 	DecorationPriority int          `yaml:"decoration_priority"`
 	Tags               []ServiceTag `yaml:"tags"`

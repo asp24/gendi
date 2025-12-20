@@ -3,14 +3,14 @@ package generator
 import (
 	"bytes"
 	"fmt"
+	"go/types"
 	"sort"
 	"strconv"
 	"strings"
 
-	"go/types"
+	"gopkg.in/yaml.v3"
 
 	"github.com/asp24/go-sf-di"
-	"gopkg.in/yaml.v3"
 )
 
 func (g *Generator) render(ctx *genContext) ([]byte, error) {
