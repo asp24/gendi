@@ -16,6 +16,7 @@ type Container struct {
 	mu                sync.Mutex
 	svc_db            *app.DB
 	svc_factory       *app.Factory
+	svc_handler       *app.Handler
 	svc_logger        *app.Logger
 	svc_mailer        *app.Mailer
 	svc_mailer_prefix *app.Mailer
@@ -71,19 +72,6 @@ func (c *Container) buildMailerPrefixDecorator(inner *app.Mailer) (*app.Mailer, 
 
 func (c *Container) buildMailerRetryDecorator(inner *app.Mailer) (*app.Mailer, error) {
 	return app.AddRetry(inner, param_mail_retries), nil
-}
-
-func (c *Container) buildNotifierEmail() (*app.EmailNotifier, error) {
-	var zero *app.EmailNotifier
-	dep_mailer, err := c.getMailer()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "notifier.email", 0, err)
-	}
-	return app.NewEmailNotifier(dep_mailer), nil
-}
-
-func (c *Container) buildNotifierSms() (app.SMSNotifier, error) {
-	return app.NewSMSNotifier(), nil
 }
 
 func (c *Container) buildDecoratedMailerPrefix() (*app.Mailer, error) {
@@ -144,10 +132,14 @@ func (c *Container) getFactory() (*app.Factory, error) {
 
 func (c *Container) getHandler() (*app.Handler, error) {
 	var zero *app.Handler
+	if c.svc_handler != nil {
+		return c.svc_handler, nil
+	}
 	res, err := c.buildHandler()
 	if err != nil {
 		return zero, err
 	}
+	c.svc_handler = res
 	return res, nil
 }
 
@@ -203,74 +195,8 @@ func (c *Container) getMailerRetry() (*app.Mailer, error) {
 	return res, nil
 }
 
-func (c *Container) getNotifierEmail() (*app.EmailNotifier, error) {
-	var zero *app.EmailNotifier
-	res, err := c.buildNotifierEmail()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
-}
-
-func (c *Container) getNotifierSms() (app.SMSNotifier, error) {
-	var zero app.SMSNotifier
-	res, err := c.buildNotifierSms()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
-}
-
-func (c *Container) GetDb() (*app.DB, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.getDb()
-}
-
-func (c *Container) GetFactory() (*app.Factory, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.getFactory()
-}
-
 func (c *Container) GetHandler() (*app.Handler, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.getHandler()
-}
-
-func (c *Container) GetLogger() (*app.Logger, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.getLogger()
-}
-
-func (c *Container) GetMailer() (*app.Mailer, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.getMailer()
-}
-
-func (c *Container) GetMailerPrefix() (*app.Mailer, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.getMailerPrefix()
-}
-
-func (c *Container) GetMailerRetry() (*app.Mailer, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.getMailerRetry()
-}
-
-func (c *Container) GetNotifierEmail() (*app.EmailNotifier, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.getNotifierEmail()
-}
-
-func (c *Container) GetNotifierSms() (app.SMSNotifier, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.getNotifierSms()
 }

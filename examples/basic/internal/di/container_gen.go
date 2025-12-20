@@ -11,7 +11,6 @@ var param_log_prefix string = "[app] "
 
 type Container struct {
 	mu                    sync.Mutex
-	svc_factory           *app.Factory
 	svc_logger            *app.Logger
 	svc_provider_paypal   *app.PaymentProvider
 	svc_provider_stripe   *app.PaymentProvider
@@ -20,30 +19,8 @@ type Container struct {
 	svc_service_decorator *app.Service
 }
 
-func (c *Container) buildFactory() (*app.Factory, error) {
-	var zero *app.Factory
-	dep_logger, err := c.getLogger()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "factory", 0, err)
-	}
-	return app.NewFactory(dep_logger), nil
-}
-
 func (c *Container) buildLogger() (*app.Logger, error) {
 	return app.NewLogger(param_log_prefix), nil
-}
-
-func (c *Container) buildProcessor() (*app.Processor, error) {
-	var zero *app.Processor
-	dep_repo, err := c.getRepo()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "processor", 0, err)
-	}
-	recv_processor, err := c.getFactory()
-	if err != nil {
-		return zero, fmt.Errorf("service %q receiver %q: %w", "processor", "factory", err)
-	}
-	return recv_processor.NewProcessor(dep_repo), nil
 }
 
 func (c *Container) buildProviderPaypal() (*app.PaymentProvider, error) {
@@ -105,19 +82,6 @@ func (c *Container) buildDecoratedServiceDecorator() (*app.Service, error) {
 	return inner, nil
 }
 
-func (c *Container) getFactory() (*app.Factory, error) {
-	var zero *app.Factory
-	if c.svc_factory != nil {
-		return c.svc_factory, nil
-	}
-	res, err := c.buildFactory()
-	if err != nil {
-		return zero, err
-	}
-	c.svc_factory = res
-	return res, nil
-}
-
 func (c *Container) getLogger() (*app.Logger, error) {
 	var zero *app.Logger
 	if c.svc_logger != nil {
@@ -128,15 +92,6 @@ func (c *Container) getLogger() (*app.Logger, error) {
 		return zero, err
 	}
 	c.svc_logger = res
-	return res, nil
-}
-
-func (c *Container) getProcessor() (*app.Processor, error) {
-	var zero *app.Processor
-	res, err := c.buildProcessor()
-	if err != nil {
-		return zero, err
-	}
 	return res, nil
 }
 

@@ -67,7 +67,8 @@ services:
       args:
         - "@db"
         - "@mailer"
-    shared: false
+    shared: true
+    public: true
   notifier.email:
     constructor:
       func: "github.com/asp24/go-sf-di/examples/advanced/app.NewEmailNotifier"
