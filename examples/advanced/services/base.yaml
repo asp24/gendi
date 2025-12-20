@@ -1,0 +1,88 @@
+parameters:
+  dsn:
+    type: string
+    value: "postgres://localhost/advanced"
+  log_prefix:
+    type: string
+    value: "[base] "
+  mail_host:
+    type: string
+    value: "smtp.example"
+  mail_retries:
+    type: int
+    value: 3
+  mail_prefix:
+    type: string
+    value: "ADV-"
+
+tags:
+  notifier:
+    element_type: "github.com/asp24/go-sf-di/examples/advanced/app.Notifier"
+    sort_by: priority
+
+services:
+  logger:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/advanced/app.NewLogger"
+      args:
+        - "%log_prefix%"
+    shared: true
+  db:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/advanced/app.NewDB"
+      args:
+        - "%dsn%"
+    shared: true
+  mailer:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/advanced/app.NewMailer"
+      args:
+        - "%mail_host%"
+    shared: true
+  mailer.retry:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/advanced/app.AddRetry"
+      args:
+        - "@.inner"
+        - "%mail_retries%"
+    decorates: mailer
+    decoration_priority: 10
+  mailer.prefix:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/advanced/app.AddPrefix"
+      args:
+        - "@.inner"
+        - "%mail_prefix%"
+    decorates: mailer
+    decoration_priority: 20
+  factory:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/advanced/app.NewFactory"
+      args:
+        - "@logger"
+    shared: true
+  handler:
+    constructor:
+      method: "@factory.NewHandler"
+      args:
+        - "@db"
+        - "@mailer"
+    shared: false
+  notifier.email:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/advanced/app.NewEmailNotifier"
+      args:
+        - "@mailer"
+    shared: false
+    tags:
+      - name: notifier
+        attributes:
+          priority: 50
+  notifier.sms:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/advanced/app.NewSMSNotifier"
+    shared: false
+    tags:
+      - name: notifier
+        attributes:
+          priority: 10

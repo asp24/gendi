@@ -1,0 +1,4 @@
+/.gocache
+/.vscode
+/.idea
+go.sum

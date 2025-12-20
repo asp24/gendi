@@ -1,0 +1,18 @@
+parameters:
+  log_prefix:
+    type: string
+    value: "[us-east-1] "
+  mail_host:
+    type: string
+    value: "smtp.us.example"
+  mail_retries:
+    type: int
+    value: 5
+
+services:
+  mailer:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/advanced/app.NewMailer"
+      args:
+        - "%mail_host%"
+    shared: true

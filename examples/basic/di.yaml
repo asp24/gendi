@@ -1,0 +1,70 @@
+imports: []
+parameters:
+  dsn:
+    type: string
+    value: "postgres://localhost/app"
+  log_prefix:
+    type: string
+    value: "[app] "
+tags:
+  payment.provider:
+    element_type: "*github.com/asp24/go-sf-di/examples/basic/app.PaymentProvider"
+    sort_by: priority
+services:
+  logger:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/basic/app.NewLogger"
+      args:
+        - "%log_prefix%"
+    shared: true
+  repo:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/basic/app.NewRepo"
+      args:
+        - "%dsn%"
+    shared: true
+  provider.stripe:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/basic/app.NewStripeProvider"
+    shared: true
+    tags:
+      - name: payment.provider
+        attributes:
+          priority: 100
+  provider.paypal:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/basic/app.NewPaypalProvider"
+    shared: true
+    tags:
+      - name: payment.provider
+        attributes:
+          priority: 10
+  service:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/basic/app.NewService"
+      args:
+        - "@repo"
+        - "@logger"
+        - "!tagged:payment.provider"
+    shared: true
+    public: true
+  service.decorator:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/basic/app.DecorateService"
+      args:
+        - "@.inner"
+        - "@logger"
+    decorates: service
+    decoration_priority: 20
+  factory:
+    constructor:
+      func: "github.com/asp24/go-sf-di/examples/basic/app.NewFactory"
+      args:
+        - "@logger"
+    shared: true
+  processor:
+    constructor:
+      method: "@factory.NewProcessor"
+      args:
+        - "@repo"
+    shared: false
