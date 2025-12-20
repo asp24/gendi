@@ -15,6 +15,7 @@ import (
 
 func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	assignGetterNames(ctx)
+	reachable := reachableServices(ctx)
 	body := &bytes.Buffer{}
 
 	// Parameters
@@ -44,6 +45,9 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	fmt.Fprintf(body, "\tmu sync.Mutex\n")
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
+		if !reachable[id] {
+			continue
+		}
 		if !svc.shared {
 			continue
 		}
@@ -59,6 +63,9 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	// Build functions and getters
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
+		if !reachable[id] {
+			continue
+		}
 		if svc.isDecorator {
 			if err := renderDecoratorBuild(body, ctx, svc); err != nil {
 				return nil, err
@@ -71,6 +78,9 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	}
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
+		if !reachable[id] {
+			continue
+		}
 		if svc.isDecorator {
 			if err := renderDecoratorChain(body, ctx, svc); err != nil {
 				return nil, err
@@ -78,12 +88,18 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 		}
 	}
 	for _, id := range ctx.orderedServiceIDs {
+		if !reachable[id] {
+			continue
+		}
 		if err := renderPrivateGetter(body, ctx, ctx.services[id]); err != nil {
 			return nil, err
 		}
 	}
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
+		if !reachable[id] {
+			continue
+		}
 		if !svc.public {
 			continue
 		}
@@ -518,4 +534,64 @@ func buildNeedsErrorHandling(svc *serviceDef) bool {
 		}
 	}
 	return false
+}
+
+func reachableServices(ctx *genContext) map[string]bool {
+	reachable := map[string]bool{}
+	queue := []string{}
+	for id, svc := range ctx.services {
+		if svc.public {
+			reachable[id] = true
+			queue = append(queue, id)
+		}
+	}
+
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+		svc := ctx.services[id]
+		if svc == nil {
+			continue
+		}
+
+		add := func(dep string) {
+			if dep == "" || reachable[dep] {
+				return
+			}
+			reachable[dep] = true
+			queue = append(queue, dep)
+		}
+
+		if svc.constructor.kind == "method" {
+			add(svc.constructor.methodRecvID)
+		}
+		for _, arg := range svc.constructor.argDefs {
+			switch arg.Kind {
+			case di.ArgServiceRef:
+				add(arg.Value)
+			case di.ArgInner:
+				add(svc.decorates)
+			case di.ArgTagged:
+				for sid, tagSvc := range ctx.services {
+					for _, t := range tagSvc.cfg.Tags {
+						if t.Name == arg.Value {
+							add(sid)
+							break
+						}
+					}
+				}
+			}
+		}
+
+		if svc.decorates != "" {
+			add(svc.decorates)
+		}
+		if decs := ctx.decoratorsByBase[id]; len(decs) > 0 {
+			for _, d := range decs {
+				add(d.id)
+			}
+		}
+	}
+
+	return reachable
 }
