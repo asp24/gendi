@@ -16,7 +16,7 @@ type Pass interface {
 
 // Config is the root configuration for the DI container.
 type Config struct {
-	Imports    []string          `yaml:"imports"`
+	Imports    []string             `yaml:"imports"`
 	Parameters map[string]Parameter `yaml:"parameters"`
 	Tags       map[string]Tag       `yaml:"tags"`
 	Services   map[string]*Service  `yaml:"services"`
@@ -45,7 +45,7 @@ type Service struct {
 	Type               string       `yaml:"type"`
 	Constructor        Constructor  `yaml:"constructor"`
 	Shared             *bool        `yaml:"shared"`
-	Public             *bool        `yaml:"public"`
+	Public             bool         `yaml:"public"`
 	Decorates          string       `yaml:"decorates"`
 	DecorationPriority int          `yaml:"decoration_priority"`
 	Tags               []ServiceTag `yaml:"tags"`

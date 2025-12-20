@@ -8,8 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	di "github.com/asp24/go-sf-di"
 	"gopkg.in/yaml.v3"
+
+	di "github.com/asp24/go-sf-di"
 )
 
 type Options struct {
@@ -125,15 +126,11 @@ func (g *Generator) buildContext() (*genContext, error) {
 		if svc.Shared != nil {
 			shared = *svc.Shared
 		}
-		public := false
-		if svc.Public != nil {
-			public = *svc.Public
-		}
 		services[id] = &serviceDef{
 			id:                 id,
 			cfg:                svc,
 			shared:             shared,
-			public:             public,
+			public:             svc.Public,
 			decorates:          svc.Decorates,
 			decorationPriority: svc.DecorationPriority,
 			isDecorator:        svc.Decorates != "",
