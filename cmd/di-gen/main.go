@@ -7,19 +7,19 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/asp24/go-sf-di"
-	"github.com/asp24/go-sf-di/internal/generator"
+	"github.com/asp24/gendi"
+	"github.com/asp24/gendi/internal/generator"
 )
 
 func main() {
 	var (
-		configPath  = flag.String("config", "", "Root YAML configuration file")
-		outPath     = flag.String("out", "", "Output directory or file")
-		pkgName     = flag.String("pkg", "", "Go package name")
-		container   = flag.String("container", "Container", "Container struct name")
-		strict      = flag.Bool("strict", true, "Enable strict validation")
-		buildTags   = flag.String("build-tags", "", "Go build tags")
-		verbose     = flag.Bool("verbose", false, "Verbose logging")
+		configPath = flag.String("config", "", "Root YAML configuration file")
+		outPath    = flag.String("out", "", "Output directory or file")
+		pkgName    = flag.String("pkg", "", "Go package name")
+		container  = flag.String("container", "Container", "Container struct name")
+		strict     = flag.Bool("strict", true, "Enable strict validation")
+		buildTags  = flag.String("build-tags", "", "Go build tags")
+		verbose    = flag.Bool("verbose", false, "Verbose logging")
 	)
 	flag.Parse()
 

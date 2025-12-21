@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asp24/go-sf-di"
+	"github.com/asp24/gendi"
 )
 
 func TestRequiresPublicService(t *testing.T) {
@@ -12,7 +12,7 @@ func TestRequiresPublicService(t *testing.T) {
 		Services: map[string]*di.Service{
 			"a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/go-sf-di/internal/generator/testdata/app.NewA",
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewA",
 				},
 			},
 		},
@@ -29,12 +29,12 @@ func TestReachabilityAndPublicGetters(t *testing.T) {
 		Services: map[string]*di.Service{
 			"a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/go-sf-di/internal/generator/testdata/app.NewA",
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewA",
 				},
 			},
 			"b": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/go-sf-di/internal/generator/testdata/app.NewB",
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewB",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "a"},
 					},
@@ -43,7 +43,7 @@ func TestReachabilityAndPublicGetters(t *testing.T) {
 			},
 			"unused": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/go-sf-di/internal/generator/testdata/app.NewC",
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewC",
 				},
 			},
 		},

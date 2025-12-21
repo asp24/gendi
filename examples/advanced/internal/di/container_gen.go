@@ -3,7 +3,7 @@ package di
 
 import (
 	"fmt"
-	app "github.com/asp24/go-sf-di/examples/advanced/app"
+	app "github.com/asp24/gendi/examples/advanced/app"
 	"sync"
 )
 

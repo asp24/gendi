@@ -10,7 +10,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	di "github.com/asp24/go-sf-di"
+	di "github.com/asp24/gendi"
 )
 
 type Options struct {

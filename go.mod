@@ -1,4 +1,4 @@
-module github.com/asp24/go-sf-di
+module github.com/asp24/gendi
 
 go 1.25.4
 

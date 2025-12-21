@@ -17,31 +17,31 @@ parameters:
 
 tags:
   notifier:
-    element_type: "github.com/asp24/go-sf-di/examples/advanced/app.Notifier"
+    element_type: "github.com/asp24/gendi/examples/advanced/app.Notifier"
     sort_by: priority
 
 services:
   logger:
     constructor:
-      func: "github.com/asp24/go-sf-di/examples/advanced/app.NewLogger"
+      func: "github.com/asp24/gendi/examples/advanced/app.NewLogger"
       args:
         - "%log_prefix%"
     shared: true
   db:
     constructor:
-      func: "github.com/asp24/go-sf-di/examples/advanced/app.NewDB"
+      func: "github.com/asp24/gendi/examples/advanced/app.NewDB"
       args:
         - "%dsn%"
     shared: true
   mailer:
     constructor:
-      func: "github.com/asp24/go-sf-di/examples/advanced/app.NewMailer"
+      func: "github.com/asp24/gendi/examples/advanced/app.NewMailer"
       args:
         - "%mail_host%"
     shared: true
   mailer.retry:
     constructor:
-      func: "github.com/asp24/go-sf-di/examples/advanced/app.AddRetry"
+      func: "github.com/asp24/gendi/examples/advanced/app.AddRetry"
       args:
         - "@.inner"
         - "%mail_retries%"
@@ -49,7 +49,7 @@ services:
     decoration_priority: 10
   mailer.prefix:
     constructor:
-      func: "github.com/asp24/go-sf-di/examples/advanced/app.AddPrefix"
+      func: "github.com/asp24/gendi/examples/advanced/app.AddPrefix"
       args:
         - "@.inner"
         - "%mail_prefix%"
@@ -57,7 +57,7 @@ services:
     decoration_priority: 20
   factory:
     constructor:
-      func: "github.com/asp24/go-sf-di/examples/advanced/app.NewFactory"
+      func: "github.com/asp24/gendi/examples/advanced/app.NewFactory"
       args:
         - "@logger"
     shared: true
@@ -71,7 +71,7 @@ services:
     public: true
   notifier.email:
     constructor:
-      func: "github.com/asp24/go-sf-di/examples/advanced/app.NewEmailNotifier"
+      func: "github.com/asp24/gendi/examples/advanced/app.NewEmailNotifier"
       args:
         - "@mailer"
     shared: false
@@ -81,7 +81,7 @@ services:
           priority: 50
   notifier.sms:
     constructor:
-      func: "github.com/asp24/go-sf-di/examples/advanced/app.NewSMSNotifier"
+      func: "github.com/asp24/gendi/examples/advanced/app.NewSMSNotifier"
     shared: false
     tags:
       - name: notifier

@@ -10,7 +10,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/asp24/go-sf-di"
+	"github.com/asp24/gendi"
 )
 
 func (g *Generator) render(ctx *genContext) ([]byte, error) {
