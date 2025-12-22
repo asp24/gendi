@@ -48,6 +48,10 @@ func NewServiceBase() Service {
 	return &BaseService{}
 }
 
+func NewServiceBaseConcrete() *BaseService {
+	return &BaseService{}
+}
+
 func (s *BaseService) Value() string { return "base" }
 
 type DecoratorA struct {
@@ -55,6 +59,10 @@ type DecoratorA struct {
 }
 
 func NewServiceDecoratorA(inner Service) Service {
+	return &DecoratorA{inner: inner}
+}
+
+func NewServiceDecoratorAConcrete(inner Service) *DecoratorA {
 	return &DecoratorA{inner: inner}
 }
 

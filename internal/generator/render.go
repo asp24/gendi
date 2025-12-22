@@ -177,7 +177,7 @@ func renderBuild(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 func renderDecoratorBuild(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	name := decoratorBuildName(svc)
 	retType := ctx.imports.typeString(svc.typeName)
-	innerType := ctx.imports.typeString(ctx.services[svc.decorates].typeName)
+	innerType := ctx.imports.typeString(serviceDeclaredType(ctx, ctx.services[svc.decorates]))
 	returnsErr := buildNeedsErrorHandling(svc)
 	fmt.Fprintf(b, "func (c *%s) %s(inner %s) (%s, error) {\n", ctx.containerName, name, innerType, retType)
 	if returnsErr {
@@ -596,6 +596,20 @@ func buildNeedsErrorHandling(svc *serviceDef) bool {
 		}
 	}
 	return false
+}
+
+func serviceDeclaredType(ctx *genContext, svc *serviceDef) types.Type {
+	if svc == nil {
+		return types.Typ[types.Invalid]
+	}
+	if svc.cfg.Type == "" {
+		return svc.typeName
+	}
+	declType, err := ctx.loader.lookupType(svc.cfg.Type)
+	if err != nil {
+		return svc.typeName
+	}
+	return declType
 }
 
 func reachableServices(ctx *genContext) map[string]bool {

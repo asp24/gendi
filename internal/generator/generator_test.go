@@ -274,6 +274,54 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 	}
 }
 
+func TestServiceTypeAssignableOverride(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]*di.Service{
+			"svc": {
+				Type: "github.com/asp24/gendi/internal/generator/testdata/app.Service",
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceBaseConcrete",
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	if _, err := gen.Generate(); err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+}
+
+func TestDecoratorAssignableToDeclaredBaseType(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]*di.Service{
+			"svc": {
+				Type: "github.com/asp24/gendi/internal/generator/testdata/app.Service",
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceBaseConcrete",
+				},
+				Public: true,
+			},
+			"svc.decorator": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceDecoratorAConcrete",
+					Args: []di.Argument{
+						{Kind: di.ArgInner},
+					},
+				},
+				Decorates:          "svc",
+				DecorationPriority: 10,
+			},
+		},
+	}
+
+	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	if _, err := gen.Generate(); err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+}
+
 func mustLiteralNode(tag, value string) yaml.Node {
 	return yaml.Node{Kind: yaml.ScalarNode, Tag: tag, Value: value}
 }

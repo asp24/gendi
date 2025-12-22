@@ -203,7 +203,7 @@ func (g *Generator) buildContext() (*genContext, error) {
 				if err != nil {
 					return fmt.Errorf("service %q type: %w", id, err)
 				}
-				if !types.Identical(declType, svc.typeName) {
+				if !types.AssignableTo(svc.typeName, declType) {
 					return fmt.Errorf("service %q type mismatch: expected %s, got %s", id, loader.typeString(declType), loader.typeString(svc.typeName))
 				}
 			}
@@ -271,8 +271,16 @@ func (g *Generator) buildContext() (*genContext, error) {
 			if baseSvc == nil {
 				return nil, fmt.Errorf("decorator %q decorates unknown service %q", svc.id, base)
 			}
-			if !types.AssignableTo(svc.typeName, baseSvc.typeName) {
-				return nil, fmt.Errorf("decorator %q type %s not assignable to %s", svc.id, loader.typeString(svc.typeName), loader.typeString(baseSvc.typeName))
+			baseType := baseSvc.typeName
+			if baseSvc.cfg.Type != "" {
+				declType, err := loader.lookupType(baseSvc.cfg.Type)
+				if err != nil {
+					return nil, fmt.Errorf("decorator %q base %q type: %w", svc.id, base, err)
+				}
+				baseType = declType
+			}
+			if !types.AssignableTo(svc.typeName, baseType) {
+				return nil, fmt.Errorf("decorator %q type %s not assignable to %s", svc.id, loader.typeString(svc.typeName), loader.typeString(baseType))
 			}
 			decoratorsByBase[base] = append(decoratorsByBase[base], svc)
 			baseByDecorator[svc.id] = base
@@ -674,6 +682,13 @@ func validateArgs(id string, svc *serviceDef, services map[string]*serviceDef, c
 				return fmt.Errorf("service %q arg[%d]: unknown base service %q", id, i, svc.decorates)
 			}
 			innerType := baseSvc.typeName
+			if baseSvc.cfg.Type != "" {
+				declType, err := loader.lookupType(baseSvc.cfg.Type)
+				if err != nil {
+					return fmt.Errorf("service %q arg[%d]: base %q type: %w", id, i, svc.decorates, err)
+				}
+				innerType = declType
+			}
 			if !types.AssignableTo(innerType, paramType) {
 				return fmt.Errorf("service %q arg[%d]: expected %s, got %s", id, i, loader.typeString(paramType), loader.typeString(innerType))
 			}
