@@ -266,7 +266,31 @@ the container falls back to a map-backed provider built from the YAML values.
 
 ---
 
-## 6.5 Tags
+## 6.5 Service Aliases
+
+Aliases let you reference another service by ID without defining a constructor.
+
+```yaml
+services:
+  logger:
+    constructor:
+      func: "example.com/app.NewLogger"
+    public: true
+  logger_alias: "@logger"
+```
+
+You can also use the expanded form to set flags like `public`:
+
+```yaml
+services:
+  logger_alias:
+    alias: "logger"
+    public: true
+```
+
+---
+
+## 6.6 Tags
 
 ### 6.5.1 Tag Declaration
 

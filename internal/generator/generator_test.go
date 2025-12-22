@@ -4,8 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asp24/gendi"
 	"gopkg.in/yaml.v3"
+
+	"github.com/asp24/gendi"
 )
 
 func TestRequiresPublicService(t *testing.T) {
@@ -106,6 +107,48 @@ func TestParameterProviderCodegen(t *testing.T) {
 	}
 	if !strings.Contains(out, "GetString(\"log_prefix\")") {
 		t.Fatalf("expected parameter provider lookup in generated code")
+	}
+}
+
+func TestServiceAliasCodegen(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]*di.Service{
+			"logger": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewLogger",
+					Args: []di.Argument{
+						{Kind: di.ArgParam, Value: "log_prefix"},
+					},
+				},
+				Public: true,
+			},
+			"logger.alias": {
+				Alias:  "logger",
+				Public: true,
+			},
+		},
+		Parameters: map[string]di.Parameter{
+			"log_prefix": {
+				Type:  "string",
+				Value: mustLiteralNode("!!str", "[app] "),
+			},
+		},
+	}
+
+	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+	if !strings.Contains(out, "GetLoggerAlias") {
+		t.Fatalf("expected alias public getter")
+	}
+	if strings.Contains(out, "buildLoggerAlias") {
+		t.Fatalf("unexpected build function for alias")
+	}
+	if !strings.Contains(out, "return c.getLogger()") {
+		t.Fatalf("expected alias getter to forward to target")
 	}
 }
 

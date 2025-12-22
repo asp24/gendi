@@ -163,6 +163,35 @@ imports:
 	}
 }
 
+func TestLoadConfigServiceAlias(t *testing.T) {
+	dir := t.TempDir()
+	rootPath := filepath.Join(dir, "root.yaml")
+	root := []byte(strings.TrimSpace(`
+services:
+  base:
+    constructor:
+      func: "example.NewBase"
+  alias: "@base"
+  alias_public:
+    alias: "base"
+    public: true
+`))
+	if err := os.WriteFile(rootPath, root, 0o644); err != nil {
+		t.Fatalf("write root config: %v", err)
+	}
+
+	cfg, err := LoadConfig(rootPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Services["alias"].Alias != "base" {
+		t.Fatalf("expected alias to reference base")
+	}
+	if cfg.Services["alias_public"].Alias != "base" || !cfg.Services["alias_public"].Public {
+		t.Fatalf("expected alias_public to be public and reference base")
+	}
+}
+
 func readModulePath(t *testing.T) string {
 	t.Helper()
 	data, err := os.ReadFile("go.mod")

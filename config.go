@@ -85,6 +85,7 @@ type Service struct {
 	Decorates          string       `yaml:"decorates"`
 	DecorationPriority int          `yaml:"decoration_priority"`
 	Tags               []ServiceTag `yaml:"tags"`
+	Alias              string       `yaml:"alias"`
 }
 
 // Constructor defines service constructor configuration.
@@ -142,6 +143,32 @@ func (a *Argument) UnmarshalYAML(node *yaml.Node) error {
 	a.Kind = ArgLiteral
 	a.Literal = *node
 	return nil
+}
+
+// UnmarshalYAML allows service entries to be aliases or mappings.
+func (s *Service) UnmarshalYAML(node *yaml.Node) error {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		var ref string
+		if err := node.Decode(&ref); err != nil {
+			return err
+		}
+		if !strings.HasPrefix(ref, "@") || len(ref) == 1 {
+			return fmt.Errorf("service alias must start with @")
+		}
+		*s = Service{Alias: ref[1:]}
+		return nil
+	case yaml.MappingNode:
+		type alias Service
+		var decoded alias
+		if err := node.Decode(&decoded); err != nil {
+			return err
+		}
+		*s = Service(decoded)
+		return nil
+	default:
+		return fmt.Errorf("service must be a mapping or alias")
+	}
 }
 
 // LoadConfig loads config with imports resolved.
@@ -234,6 +261,9 @@ func applyServicePrefix(cfg *Config, prefix string) {
 	for _, svc := range cfg.Services {
 		if svc.Decorates != "" && original[svc.Decorates] {
 			svc.Decorates = prefix + svc.Decorates
+		}
+		if svc.Alias != "" && original[svc.Alias] {
+			svc.Alias = prefix + svc.Alias
 		}
 		for i := range svc.Constructor.Args {
 			arg := &svc.Constructor.Args[i]

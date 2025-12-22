@@ -75,6 +75,9 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 		if !reachable[id] {
 			continue
 		}
+		if svc.aliasTarget != "" {
+			continue
+		}
 		if svc.isDecorator {
 			if err := renderDecoratorBuild(body, ctx, svc); err != nil {
 				return nil, err
@@ -88,6 +91,9 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
 		if !reachable[id] {
+			continue
+		}
+		if svc.aliasTarget != "" {
 			continue
 		}
 		if svc.isDecorator {
@@ -226,6 +232,16 @@ func renderPrivateGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) erro
 	isPtr := isNilablePointer(resType)
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, getterType)
 	fmt.Fprintf(b, "\tvar zero %s\n", getterType)
+
+	if svc.aliasTarget != "" {
+		target := ctx.services[svc.aliasTarget]
+		if target == nil {
+			return fmt.Errorf("unknown alias target %q", svc.aliasTarget)
+		}
+		fmt.Fprintf(b, "\treturn c.%s()\n", target.privateGetterName)
+		b.WriteString("}\n\n")
+		return nil
+	}
 
 	if svc.shared {
 		if isPtr {
@@ -592,6 +608,9 @@ func reachableServices(ctx *genContext) map[string]bool {
 
 		if svc.constructor.kind == "method" {
 			add(svc.constructor.methodRecvID)
+		}
+		if svc.aliasTarget != "" {
+			add(svc.aliasTarget)
 		}
 		for _, arg := range svc.constructor.argDefs {
 			switch arg.Kind {

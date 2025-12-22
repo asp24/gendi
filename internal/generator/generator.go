@@ -95,6 +95,7 @@ type serviceDef struct {
 	decorates          string
 	decorationPriority int
 	isDecorator        bool
+	aliasTarget        string
 }
 
 type constructorDef struct {
@@ -134,6 +135,9 @@ func (g *Generator) buildContext() (*genContext, error) {
 		if svc.Shared != nil {
 			shared = *svc.Shared
 		}
+		if svc.Alias != "" {
+			shared = false
+		}
 		services[id] = &serviceDef{
 			id:                 id,
 			cfg:                svc,
@@ -162,19 +166,46 @@ func (g *Generator) buildContext() (*genContext, error) {
 			return fmt.Errorf("unknown service %q", id)
 		}
 		resolving[id] = true
-		cons, err := resolveConstructor(id, svc.cfg, loader, services, resolveService)
-		if err != nil {
-			return err
-		}
-		svc.constructor = cons
-		svc.typeName = cons.result
-		if svc.cfg.Type != "" {
-			declType, err := loader.lookupType(svc.cfg.Type)
-			if err != nil {
-				return fmt.Errorf("service %q type: %w", id, err)
+		if svc.cfg.Alias != "" {
+			if svc.cfg.Constructor.Func != "" || svc.cfg.Constructor.Method != "" || len(svc.cfg.Constructor.Args) > 0 {
+				return fmt.Errorf("service %q alias cannot define constructor", id)
 			}
-			if !types.Identical(declType, svc.typeName) {
-				return fmt.Errorf("service %q type mismatch: expected %s, got %s", id, loader.typeString(declType), loader.typeString(svc.typeName))
+			if svc.cfg.Decorates != "" {
+				return fmt.Errorf("service %q alias cannot be a decorator", id)
+			}
+			if err := resolveService(svc.cfg.Alias); err != nil {
+				return err
+			}
+			target := services[svc.cfg.Alias]
+			if target == nil {
+				return fmt.Errorf("service %q alias target %q not found", id, svc.cfg.Alias)
+			}
+			svc.aliasTarget = svc.cfg.Alias
+			svc.typeName = target.typeName
+			if svc.cfg.Type != "" {
+				declType, err := loader.lookupType(svc.cfg.Type)
+				if err != nil {
+					return fmt.Errorf("service %q type: %w", id, err)
+				}
+				if !types.AssignableTo(svc.typeName, declType) {
+					return fmt.Errorf("service %q type mismatch: expected %s, got %s", id, loader.typeString(declType), loader.typeString(svc.typeName))
+				}
+			}
+		} else {
+			cons, err := resolveConstructor(id, svc.cfg, loader, services, resolveService)
+			if err != nil {
+				return err
+			}
+			svc.constructor = cons
+			svc.typeName = cons.result
+			if svc.cfg.Type != "" {
+				declType, err := loader.lookupType(svc.cfg.Type)
+				if err != nil {
+					return fmt.Errorf("service %q type: %w", id, err)
+				}
+				if !types.Identical(declType, svc.typeName) {
+					return fmt.Errorf("service %q type mismatch: expected %s, got %s", id, loader.typeString(declType), loader.typeString(svc.typeName))
+				}
 			}
 		}
 		resolving[id] = false
@@ -331,6 +362,9 @@ func (g *Generator) buildContext() (*genContext, error) {
 
 func constructorDeps(id string, svc *serviceDef, cfg *di.Config) ([]string, error) {
 	deps := []string{}
+	if svc.aliasTarget != "" {
+		return []string{svc.aliasTarget}, nil
+	}
 	cons := svc.constructor
 	if cons.kind == "method" {
 		deps = append(deps, cons.methodRecvID)
@@ -455,6 +489,9 @@ func computeGetterErrors(services map[string]*serviceDef, cfg *di.Config, decora
 
 func buildDeps(id string, svc *serviceDef, cfg *di.Config) ([]string, error) {
 	deps := []string{}
+	if svc.aliasTarget != "" {
+		return []string{svc.aliasTarget}, nil
+	}
 	cons := svc.constructor
 	if cons.kind == "method" {
 		deps = append(deps, cons.methodRecvID)
@@ -705,6 +742,11 @@ func literalType(node yaml.Node) (types.Type, error) {
 }
 
 func getterType(svc *serviceDef, services map[string]*serviceDef, decoratorsByBase map[string][]*serviceDef) types.Type {
+	if svc.aliasTarget != "" {
+		if target := services[svc.aliasTarget]; target != nil {
+			return getterType(target, services, decoratorsByBase)
+		}
+	}
 	if svc.decorates != "" {
 		return svc.typeName
 	}
