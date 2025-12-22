@@ -243,7 +243,6 @@ func renderPrivateGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) erro
 	getterType := ctx.imports.typeString(resType)
 	isPtr := isNilablePointer(resType)
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, getterType)
-	fmt.Fprintf(b, "\tvar zero %s\n", getterType)
 
 	if svc.aliasTarget != "" {
 		target := ctx.services[svc.aliasTarget]
@@ -254,6 +253,7 @@ func renderPrivateGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) erro
 		b.WriteString("}\n\n")
 		return nil
 	}
+	fmt.Fprintf(b, "\tvar zero %s\n", getterType)
 
 	if svc.shared {
 		if isPtr {
