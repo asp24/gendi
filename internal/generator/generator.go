@@ -98,6 +98,110 @@ type serviceDef struct {
 	aliasTarget        string
 }
 
+// IsAlias returns true if this service is an alias to another service.
+func (s *serviceDef) IsAlias() bool {
+	return s.cfg.Alias != ""
+}
+
+// HasConstructor returns true if this service defines a constructor.
+func (s *serviceDef) HasConstructor() bool {
+	return s.constructor.kind != ""
+}
+
+// Dependencies returns the service IDs this service depends on.
+func (s *serviceDef) Dependencies(cfg *di.Config) ([]string, error) {
+	return constructorDeps(s.id, s, cfg)
+}
+
+// ResolutionTracker tracks service resolution state and detects circular references.
+type ResolutionTracker struct {
+	resolving map[string]bool
+	resolved  map[string]bool
+}
+
+// NewResolutionTracker creates a new resolution tracker.
+func NewResolutionTracker() *ResolutionTracker {
+	return &ResolutionTracker{
+		resolving: make(map[string]bool),
+		resolved:  make(map[string]bool),
+	}
+}
+
+// IsResolved returns true if the service has been resolved.
+func (r *ResolutionTracker) IsResolved(id string) bool {
+	return r.resolved[id]
+}
+
+// StartResolving marks a service as being resolved and checks for cycles.
+// Returns an error if the service is already being resolved (circular reference).
+func (r *ResolutionTracker) StartResolving(id string) error {
+	if r.resolving[id] {
+		return fmt.Errorf("circular constructor reference at %q", id)
+	}
+	r.resolving[id] = true
+	return nil
+}
+
+// FinishResolving marks a service as resolved.
+func (r *ResolutionTracker) FinishResolving(id string) {
+	r.resolving[id] = false
+	r.resolved[id] = true
+}
+
+// resolveAliasService resolves an alias service's type from its target.
+func resolveAliasService(svc *serviceDef, services map[string]*serviceDef, loader *typeLoader, resolveFunc func(string) error) error {
+	if svc.cfg.Constructor.Func != "" || svc.cfg.Constructor.Method != "" || len(svc.cfg.Constructor.Args) > 0 {
+		return fmt.Errorf("service %q alias cannot define constructor", svc.id)
+	}
+	if svc.cfg.Decorates != "" {
+		return fmt.Errorf("service %q alias cannot be a decorator", svc.id)
+	}
+
+	if err := resolveFunc(svc.cfg.Alias); err != nil {
+		return err
+	}
+
+	target := services[svc.cfg.Alias]
+	if target == nil {
+		return fmt.Errorf("service %q alias target %q not found", svc.id, svc.cfg.Alias)
+	}
+
+	svc.aliasTarget = svc.cfg.Alias
+	svc.typeName = target.typeName
+
+	if svc.cfg.Type != "" {
+		declType, err := loader.lookupType(svc.cfg.Type)
+		if err != nil {
+			return fmt.Errorf("service %q type: %w", svc.id, err)
+		}
+		if !types.AssignableTo(svc.typeName, declType) {
+			return fmt.Errorf("service %q type mismatch: expected %s, got %s", svc.id, loader.typeString(declType), loader.typeString(svc.typeName))
+		}
+	}
+	return nil
+}
+
+// resolveConstructorService resolves a service's constructor and result type.
+func resolveConstructorService(svc *serviceDef, services map[string]*serviceDef, loader *typeLoader, resolveFunc func(string) error) error {
+	cons, err := resolveConstructor(svc.id, svc.cfg, loader, services, resolveFunc)
+	if err != nil {
+		return err
+	}
+	svc.constructor = cons
+	svc.typeName = cons.result
+
+	if svc.cfg.Type != "" {
+		declType, err := loader.lookupType(svc.cfg.Type)
+		if err != nil {
+			return fmt.Errorf("service %q type: %w", svc.id, err)
+		}
+		if !types.AssignableTo(svc.typeName, declType) {
+			return fmt.Errorf("service %q type mismatch: expected %s, got %s", svc.id, loader.typeString(declType), loader.typeString(svc.typeName))
+		}
+	}
+	return nil
+}
+
 type constructorDef struct {
 	kind         string // func|method
 	funcObj      *types.Func
@@ -109,28 +213,92 @@ type constructorDef struct {
 	argDefs      []di.Argument
 }
 
-func (g *Generator) buildContext() (*genContext, error) {
-	cfg := g.cfg
-	if cfg.Services == nil {
+// ContextBuilder builds the generation context in phases.
+type ContextBuilder struct {
+	cfg              *di.Config
+	options          Options
+	loader           *typeLoader
+	services         map[string]*serviceDef
+	order            []string
+	decoratorsByBase map[string][]*serviceDef
+	baseByDecorator  map[string]string
+	buildCanError    map[string]bool
+	getterCanError   map[string]bool
+	paramGetters     map[string]string
+}
+
+// NewContextBuilder creates a new context builder.
+func NewContextBuilder(cfg *di.Config, options Options) *ContextBuilder {
+	return &ContextBuilder{
+		cfg:              cfg,
+		options:          options,
+		services:         make(map[string]*serviceDef),
+		decoratorsByBase: make(map[string][]*serviceDef),
+		baseByDecorator:  make(map[string]string),
+		paramGetters:     make(map[string]string),
+	}
+}
+
+// Build executes all phases and returns the generation context.
+func (b *ContextBuilder) Build() (*genContext, error) {
+	if b.cfg.Services == nil {
 		return nil, errors.New("no services defined")
 	}
 
-	loader, err := newTypeLoader(g.options)
-	if err != nil {
+	if err := b.initTypeLoader(); err != nil {
 		return nil, err
 	}
-	paths, err := collectPackagePaths(cfg)
-	if err != nil {
+	if err := b.initServices(); err != nil {
 		return nil, err
 	}
-	if err := loader.loadPackages(paths); err != nil {
+	if err := b.resolveConstructors(); err != nil {
 		return nil, err
+	}
+	if err := b.validatePublicServices(); err != nil {
+		return nil, err
+	}
+	if err := b.validateParameters(); err != nil {
+		return nil, err
+	}
+	if err := b.buildDecoratorMappings(); err != nil {
+		return nil, err
+	}
+	b.computeErrorPropagation()
+	if err := b.collectParameterGetters(); err != nil {
+		return nil, err
+	}
+	if err := b.validateArguments(); err != nil {
+		return nil, err
+	}
+	if b.options.Strict {
+		if err := b.detectCycles(); err != nil {
+			return nil, err
+		}
 	}
 
-	services := map[string]*serviceDef{}
-	order := make([]string, 0, len(cfg.Services))
-	for id, svc := range cfg.Services {
-		order = append(order, id)
+	return b.buildResult()
+}
+
+func (b *ContextBuilder) initTypeLoader() error {
+	loader, err := newTypeLoader(b.options)
+	if err != nil {
+		return err
+	}
+	paths, err := collectPackagePaths(b.cfg)
+	if err != nil {
+		return err
+	}
+	if err := loader.loadPackages(paths); err != nil {
+		return err
+	}
+	b.loader = loader
+	return nil
+}
+
+func (b *ContextBuilder) initServices() error {
+	b.order = make([]string, 0, len(b.cfg.Services))
+	for id, svc := range b.cfg.Services {
+		b.order = append(b.order, id)
 		shared := true
 		if svc.Shared != nil {
 			shared = *svc.Shared
@@ -138,7 +306,7 @@ func (g *Generator) buildContext() (*genContext, error) {
 		if svc.Alias != "" {
 			shared = false
 		}
-		services[id] = &serviceDef{
+		b.services[id] = &serviceDef{
 			id:                 id,
 			cfg:                svc,
 			shared:             shared,
@@ -148,159 +316,125 @@ func (g *Generator) buildContext() (*genContext, error) {
 			isDecorator:        svc.Decorates != "",
 		}
 	}
-	sort.Strings(order)
+	sort.Strings(b.order)
+	return nil
+}
 
-	// Resolve constructor types.
-	resolving := map[string]bool{}
-	resolved := map[string]bool{}
+func (b *ContextBuilder) resolveConstructors() error {
+	tracker := NewResolutionTracker()
 	var resolveService func(id string) error
 	resolveService = func(id string) error {
-		if resolved[id] {
+		if tracker.IsResolved(id) {
 			return nil
 		}
-		if resolving[id] {
-			return fmt.Errorf("circular constructor reference at %q", id)
+		if err := tracker.StartResolving(id); err != nil {
+			return err
 		}
-		svc := services[id]
+		svc := b.services[id]
 		if svc == nil {
 			return fmt.Errorf("unknown service %q", id)
 		}
-		resolving[id] = true
-		if svc.cfg.Alias != "" {
-			if svc.cfg.Constructor.Func != "" || svc.cfg.Constructor.Method != "" || len(svc.cfg.Constructor.Args) > 0 {
-				return fmt.Errorf("service %q alias cannot define constructor", id)
-			}
-			if svc.cfg.Decorates != "" {
-				return fmt.Errorf("service %q alias cannot be a decorator", id)
-			}
-			if err := resolveService(svc.cfg.Alias); err != nil {
-				return err
-			}
-			target := services[svc.cfg.Alias]
-			if target == nil {
-				return fmt.Errorf("service %q alias target %q not found", id, svc.cfg.Alias)
-			}
-			svc.aliasTarget = svc.cfg.Alias
-			svc.typeName = target.typeName
-			if svc.cfg.Type != "" {
-				declType, err := loader.lookupType(svc.cfg.Type)
-				if err != nil {
-					return fmt.Errorf("service %q type: %w", id, err)
-				}
-				if !types.AssignableTo(svc.typeName, declType) {
-					return fmt.Errorf("service %q type mismatch: expected %s, got %s", id, loader.typeString(declType), loader.typeString(svc.typeName))
-				}
-			}
+		var resolveErr error
+		if svc.IsAlias() {
+			resolveErr = resolveAliasService(svc, b.services, b.loader, resolveService)
 		} else {
-			cons, err := resolveConstructor(id, svc.cfg, loader, services, resolveService)
-			if err != nil {
-				return err
-			}
-			svc.constructor = cons
-			svc.typeName = cons.result
-			if svc.cfg.Type != "" {
-				declType, err := loader.lookupType(svc.cfg.Type)
-				if err != nil {
-					return fmt.Errorf("service %q type: %w", id, err)
-				}
-				if !types.AssignableTo(svc.typeName, declType) {
-					return fmt.Errorf("service %q type mismatch: expected %s, got %s", id, loader.typeString(declType), loader.typeString(svc.typeName))
-				}
-			}
+			resolveErr = resolveConstructorService(svc, b.services, b.loader, resolveService)
 		}
-		resolving[id] = false
-		resolved[id] = true
-		return nil
+		tracker.FinishResolving(id)
+		return resolveErr
 	}
 
-	for _, id := range order {
+	for _, id := range b.order {
 		if err := resolveService(id); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	hasPublic := false
-	for _, svc := range services {
-		if svc.public {
-			hasPublic = true
-			break
-		}
-	}
-	if !hasPublic {
-		return nil, errors.New("at least one public service is required")
-	}
+	return nil
+}
 
-	for name, param := range cfg.Parameters {
+func (b *ContextBuilder) validatePublicServices() error {
+	for _, svc := range b.services {
+		if svc.public {
+			return nil
+		}
+	}
+	return errors.New("at least one public service is required")
+}
+
+func (b *ContextBuilder) validateParameters() error {
+	for name, param := range b.cfg.Parameters {
 		if param.Type == "" {
-			return nil, fmt.Errorf("parameter %q missing type", name)
+			return fmt.Errorf("parameter %q missing type", name)
 		}
 		if param.Value.Kind == 0 {
-			return nil, fmt.Errorf("parameter %q missing value", name)
+			return fmt.Errorf("parameter %q missing value", name)
 		}
-		if _, err := loader.lookupType(param.Type); err != nil {
-			return nil, fmt.Errorf("parameter %q type: %w", name, err)
-		}
-		paramType, err := loader.lookupType(param.Type)
+		paramType, err := b.loader.lookupType(param.Type)
 		if err != nil {
-			return nil, fmt.Errorf("parameter %q type: %w", name, err)
+			return fmt.Errorf("parameter %q type: %w", name, err)
 		}
 		if _, err := paramGetterMethod(paramType); err != nil {
-			return nil, fmt.Errorf("parameter %q type: %w", name, err)
+			return fmt.Errorf("parameter %q type: %w", name, err)
 		}
 		if isTimeDuration(paramType) {
 			if _, err := durationLiteral(param.Value); err != nil {
-				return nil, fmt.Errorf("parameter %q value: %w", name, err)
+				return fmt.Errorf("parameter %q value: %w", name, err)
 			}
 			continue
 		}
 		litType, err := literalType(param.Value)
 		if err != nil {
-			return nil, fmt.Errorf("parameter %q value: %w", name, err)
+			return fmt.Errorf("parameter %q value: %w", name, err)
 		}
 		if !types.AssignableTo(litType, paramType) {
-			return nil, fmt.Errorf("parameter %q value: expected %s, got %s", name, loader.typeString(paramType), loader.typeString(litType))
+			return fmt.Errorf("parameter %q value: expected %s, got %s", name, b.loader.typeString(paramType), b.loader.typeString(litType))
 		}
+	}
+	return nil
+}
+
+func (b *ContextBuilder) buildDecoratorMappings() error {
+	for _, svc := range b.services {
+		if !svc.isDecorator {
+			continue
+		}
+		base := svc.decorates
+		baseSvc := b.services[base]
+		if baseSvc == nil {
+			return fmt.Errorf("decorator %q decorates unknown service %q", svc.id, base)
+		}
+		baseType := baseSvc.typeName
+		if baseSvc.cfg.Type != "" {
+			declType, err := b.loader.lookupType(baseSvc.cfg.Type)
+			if err != nil {
+				return fmt.Errorf("decorator %q base %q type: %w", svc.id, base, err)
+			}
+			baseType = declType
+		}
+		if !types.AssignableTo(svc.typeName, baseType) {
+			return fmt.Errorf("decorator %q type %s not assignable to %s", svc.id, b.loader.typeString(svc.typeName), b.loader.typeString(baseType))
+		}
+		b.decoratorsByBase[base] = append(b.decoratorsByBase[base], svc)
+		b.baseByDecorator[svc.id] = base
 	}
 
-	// Decorators mapping and type checks.
-	decoratorsByBase := map[string][]*serviceDef{}
-	baseByDecorator := map[string]string{}
-	for _, svc := range services {
-		if svc.isDecorator {
-			base := svc.decorates
-			baseSvc := services[base]
-			if baseSvc == nil {
-				return nil, fmt.Errorf("decorator %q decorates unknown service %q", svc.id, base)
-			}
-			baseType := baseSvc.typeName
-			if baseSvc.cfg.Type != "" {
-				declType, err := loader.lookupType(baseSvc.cfg.Type)
-				if err != nil {
-					return nil, fmt.Errorf("decorator %q base %q type: %w", svc.id, base, err)
-				}
-				baseType = declType
-			}
-			if !types.AssignableTo(svc.typeName, baseType) {
-				return nil, fmt.Errorf("decorator %q type %s not assignable to %s", svc.id, loader.typeString(svc.typeName), loader.typeString(baseType))
-			}
-			decoratorsByBase[base] = append(decoratorsByBase[base], svc)
-			baseByDecorator[svc.id] = base
-		}
-	}
-	for base, decs := range decoratorsByBase {
+	for base, decs := range b.decoratorsByBase {
 		sort.Slice(decs, func(i, j int) bool { return decs[i].decorationPriority < decs[j].decorationPriority })
-		decoratorsByBase[base] = decs
+		b.decoratorsByBase[base] = decs
 	}
+	return nil
+}
 
-	// Compute error propagation for build and getters.
-	buildCanError, getterCanError := computeGetterErrors(services, cfg, decoratorsByBase)
-	for id, svc := range services {
-		svc.canError = getterCanError[id]
+func (b *ContextBuilder) computeErrorPropagation() {
+	b.buildCanError, b.getterCanError = computeGetterErrors(b.services, b.cfg, b.decoratorsByBase)
+	for id, svc := range b.services {
+		svc.canError = b.getterCanError[id]
 	}
+}
 
-	// Collect parameter getters from usage.
-	paramGetters := map[string]string{}
-	for _, id := range order {
-		svc := services[id]
+func (b *ContextBuilder) collectParameterGetters() error {
+	for _, id := range b.order {
+		svc := b.services[id]
 		cons := svc.constructor
 		for i, arg := range cons.argDefs {
 			if arg.Kind != di.ArgParam {
@@ -311,53 +445,58 @@ func (g *Generator) buildContext() (*genContext, error) {
 			}
 			method, err := paramGetterMethod(cons.params[i])
 			if err != nil {
-				return nil, fmt.Errorf("service %q arg[%d]: parameter %q type: %w", id, i, arg.Value, err)
+				return fmt.Errorf("service %q arg[%d]: parameter %q type: %w", id, i, arg.Value, err)
 			}
-			if existing, ok := paramGetters[arg.Value]; ok && existing != method {
-				return nil, fmt.Errorf("parameter %q used with conflicting types", arg.Value)
+			if existing, ok := b.paramGetters[arg.Value]; ok && existing != method {
+				return fmt.Errorf("parameter %q used with conflicting types", arg.Value)
 			}
-			paramGetters[arg.Value] = method
+			b.paramGetters[arg.Value] = method
 		}
 	}
+	return nil
+}
 
-	// Validate argument types.
-	for _, id := range order {
-		svc := services[id]
-		if err := validateArgs(id, svc, services, cfg, loader, decoratorsByBase, getterCanError); err != nil {
-			return nil, err
+func (b *ContextBuilder) validateArguments() error {
+	for _, id := range b.order {
+		svc := b.services[id]
+		if err := validateArgs(id, svc, b.services, b.cfg, b.loader, b.decoratorsByBase, b.getterCanError); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	// Detect cycles.
-	if g.options.Strict {
-		if err := detectCycles(services, cfg); err != nil {
-			return nil, err
-		}
-	}
+func (b *ContextBuilder) detectCycles() error {
+	detector := NewCycleDetector(b.services, b.cfg)
+	return detector.Detect()
+}
 
-	imports := newImportManager(loader.outputPkgPath)
+func (b *ContextBuilder) buildResult() (*genContext, error) {
+	imports := newImportManager(b.loader.outputPkgPath)
 	ctx := &genContext{
-		services:          services,
-		orderedServiceIDs: order,
-		decoratorsByBase:  decoratorsByBase,
-		baseByDecorator:   baseByDecorator,
-		loader:            loader,
+		services:          b.services,
+		orderedServiceIDs: b.order,
+		decoratorsByBase:  b.decoratorsByBase,
+		baseByDecorator:   b.baseByDecorator,
+		loader:            b.loader,
 		imports:           imports,
-		outputPkgPath:     loader.outputPkgPath,
-		containerName:     g.options.Container,
-		buildCanError:     buildCanError,
-		getterCanError:    getterCanError,
-		cfg:               g.cfg,
-		paramGetters:      paramGetters,
+		outputPkgPath:     b.loader.outputPkgPath,
+		containerName:     b.options.Container,
+		buildCanError:     b.buildCanError,
+		getterCanError:    b.getterCanError,
+		cfg:               b.cfg,
+		paramGetters:      b.paramGetters,
 	}
 
-	for _, svc := range services {
+	for _, svc := range b.services {
 		if svc.shared {
 			ctx.hasShared = true
+			break
 		}
 	}
-	for name, param := range cfg.Parameters {
-		paramType, err := loader.lookupType(param.Type)
+
+	for name, param := range b.cfg.Parameters {
+		paramType, err := b.loader.lookupType(param.Type)
 		if err != nil {
 			return nil, fmt.Errorf("parameter %q type: %w", name, err)
 		}
@@ -372,6 +511,11 @@ func (g *Generator) buildContext() (*genContext, error) {
 	}
 
 	return ctx, nil
+}
+
+func (g *Generator) buildContext() (*genContext, error) {
+	builder := NewContextBuilder(g.cfg, g.options)
+	return builder.Build()
 }
 
 func constructorDeps(id string, svc *serviceDef, cfg *di.Config) ([]string, error) {
@@ -406,99 +550,173 @@ func constructorDeps(id string, svc *serviceDef, cfg *di.Config) ([]string, erro
 	return uniqueStrings(deps), nil
 }
 
-func detectCycles(services map[string]*serviceDef, cfg *di.Config) error {
-	visited := map[string]bool{}
-	stack := map[string]bool{}
-	var dfs func(id string, path []string) error
-	dfs = func(id string, path []string) error {
-		if stack[id] {
-			cycle := append(path, id)
-			return fmt.Errorf("circular dependency: %s", strings.Join(cycle, " -> "))
-		}
-		if visited[id] {
-			return nil
-		}
-		visited[id] = true
-		stack[id] = true
-		deps, err := constructorDeps(id, services[id], cfg)
-		if err != nil {
-			return err
-		}
-		for _, dep := range deps {
-			if err := dfs(dep, append(path, id)); err != nil {
-				return err
-			}
-		}
-		stack[id] = false
-		return nil
-	}
+// CycleDetector detects circular dependencies in the service graph using DFS.
+type CycleDetector struct {
+	services map[string]*serviceDef
+	cfg      *di.Config
+	visited  map[string]bool
+	stack    map[string]bool
+}
 
-	for id := range services {
-		if err := dfs(id, nil); err != nil {
+// NewCycleDetector creates a new cycle detector for the given services.
+func NewCycleDetector(services map[string]*serviceDef, cfg *di.Config) *CycleDetector {
+	return &CycleDetector{
+		services: services,
+		cfg:      cfg,
+		visited:  make(map[string]bool),
+		stack:    make(map[string]bool),
+	}
+}
+
+// Detect checks for circular dependencies and returns an error if found.
+func (d *CycleDetector) Detect() error {
+	for id := range d.services {
+		if err := d.dfs(id, nil); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func computeGetterErrors(services map[string]*serviceDef, cfg *di.Config, decoratorsByBase map[string][]*serviceDef) (map[string]bool, map[string]bool) {
-	buildCan := map[string]bool{}
-	getterCan := map[string]bool{}
-	for id, svc := range services {
-		getterCan[id] = svc.constructor.returnsError
-		buildCan[id] = svc.constructor.returnsError
+func (d *CycleDetector) dfs(id string, path []string) error {
+	if d.stack[id] {
+		cycle := append(path, id)
+		return fmt.Errorf("circular dependency: %s", strings.Join(cycle, " -> "))
+	}
+	if d.visited[id] {
+		return nil
+	}
+	d.visited[id] = true
+	d.stack[id] = true
+
+	deps, err := constructorDeps(id, d.services[id], d.cfg)
+	if err != nil {
+		return err
+	}
+	for _, dep := range deps {
+		if err := d.dfs(dep, append(path, id)); err != nil {
+			return err
+		}
 	}
 
+	d.stack[id] = false
+	return nil
+}
+
+// ErrorPropagationCalculator computes which service getters and builders can return errors.
+type ErrorPropagationCalculator struct {
+	cfg *di.Config
+}
+
+// NewErrorPropagationCalculator creates a new error propagation calculator.
+func NewErrorPropagationCalculator(cfg *di.Config) *ErrorPropagationCalculator {
+	return &ErrorPropagationCalculator{cfg: cfg}
+}
+
+// ErrorPropagationResult holds the computed error propagation maps.
+type ErrorPropagationResult struct {
+	BuildCanError  map[string]bool
+	GetterCanError map[string]bool
+}
+
+// Calculate computes error propagation for the given services and decorator mappings.
+func (c *ErrorPropagationCalculator) Calculate(services map[string]*serviceDef, decoratorsByBase map[string][]*serviceDef) ErrorPropagationResult {
+	result := ErrorPropagationResult{
+		BuildCanError:  make(map[string]bool),
+		GetterCanError: make(map[string]bool),
+	}
+
+	// Initialize from constructors
+	for id, svc := range services {
+		result.GetterCanError[id] = svc.constructor.returnsError
+		result.BuildCanError[id] = svc.constructor.returnsError
+	}
+
+	// Propagate errors until stable
 	changed := true
 	for changed {
 		changed = false
-		for id, svc := range services {
-			can := svc.constructor.returnsError
-			deps, _ := buildDeps(id, svc, cfg)
-			for _, dep := range deps {
-				if getterCan[dep] {
-					can = true
-				}
-			}
-			if buildCan[id] != can {
-				buildCan[id] = can
-				changed = true
-			}
-		}
-
-		for id, svc := range services {
-			newVal := buildCan[id]
-			if svc.isDecorator {
-				base := svc.decorates
-				newVal = false
-				if buildCan[base] {
-					newVal = true
-				}
-				decs := decoratorsByBase[base]
-				for _, d := range decs {
-					if buildCan[d.id] {
-						newVal = true
-					}
-					if d.id == id {
-						break
-					}
-				}
-			} else if decs := decoratorsByBase[id]; len(decs) > 0 {
-				newVal = buildCan[id]
-				for _, d := range decs {
-					if buildCan[d.id] {
-						newVal = true
-					}
-				}
-			}
-			if getterCan[id] != newVal {
-				getterCan[id] = newVal
-				changed = true
-			}
-		}
+		changed = c.propagateBuildErrors(services, &result) || changed
+		changed = c.propagateGetterErrors(services, decoratorsByBase, &result) || changed
 	}
 
-	return buildCan, getterCan
+	return result
+}
+
+func (c *ErrorPropagationCalculator) propagateBuildErrors(services map[string]*serviceDef, result *ErrorPropagationResult) bool {
+	changed := false
+	for id, svc := range services {
+		can := svc.constructor.returnsError
+		deps, _ := buildDeps(id, svc, c.cfg)
+		for _, dep := range deps {
+			if result.GetterCanError[dep] {
+				can = true
+			}
+		}
+		if result.BuildCanError[id] != can {
+			result.BuildCanError[id] = can
+			changed = true
+		}
+	}
+	return changed
+}
+
+func (c *ErrorPropagationCalculator) propagateGetterErrors(services map[string]*serviceDef, decoratorsByBase map[string][]*serviceDef, result *ErrorPropagationResult) bool {
+	changed := false
+	for id, svc := range services {
+		newVal := c.computeGetterCanError(id, svc, decoratorsByBase, result)
+		if result.GetterCanError[id] != newVal {
+			result.GetterCanError[id] = newVal
+			changed = true
+		}
+	}
+	return changed
+}
+
+func (c *ErrorPropagationCalculator) computeGetterCanError(id string, svc *serviceDef, decoratorsByBase map[string][]*serviceDef, result *ErrorPropagationResult) bool {
+	if svc.isDecorator {
+		return c.computeDecoratorGetterError(id, svc, decoratorsByBase, result)
+	}
+	if decs := decoratorsByBase[id]; len(decs) > 0 {
+		return c.computeDecoratedServiceGetterError(id, decs, result)
+	}
+	return result.BuildCanError[id]
+}
+
+func (c *ErrorPropagationCalculator) computeDecoratorGetterError(id string, svc *serviceDef, decoratorsByBase map[string][]*serviceDef, result *ErrorPropagationResult) bool {
+	base := svc.decorates
+	if result.BuildCanError[base] {
+		return true
+	}
+	decs := decoratorsByBase[base]
+	for _, d := range decs {
+		if result.BuildCanError[d.id] {
+			return true
+		}
+		if d.id == id {
+			break
+		}
+	}
+	return false
+}
+
+func (c *ErrorPropagationCalculator) computeDecoratedServiceGetterError(id string, decs []*serviceDef, result *ErrorPropagationResult) bool {
+	if result.BuildCanError[id] {
+		return true
+	}
+	for _, d := range decs {
+		if result.BuildCanError[d.id] {
+			return true
+		}
+	}
+	return false
+}
+
+// computeGetterErrors is a convenience function that wraps ErrorPropagationCalculator.
+func computeGetterErrors(services map[string]*serviceDef, cfg *di.Config, decoratorsByBase map[string][]*serviceDef) (map[string]bool, map[string]bool) {
+	calc := NewErrorPropagationCalculator(cfg)
+	result := calc.Calculate(services, decoratorsByBase)
+	return result.BuildCanError, result.GetterCanError
 }
 
 func buildDeps(id string, svc *serviceDef, cfg *di.Config) ([]string, error) {
