@@ -4,21 +4,18 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"go/ast"
-	"go/build"
-	"go/importer"
-	"go/parser"
-	"go/token"
 	"go/types"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/tools/go/packages"
 )
 
 type typeLoader struct {
-	fset          *token.FileSet
 	packages      map[string]*types.Package
 	outputPkgPath string
+	moduleRoot    string
 }
 
 func newTypeLoader(opts Options) (*typeLoader, error) {
@@ -36,9 +33,9 @@ func newTypeLoader(opts Options) (*typeLoader, error) {
 	}
 
 	return &typeLoader{
-		fset:          token.NewFileSet(),
 		packages:      map[string]*types.Package{},
 		outputPkgPath: outputPath,
+		moduleRoot:    modRoot,
 	}, nil
 }
 
@@ -47,30 +44,23 @@ func (l *typeLoader) ensurePackage(path string) (*types.Package, error) {
 		return pkg, nil
 	}
 
-	buildPkg, err := build.Default.Import(path, "", 0)
+	cfg := &packages.Config{
+		Mode: packages.NeedName | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedSyntax,
+		Dir:  l.moduleRoot,
+	}
+	pkgs, err := packages.Load(cfg, path)
 	if err != nil {
-		return nil, fmt.Errorf("import %q: %w", path, err)
+		return nil, fmt.Errorf("load %q: %w", path, err)
 	}
-
-	files := make([]*ast.File, 0, len(buildPkg.GoFiles))
-	for _, name := range buildPkg.GoFiles {
-		filePath := filepath.Join(buildPkg.Dir, name)
-		file, err := parser.ParseFile(l.fset, filePath, nil, parser.ParseComments)
-		if err != nil {
-			return nil, fmt.Errorf("parse %s: %w", filePath, err)
-		}
-		files = append(files, file)
+	if len(pkgs) == 0 {
+		return nil, fmt.Errorf("load %q: no packages found", path)
 	}
-
-	conf := types.Config{Importer: importer.Default(), Error: func(err error) {}}
-	info := &types.Info{
-		Defs:  map[*ast.Ident]types.Object{},
-		Uses:  map[*ast.Ident]types.Object{},
-		Types: map[ast.Expr]types.TypeAndValue{},
+	if err := packagesLoadError(pkgs); err != nil {
+		return nil, fmt.Errorf("load %q: %w", path, err)
 	}
-	pkg, err := conf.Check(path, l.fset, files, info)
-	if err != nil {
-		return nil, fmt.Errorf("type-check %q: %w", path, err)
+	pkg := pkgs[0].Types
+	if pkg == nil {
+		return nil, fmt.Errorf("load %q: package types not available", path)
 	}
 	l.packages[path] = pkg
 	return pkg, nil
@@ -201,3 +191,15 @@ func outputPkgPath(modPath, modRoot, out string) string {
 	return modPath + "/" + rel
 }
 
+func packagesLoadError(pkgs []*packages.Package) error {
+	var errs []string
+	for _, pkg := range pkgs {
+		for _, err := range pkg.Errors {
+			errs = append(errs, err.Error())
+		}
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return errors.New(strings.Join(errs, "; "))
+}
