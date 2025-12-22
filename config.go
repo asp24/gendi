@@ -96,6 +96,32 @@ type Constructor struct {
 	Args   []Argument `yaml:"args"`
 }
 
+// UnmarshalYAML ensures constructor args preserve explicit nulls.
+func (c *Constructor) UnmarshalYAML(node *yaml.Node) error {
+	type raw struct {
+		Func   string      `yaml:"func"`
+		Method string      `yaml:"method"`
+		Args   []yaml.Node `yaml:"args"`
+	}
+	var decoded raw
+	if err := node.Decode(&decoded); err != nil {
+		return err
+	}
+	c.Func = decoded.Func
+	c.Method = decoded.Method
+	if len(decoded.Args) == 0 {
+		c.Args = nil
+		return nil
+	}
+	c.Args = make([]Argument, len(decoded.Args))
+	for i := range decoded.Args {
+		if err := c.Args[i].UnmarshalYAML(&decoded.Args[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ArgumentKind is the parsed kind of a constructor argument.
 type ArgumentKind int
 

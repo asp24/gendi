@@ -763,6 +763,8 @@ func literalType(node yaml.Node) (types.Type, error) {
 		return types.Typ[types.UntypedBool], nil
 	case "!!float":
 		return types.Typ[types.UntypedFloat], nil
+	case "!!null":
+		return types.Typ[types.UntypedNil], nil
 	default:
 		return nil, fmt.Errorf("unsupported literal type %q", node.Tag)
 	}

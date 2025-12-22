@@ -569,6 +569,8 @@ func literalExpr(node yaml.Node) (string, error) {
 		return node.Value, nil
 	case "!!bool":
 		return strings.ToLower(node.Value), nil
+	case "!!null":
+		return "nil", nil
 	default:
 		return "", fmt.Errorf("unsupported literal type %q", node.Tag)
 	}

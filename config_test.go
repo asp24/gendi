@@ -277,6 +277,38 @@ services:
 	}
 }
 
+func TestLoadConfigNullArgument(t *testing.T) {
+	dir := t.TempDir()
+	rootPath := filepath.Join(dir, "root.yaml")
+	root := []byte(strings.TrimSpace(`
+services:
+  svc:
+    constructor:
+      func: "example.NewB"
+      args:
+        - null
+`))
+	if err := os.WriteFile(rootPath, root, 0o644); err != nil {
+		t.Fatalf("write root config: %v", err)
+	}
+
+	cfg, err := LoadConfig(rootPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	svc := cfg.Services["svc"]
+	if svc == nil || len(svc.Constructor.Args) != 1 {
+		t.Fatalf("expected one constructor arg")
+	}
+	arg := svc.Constructor.Args[0]
+	if arg.Kind != ArgLiteral {
+		t.Fatalf("expected literal argument, got %v", arg.Kind)
+	}
+	if arg.Literal.Tag != "!!null" {
+		t.Fatalf("expected null literal tag, got %q", arg.Literal.Tag)
+	}
+}
+
 func readModulePath(t *testing.T) string {
 	t.Helper()
 	data, err := os.ReadFile("go.mod")

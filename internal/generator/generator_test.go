@@ -142,6 +142,31 @@ func TestDurationParameterCodegen(t *testing.T) {
 	}
 }
 
+func TestNullLiteralArgument(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]*di.Service{
+			"b": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewB",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: mustLiteralNode("!!null", "null")},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	if !strings.Contains(string(code), "NewB(nil)") {
+		t.Fatalf("expected nil literal for null argument")
+	}
+}
+
 func TestServiceAliasCodegen(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]*di.Service{
