@@ -25,7 +25,8 @@ func (p *ProviderComposite) Has(name string) bool {
 }
 
 func (p *ProviderComposite) getLastProviderWhoHas(name string) Provider {
-	for _, provider := range p.providers {
+	for i := len(p.providers) - 1; i >= 0; i-- {
+		provider := p.providers[i]
 		if !provider.Has(name) {
 			continue
 		}
