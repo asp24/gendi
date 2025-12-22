@@ -19,30 +19,31 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	body := &bytes.Buffer{}
 
 	// Parameters
-	if len(g.cfg.Parameters) > 0 {
+	hasParams := len(g.cfg.Parameters) > 0
+	if hasParams {
 		keys := make([]string, 0, len(g.cfg.Parameters))
 		for k := range g.cfg.Parameters {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
+		body.WriteString("var DefaultParameters = parameters.NewProviderMap(map[string]any{\n")
 		for _, name := range keys {
 			param := g.cfg.Parameters[name]
-			typeName, err := ctx.loader.lookupType(param.Type)
-			if err != nil {
-				return nil, err
-			}
 			lit, err := literalExpr(param.Value)
 			if err != nil {
 				return nil, fmt.Errorf("parameter %q: %w", name, err)
 			}
-			fmt.Fprintf(body, "var %s %s = %s\n", paramIdent(name), ctx.imports.typeString(typeName), lit)
+			fmt.Fprintf(body, "\t%q: %s,\n", name, lit)
 		}
-		body.WriteString("\n")
+		body.WriteString("})\n\n")
 	}
 
 	// Container struct
 	fmt.Fprintf(body, "type %s struct {\n", ctx.containerName)
 	fmt.Fprintf(body, "\tmu sync.Mutex\n")
+	if hasParams {
+		fmt.Fprintf(body, "\tparams parameters.Provider\n")
+	}
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
 		if !reachable[id] {
@@ -59,6 +60,14 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 		}
 	}
 	body.WriteString("}\n\n")
+	if hasParams {
+		fmt.Fprintf(body, "func New%s(params parameters.Provider) *%s {\n", ctx.containerName, ctx.containerName)
+		fmt.Fprintf(body, "\tif params == nil {\n")
+		fmt.Fprintf(body, "\t\tparams = DefaultParameters\n")
+		fmt.Fprintf(body, "\t}\n")
+		fmt.Fprintf(body, "\treturn &%s{params: params}\n", ctx.containerName)
+		body.WriteString("}\n\n")
+	}
 
 	// Build functions and getters
 	for _, id := range ctx.orderedServiceIDs {
@@ -117,6 +126,9 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	fmt.Fprintf(out, "package %s\n\n", g.options.Package)
 
 	extraImports := []string{"sync", "fmt"}
+	if hasParams {
+		extraImports = append(extraImports, "github.com/asp24/gendi/parameters")
+	}
 	out.WriteString(ctx.imports.renderImports(extraImports))
 	out.Write(body.Bytes())
 	return out.Bytes(), nil
@@ -309,7 +321,22 @@ func buildArg(ctx *genContext, svc *serviceDef, arg di.Argument, innerVar string
 		}
 		return innerVar, nil, nil
 	case di.ArgParam:
-		return paramIdent(arg.Value), nil, nil
+		method := ctx.paramGetters[arg.Value]
+		if method == "" {
+			return "", nil, fmt.Errorf("unknown parameter %q", arg.Value)
+		}
+		paramVar := varIdent("param", arg.Value)
+		stmts := []string{}
+		if returnsErr {
+			stmts = append(stmts, fmt.Sprintf("if c.params == nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: parameters provider is nil\", %q, %d, %q) }", svc.id, argIndex, arg.Value))
+			stmts = append(stmts, fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, arg.Value))
+			stmts = append(stmts, fmt.Sprintf("if err != nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: %%w\", %q, %d, %q, err) }", svc.id, argIndex, arg.Value))
+		} else {
+			stmts = append(stmts, fmt.Sprintf("if c.params == nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: parameters provider is nil\", %q, %d, %q) }", svc.id, argIndex, arg.Value))
+			stmts = append(stmts, fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, arg.Value))
+			stmts = append(stmts, fmt.Sprintf("if err != nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: %%w\", %q, %d, %q, err) }", svc.id, argIndex, arg.Value))
+		}
+		return paramVar, stmts, nil
 	case di.ArgTagged:
 		values := taggedServices(ctx, arg.Value)
 		items := make([]string, 0, len(values))
@@ -530,7 +557,7 @@ func buildNeedsErrorHandling(svc *serviceDef) bool {
 	}
 	for _, arg := range svc.constructor.argDefs {
 		switch arg.Kind {
-		case di.ArgServiceRef, di.ArgTagged:
+		case di.ArgServiceRef, di.ArgTagged, di.ArgParam:
 			return true
 		}
 	}

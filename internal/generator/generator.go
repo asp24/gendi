@@ -79,6 +79,7 @@ type genContext struct {
 	buildCanError     map[string]bool
 	getterCanError    map[string]bool
 	cfg               *di.Config
+	paramGetters      map[string]string
 }
 
 type serviceDef struct {
@@ -200,8 +201,19 @@ func (g *Generator) buildContext() (*genContext, error) {
 		if _, err := loader.lookupType(param.Type); err != nil {
 			return nil, fmt.Errorf("parameter %q type: %w", name, err)
 		}
-		if _, err := literalType(param.Value); err != nil {
+		paramType, err := loader.lookupType(param.Type)
+		if err != nil {
+			return nil, fmt.Errorf("parameter %q type: %w", name, err)
+		}
+		if _, err := paramGetterMethod(paramType); err != nil {
+			return nil, fmt.Errorf("parameter %q type: %w", name, err)
+		}
+		litType, err := literalType(param.Value)
+		if err != nil {
 			return nil, fmt.Errorf("parameter %q value: %w", name, err)
+		}
+		if !types.AssignableTo(litType, paramType) {
+			return nil, fmt.Errorf("parameter %q value: expected %s, got %s", name, loader.typeString(paramType), loader.typeString(litType))
 		}
 	}
 
@@ -261,12 +273,24 @@ func (g *Generator) buildContext() (*genContext, error) {
 		buildCanError:     buildCanError,
 		getterCanError:    getterCanError,
 		cfg:               g.cfg,
+		paramGetters:      map[string]string{},
 	}
 
 	for _, svc := range services {
 		if svc.shared {
 			ctx.hasShared = true
 		}
+	}
+	for name, param := range cfg.Parameters {
+		paramType, err := loader.lookupType(param.Type)
+		if err != nil {
+			return nil, fmt.Errorf("parameter %q type: %w", name, err)
+		}
+		method, err := paramGetterMethod(paramType)
+		if err != nil {
+			return nil, fmt.Errorf("parameter %q type: %w", name, err)
+		}
+		ctx.paramGetters[name] = method
 	}
 
 	return ctx, nil
@@ -585,19 +609,15 @@ func validateArgs(id string, svc *serviceDef, services map[string]*serviceDef, c
 			if param.Type == "" {
 				return fmt.Errorf("service %q arg[%d]: parameter %q missing type", id, i, arg.Value)
 			}
-			paramType, err := loader.lookupType(param.Type)
+			paramDefType, err := loader.lookupType(param.Type)
 			if err != nil {
 				return fmt.Errorf("service %q arg[%d]: parameter %q type: %w", id, i, arg.Value, err)
 			}
-			if !types.AssignableTo(paramType, paramType) {
-				// no-op, keep linter happy
+			if _, err := paramGetterMethod(paramDefType); err != nil {
+				return fmt.Errorf("service %q arg[%d]: parameter %q type: %w", id, i, arg.Value, err)
 			}
-			litType, err := literalType(param.Value)
-			if err != nil {
-				return fmt.Errorf("service %q arg[%d]: parameter %q value: %w", id, i, arg.Value, err)
-			}
-			if !types.AssignableTo(litType, paramType) {
-				return fmt.Errorf("service %q arg[%d]: parameter %q expected %s, got %s", id, i, arg.Value, loader.typeString(paramType), loader.typeString(litType))
+			if !types.AssignableTo(paramDefType, paramType) {
+				return fmt.Errorf("service %q arg[%d]: parameter %q expected %s, got %s", id, i, arg.Value, loader.typeString(paramType), loader.typeString(paramDefType))
 			}
 		case di.ArgTagged:
 			tag, ok := cfg.Tags[arg.Value]
@@ -664,6 +684,21 @@ func splitPkgSymbol(s string) (string, string, error) {
 		return "", "", fmt.Errorf("invalid qualified name %q", s)
 	}
 	return s[:idx], s[idx+1:], nil
+}
+
+func paramGetterMethod(t types.Type) (string, error) {
+	switch {
+	case types.Identical(t, types.Typ[types.String]):
+		return "GetString", nil
+	case types.Identical(t, types.Typ[types.Int]):
+		return "GetInt", nil
+	case types.Identical(t, types.Typ[types.Bool]):
+		return "GetBool", nil
+	case types.Identical(t, types.Typ[types.Float64]):
+		return "GetFloat", nil
+	default:
+		return "", fmt.Errorf("unsupported parameter type %s", types.TypeString(t, nil))
+	}
 }
 
 func uniqueStrings(in []string) []string {

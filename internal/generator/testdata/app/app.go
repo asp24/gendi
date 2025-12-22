@@ -19,3 +19,11 @@ func NewB(a *A) *B {
 func NewC() *C {
 	return &C{}
 }
+
+type Logger struct {
+	Prefix string
+}
+
+func NewLogger(prefix string) *Logger {
+	return &Logger{Prefix: prefix}
+}

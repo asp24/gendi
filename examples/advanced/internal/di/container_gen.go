@@ -4,17 +4,21 @@ package di
 import (
 	"fmt"
 	app "github.com/asp24/gendi/examples/advanced/app"
+	"github.com/asp24/gendi/parameters"
 	"sync"
 )
 
-var param_dsn string = "postgres://localhost/advanced"
-var param_log_prefix string = "[us-east-1] "
-var param_mail_host string = "smtp.us.example"
-var param_mail_prefix string = "ADV-"
-var param_mail_retries int = 5
+var DefaultParameters = parameters.NewProviderMap(map[string]any{
+	"dsn":          "postgres://localhost/advanced",
+	"log_prefix":   "[us-east-1] ",
+	"mail_host":    "smtp.us.example",
+	"mail_prefix":  "ADV-",
+	"mail_retries": 5,
+})
 
 type Container struct {
 	mu                sync.Mutex
+	params            parameters.Provider
 	svc_db            *app.DB
 	svc_factory       *app.Factory
 	svc_handler       *app.Handler
@@ -24,8 +28,22 @@ type Container struct {
 	svc_mailer_retry  *app.Mailer
 }
 
+func NewContainer(params parameters.Provider) *Container {
+	if params == nil {
+		params = DefaultParameters
+	}
+	return &Container{params: params}
+}
+
 func (c *Container) buildDb() (*app.DB, error) {
 	var zero *app.DB
+	if c.params == nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: parameters provider is nil", "db", 0, "dsn")
+	}
+	param_dsn, err := c.params.GetString("dsn")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "db", 0, "dsn", err)
+	}
 	res, err := app.NewDB(param_dsn)
 	if err != nil {
 		return zero, fmt.Errorf("service %q constructor: %w", "db", err)
@@ -60,18 +78,50 @@ func (c *Container) buildHandler() (*app.Handler, error) {
 }
 
 func (c *Container) buildLogger() (*app.Logger, error) {
+	var zero *app.Logger
+	if c.params == nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: parameters provider is nil", "logger", 0, "log_prefix")
+	}
+	param_log_prefix, err := c.params.GetString("log_prefix")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "logger", 0, "log_prefix", err)
+	}
 	return app.NewLogger(param_log_prefix), nil
 }
 
 func (c *Container) buildMailer() (*app.Mailer, error) {
+	var zero *app.Mailer
+	if c.params == nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: parameters provider is nil", "mailer", 0, "mail_host")
+	}
+	param_mail_host, err := c.params.GetString("mail_host")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer", 0, "mail_host", err)
+	}
 	return app.NewMailer(param_mail_host), nil
 }
 
 func (c *Container) buildMailerPrefixDecorator(inner *app.Mailer) (*app.Mailer, error) {
+	var zero *app.Mailer
+	if c.params == nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: parameters provider is nil", "mailer.prefix", 1, "mail_prefix")
+	}
+	param_mail_prefix, err := c.params.GetString("mail_prefix")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.prefix", 1, "mail_prefix", err)
+	}
 	return app.AddPrefix(inner, param_mail_prefix), nil
 }
 
 func (c *Container) buildMailerRetryDecorator(inner *app.Mailer) (*app.Mailer, error) {
+	var zero *app.Mailer
+	if c.params == nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: parameters provider is nil", "mailer.retry", 1, "mail_retries")
+	}
+	param_mail_retries, err := c.params.GetInt("mail_retries")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.retry", 1, "mail_retries", err)
+	}
 	return app.AddRetry(inner, param_mail_retries), nil
 }
 

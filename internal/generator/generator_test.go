@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/asp24/gendi"
+	"gopkg.in/yaml.v3"
 )
 
 func TestRequiresPublicService(t *testing.T) {
@@ -71,4 +72,43 @@ func TestReachabilityAndPublicGetters(t *testing.T) {
 	if strings.Contains(out, "svc_unused") {
 		t.Fatalf("unexpected field for unreachable service")
 	}
+}
+
+func TestParameterProviderCodegen(t *testing.T) {
+	cfg := &di.Config{
+		Parameters: map[string]di.Parameter{
+			"log_prefix": {
+				Type:  "string",
+				Value: mustLiteralNode("!!str", "[app] "),
+			},
+		},
+		Services: map[string]*di.Service{
+			"logger": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewLogger",
+					Args: []di.Argument{
+						{Kind: di.ArgParam, Value: "log_prefix"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+	if !strings.Contains(out, "NewContainer") {
+		t.Fatalf("expected container constructor when parameters are present")
+	}
+	if !strings.Contains(out, "GetString(\"log_prefix\")") {
+		t.Fatalf("expected parameter provider lookup in generated code")
+	}
+}
+
+func mustLiteralNode(tag, value string) yaml.Node {
+	return yaml.Node{Kind: yaml.ScalarNode, Tag: tag, Value: value}
 }

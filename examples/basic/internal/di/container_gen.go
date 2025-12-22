@@ -4,14 +4,18 @@ package di
 import (
 	"fmt"
 	app "github.com/asp24/gendi/examples/basic/app"
+	"github.com/asp24/gendi/parameters"
 	"sync"
 )
 
-var param_dsn string = "postgres://localhost/app"
-var param_log_prefix string = "[app] "
+var DefaultParameters = parameters.NewProviderMap(map[string]any{
+	"dsn":        "postgres://localhost/app",
+	"log_prefix": "[app] ",
+})
 
 type Container struct {
 	mu                    sync.Mutex
+	params                parameters.Provider
 	svc_logger            *app.Logger
 	svc_provider_paypal   *app.PaymentProvider
 	svc_provider_stripe   *app.PaymentProvider
@@ -20,7 +24,22 @@ type Container struct {
 	svc_service_decorator *app.Service
 }
 
+func NewContainer(params parameters.Provider) *Container {
+	if params == nil {
+		params = DefaultParameters
+	}
+	return &Container{params: params}
+}
+
 func (c *Container) buildLogger() (*app.Logger, error) {
+	var zero *app.Logger
+	if c.params == nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: parameters provider is nil", "logger", 0, "log_prefix")
+	}
+	param_log_prefix, err := c.params.GetString("log_prefix")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "logger", 0, "log_prefix", err)
+	}
 	return app.NewLogger(param_log_prefix), nil
 }
 
@@ -33,6 +52,14 @@ func (c *Container) buildProviderStripe() (*app.PaymentProvider, error) {
 }
 
 func (c *Container) buildRepo() (*app.Repo, error) {
+	var zero *app.Repo
+	if c.params == nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: parameters provider is nil", "repo", 0, "dsn")
+	}
+	param_dsn, err := c.params.GetString("dsn")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "repo", 0, "dsn", err)
+	}
 	return app.NewRepo(param_dsn), nil
 }
 
