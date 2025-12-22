@@ -4,7 +4,7 @@ import (
 	"github.com/asp24/gendi/examples/basic/internal/di"
 )
 
-//go:generate di-gen --config=di.yaml --out=./internal/di --pkg=di
+//go:generate go run github.com/asp24/gendi/cmd/gendi --config=gendi.yaml --out=./internal/di --pkg=di
 
 func main() {
 	container := &di.Container{}
