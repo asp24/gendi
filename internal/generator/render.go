@@ -285,7 +285,11 @@ func constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsE
 	stmts := []string{}
 	args := []string{}
 	for i, arg := range svc.constructor.argDefs {
-		argExpr, argStmts, err := buildArg(ctx, svc, arg, innerVar, returnsErr, i)
+		var paramType types.Type = types.Typ[types.Invalid]
+		if i < len(svc.constructor.params) {
+			paramType = svc.constructor.params[i]
+		}
+		argExpr, argStmts, err := buildArg(ctx, svc, arg, innerVar, returnsErr, i, paramType)
 		if err != nil {
 			return nil, "", err
 		}
@@ -313,7 +317,7 @@ func constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsE
 	return stmts, call, nil
 }
 
-func buildArg(ctx *genContext, svc *serviceDef, arg di.Argument, innerVar string, returnsErr bool, argIndex int) (string, []string, error) {
+func buildArg(ctx *genContext, svc *serviceDef, arg di.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
 	switch arg.Kind {
 	case di.ArgServiceRef:
 		dep := ctx.services[arg.Value]
@@ -342,15 +346,10 @@ func buildArg(ctx *genContext, svc *serviceDef, arg di.Argument, innerVar string
 			return "", nil, fmt.Errorf("unknown parameter %q", arg.Value)
 		}
 		paramVar := varIdent("param", arg.Value)
-		stmts := []string{}
-		if returnsErr {
-			stmts = append(stmts, fmt.Sprintf("if c.params == nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: parameters provider is nil\", %q, %d, %q) }", svc.id, argIndex, arg.Value))
-			stmts = append(stmts, fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, arg.Value))
-			stmts = append(stmts, fmt.Sprintf("if err != nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: %%w\", %q, %d, %q, err) }", svc.id, argIndex, arg.Value))
-		} else {
-			stmts = append(stmts, fmt.Sprintf("if c.params == nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: parameters provider is nil\", %q, %d, %q) }", svc.id, argIndex, arg.Value))
-			stmts = append(stmts, fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, arg.Value))
-			stmts = append(stmts, fmt.Sprintf("if err != nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: %%w\", %q, %d, %q, err) }", svc.id, argIndex, arg.Value))
+		stmts := []string{
+			fmt.Sprintf("if c.params == nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: parameters provider is nil\", %q, %d, %q) }", svc.id, argIndex, arg.Value),
+			fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, arg.Value),
+			fmt.Sprintf("if err != nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: %%w\", %q, %d, %q, err) }", svc.id, argIndex, arg.Value),
 		}
 		return paramVar, stmts, nil
 	case di.ArgTagged:
@@ -372,6 +371,13 @@ func buildArg(ctx *genContext, svc *serviceDef, arg di.Argument, innerVar string
 		sliceExpr := "[]" + ctx.imports.typeString(tagElementType(ctx, arg.Value)) + "{" + strings.Join(items, ", ") + "}"
 		return sliceExpr, stmts, nil
 	default:
+		if isTimeDuration(paramType) {
+			nanos, err := durationLiteral(arg.Literal)
+			if err != nil {
+				return "", nil, err
+			}
+			return fmt.Sprintf("%d", nanos), nil, nil
+		}
 		lit, err := literalExpr(arg.Literal)
 		if err != nil {
 			return "", nil, err

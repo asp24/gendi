@@ -110,6 +110,38 @@ func TestParameterProviderCodegen(t *testing.T) {
 	}
 }
 
+func TestDurationParameterCodegen(t *testing.T) {
+	cfg := &di.Config{
+		Parameters: map[string]di.Parameter{
+			"timeout": {
+				Type:  "time.Duration",
+				Value: mustLiteralNode("!!str", "1s"),
+			},
+		},
+		Services: map[string]*di.Service{
+			"timer": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewTimer",
+					Args: []di.Argument{
+						{Kind: di.ArgParam, Value: "timeout"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+	if !strings.Contains(out, "GetDuration(\"timeout\")") {
+		t.Fatalf("expected duration parameter lookup")
+	}
+}
+
 func TestServiceAliasCodegen(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]*di.Service{

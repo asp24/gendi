@@ -1,5 +1,9 @@
 package parameters
 
+import (
+	"time"
+)
+
 // ProviderComposite tries providers in order.
 type ProviderComposite struct {
 	providers []Provider
@@ -46,4 +50,8 @@ func (p *ProviderComposite) GetBool(name string) (bool, error) {
 
 func (p *ProviderComposite) GetFloat(name string) (float64, error) {
 	return p.getLastProviderWhoHas(name).GetFloat(name)
+}
+
+func (p *ProviderComposite) GetDuration(name string) (time.Duration, error) {
+	return p.getLastProviderWhoHas(name).GetDuration(name)
 }

@@ -246,6 +246,12 @@ func (g *Generator) buildContext() (*genContext, error) {
 		if _, err := paramGetterMethod(paramType); err != nil {
 			return nil, fmt.Errorf("parameter %q type: %w", name, err)
 		}
+		if isTimeDuration(paramType) {
+			if _, err := durationLiteral(param.Value); err != nil {
+				return nil, fmt.Errorf("parameter %q value: %w", name, err)
+			}
+			continue
+		}
 		litType, err := literalType(param.Value)
 		if err != nil {
 			return nil, fmt.Errorf("parameter %q value: %w", name, err)
@@ -709,6 +715,12 @@ func validateArgs(id string, svc *serviceDef, services map[string]*serviceDef, c
 				return fmt.Errorf("service %q arg[%d]: expected %s, got %s", id, i, loader.typeString(paramType), loader.typeString(sliceType))
 			}
 		default:
+			if isTimeDuration(paramType) {
+				if _, err := durationLiteral(arg.Literal); err != nil {
+					return fmt.Errorf("service %q arg[%d]: %w", id, i, err)
+				}
+				break
+			}
 			litType, err := literalType(arg.Literal)
 			if err != nil {
 				return fmt.Errorf("service %q arg[%d]: %w", id, i, err)
@@ -774,6 +786,8 @@ func paramGetterMethod(t types.Type) (string, error) {
 		return "GetBool", nil
 	case types.Identical(t, types.Typ[types.Float64]):
 		return "GetFloat", nil
+	case isTimeDuration(t):
+		return "GetDuration", nil
 	default:
 		return "", fmt.Errorf("unsupported parameter type %s", types.TypeString(t, nil))
 	}

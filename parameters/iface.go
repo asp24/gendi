@@ -2,6 +2,7 @@ package parameters
 
 import (
 	"errors"
+	"time"
 )
 
 // ErrParameterNotFound is returned when a parameter is missing.
@@ -14,4 +15,5 @@ type Provider interface {
 	GetInt(name string) (int, error)
 	GetBool(name string) (bool, error)
 	GetFloat(name string) (float64, error)
+	GetDuration(name string) (time.Duration, error)
 }

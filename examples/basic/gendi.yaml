@@ -15,8 +15,13 @@ services:
     constructor:
       func: "github.com/asp24/gendi/examples/basic/app.NewLogger"
       args:
-        - "%log_prefix%"
+        - "[app] "
     shared: true
+  timer:
+    constructor:
+      func: "github.com/asp24/gendi/examples/basic/app.NewTimer"
+      args: ["1s"]
+    public: true
   repo:
     constructor:
       func: "github.com/asp24/gendi/examples/basic/app.NewRepo"

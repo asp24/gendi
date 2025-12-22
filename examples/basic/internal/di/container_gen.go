@@ -22,6 +22,7 @@ type Container struct {
 	svc_repo              *app.Repo
 	svc_service           *app.Service
 	svc_service_decorator *app.Service
+	svc_timer             *app.Timer
 }
 
 func NewContainer(params parameters.Provider) *Container {
@@ -32,15 +33,7 @@ func NewContainer(params parameters.Provider) *Container {
 }
 
 func (c *Container) buildLogger() (*app.Logger, error) {
-	var zero *app.Logger
-	if c.params == nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: parameters provider is nil", "logger", 0, "log_prefix")
-	}
-	param_log_prefix, err := c.params.GetString("log_prefix")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "logger", 0, "log_prefix", err)
-	}
-	return app.NewLogger(param_log_prefix), nil
+	return app.NewLogger("[app] "), nil
 }
 
 func (c *Container) buildProviderPaypal() (*app.PaymentProvider, error) {
@@ -95,6 +88,10 @@ func (c *Container) buildServiceDecoratorDecorator(inner *app.Service) (*app.Ser
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator", 1, err)
 	}
 	return app.DecorateService(inner, dep_logger), nil
+}
+
+func (c *Container) buildTimer() (*app.Timer, error) {
+	return app.NewTimer(1000000000), nil
 }
 
 func (c *Container) buildDecoratedServiceDecorator() (*app.Service, error) {
@@ -188,8 +185,27 @@ func (c *Container) getServiceDecorator() (*app.Service, error) {
 	return res, nil
 }
 
+func (c *Container) getTimer() (*app.Timer, error) {
+	var zero *app.Timer
+	if c.svc_timer != nil {
+		return c.svc_timer, nil
+	}
+	res, err := c.buildTimer()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_timer = res
+	return res, nil
+}
+
 func (c *Container) GetService() (*app.Service, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.getService()
+}
+
+func (c *Container) GetTimer() (*app.Timer, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.getTimer()
 }

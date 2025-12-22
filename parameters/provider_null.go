@@ -1,5 +1,7 @@
 package parameters
 
+import "time"
+
 type ProviderNull struct {
 }
 
@@ -27,4 +29,8 @@ func (p *ProviderNull) GetBool(_ string) (bool, error) {
 
 func (p *ProviderNull) GetFloat(_ string) (float64, error) {
 	return 0.0, ErrParameterNotFound
+}
+
+func (p *ProviderNull) GetDuration(_ string) (time.Duration, error) {
+	return 0, ErrParameterNotFound
 }

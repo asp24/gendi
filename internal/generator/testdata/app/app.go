@@ -1,5 +1,7 @@
 package app
 
+import "time"
+
 type A struct{}
 
 type B struct {
@@ -26,4 +28,12 @@ type Logger struct {
 
 func NewLogger(prefix string) *Logger {
 	return &Logger{Prefix: prefix}
+}
+
+type Timer struct {
+	Delay time.Duration
+}
+
+func NewTimer(delay time.Duration) *Timer {
+	return &Timer{Delay: delay}
 }

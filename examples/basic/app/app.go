@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"time"
 )
 
 type Logger struct {
@@ -22,6 +23,14 @@ type Repo struct {
 
 func NewRepo(dsn string) *Repo {
 	return &Repo{DSN: dsn}
+}
+
+type Timer struct {
+	delay time.Duration
+}
+
+func NewTimer(delay time.Duration) *Timer {
+	return &Timer{delay: delay}
 }
 
 type PaymentProvider struct {
