@@ -252,6 +252,29 @@ func (g *Generator) buildContext() (*genContext, error) {
 		svc.canError = getterCanError[id]
 	}
 
+	// Collect parameter getters from usage.
+	paramGetters := map[string]string{}
+	for _, id := range order {
+		svc := services[id]
+		cons := svc.constructor
+		for i, arg := range cons.argDefs {
+			if arg.Kind != di.ArgParam {
+				continue
+			}
+			if i >= len(cons.params) {
+				continue
+			}
+			method, err := paramGetterMethod(cons.params[i])
+			if err != nil {
+				return nil, fmt.Errorf("service %q arg[%d]: parameter %q type: %w", id, i, arg.Value, err)
+			}
+			if existing, ok := paramGetters[arg.Value]; ok && existing != method {
+				return nil, fmt.Errorf("parameter %q used with conflicting types", arg.Value)
+			}
+			paramGetters[arg.Value] = method
+		}
+	}
+
 	// Validate argument types.
 	for _, id := range order {
 		svc := services[id]
@@ -280,7 +303,7 @@ func (g *Generator) buildContext() (*genContext, error) {
 		buildCanError:     buildCanError,
 		getterCanError:    getterCanError,
 		cfg:               g.cfg,
-		paramGetters:      map[string]string{},
+		paramGetters:      paramGetters,
 	}
 
 	for _, svc := range services {
@@ -296,6 +319,9 @@ func (g *Generator) buildContext() (*genContext, error) {
 		method, err := paramGetterMethod(paramType)
 		if err != nil {
 			return nil, fmt.Errorf("parameter %q type: %w", name, err)
+		}
+		if existing, ok := ctx.paramGetters[name]; ok && existing != method {
+			return nil, fmt.Errorf("parameter %q used with conflicting types", name)
 		}
 		ctx.paramGetters[name] = method
 	}
@@ -610,21 +636,24 @@ func validateArgs(id string, svc *serviceDef, services map[string]*serviceDef, c
 			}
 		case di.ArgParam:
 			param, ok := cfg.Parameters[arg.Value]
-			if !ok {
-				return fmt.Errorf("service %q arg[%d]: unknown parameter %q", id, i, arg.Value)
+			if ok {
+				if param.Type == "" {
+					return fmt.Errorf("service %q arg[%d]: parameter %q missing type", id, i, arg.Value)
+				}
+				paramDefType, err := loader.lookupType(param.Type)
+				if err != nil {
+					return fmt.Errorf("service %q arg[%d]: parameter %q type: %w", id, i, arg.Value, err)
+				}
+				if _, err := paramGetterMethod(paramDefType); err != nil {
+					return fmt.Errorf("service %q arg[%d]: parameter %q type: %w", id, i, arg.Value, err)
+				}
+				if !types.AssignableTo(paramDefType, paramType) {
+					return fmt.Errorf("service %q arg[%d]: parameter %q expected %s, got %s", id, i, arg.Value, loader.typeString(paramType), loader.typeString(paramDefType))
+				}
+				break
 			}
-			if param.Type == "" {
-				return fmt.Errorf("service %q arg[%d]: parameter %q missing type", id, i, arg.Value)
-			}
-			paramDefType, err := loader.lookupType(param.Type)
-			if err != nil {
+			if _, err := paramGetterMethod(paramType); err != nil {
 				return fmt.Errorf("service %q arg[%d]: parameter %q type: %w", id, i, arg.Value, err)
-			}
-			if _, err := paramGetterMethod(paramDefType); err != nil {
-				return fmt.Errorf("service %q arg[%d]: parameter %q type: %w", id, i, arg.Value, err)
-			}
-			if !types.AssignableTo(paramDefType, paramType) {
-				return fmt.Errorf("service %q arg[%d]: parameter %q expected %s, got %s", id, i, arg.Value, loader.typeString(paramType), loader.typeString(paramDefType))
 			}
 		case di.ArgTagged:
 			tag, ok := cfg.Tags[arg.Value]
