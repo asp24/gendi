@@ -8,7 +8,7 @@ This example shows:
 
 Generate the container:
 
-```
+```bash
 go generate ./examples/basic
 ```
 

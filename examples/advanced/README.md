@@ -5,6 +5,7 @@ This example demonstrates:
 - decorator chains with priority ordering
 - tagged injection with interface element types
 - method-based constructors
+- optional service name prefixes on imports (see `doc.md`)
 
 Files:
 - `di.yaml` imports the base config and a region override.
@@ -13,7 +14,7 @@ Files:
 
 Generate the container:
 
-```
+```bash
 go generate ./examples/advanced
 ```
 

@@ -1,0 +1,4 @@
+services:
+  module.service:
+    constructor:
+      func: "example.NewModuleService"

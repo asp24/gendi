@@ -141,6 +141,11 @@ Imports allow:
 imports:
   - ./services/db.yaml
   - ./services/payments.yaml
+  - path: github.com/acme/billing/config/gendi.yaml
+    prefix: "billing."
+  - ./services/*.yaml
+  - path: github.com/acme/billing/config/*.yaml
+    prefix: "billing."
 ```
 
 ### 6.2.3 Rules
@@ -151,6 +156,9 @@ imports:
 * Cyclic imports are forbidden.
 * Later definitions override earlier ones.
 * Service overriding is allowed.
+* Imports can be a string path or a mapping with `path` and optional `prefix`.
+* Module imports resolve to `gendi.yaml`/`gendi.yml` at module root when no file is provided.
+* Glob patterns are supported; matches are expanded in lexicographic order.
 
 ---
 
@@ -425,4 +433,3 @@ service "payments":
 3. `tags.element_type` is mandatory for tagged injection
 4. Strict typing, no `any`
 5. Errors detected at generation time
-
