@@ -41,6 +41,10 @@ func New() *Item {
 		t.Fatalf("new loader: %v", err)
 	}
 
+	if err := loader.loadPackages([]string{modPath + "/foo"}); err != nil {
+		t.Fatalf("load packages: %v", err)
+	}
+
 	if _, err := loader.lookupType(modPath + "/foo.Item"); err != nil {
 		t.Fatalf("lookup type: %v", err)
 	}

@@ -43,27 +43,7 @@ func (l *typeLoader) ensurePackage(path string) (*types.Package, error) {
 	if pkg, ok := l.packages[path]; ok {
 		return pkg, nil
 	}
-
-	cfg := &packages.Config{
-		Mode: packages.NeedName | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedSyntax,
-		Dir:  l.moduleRoot,
-	}
-	pkgs, err := packages.Load(cfg, path)
-	if err != nil {
-		return nil, fmt.Errorf("load %q: %w", path, err)
-	}
-	if len(pkgs) == 0 {
-		return nil, fmt.Errorf("load %q: no packages found", path)
-	}
-	if err := packagesLoadError(pkgs); err != nil {
-		return nil, fmt.Errorf("load %q: %w", path, err)
-	}
-	pkg := pkgs[0].Types
-	if pkg == nil {
-		return nil, fmt.Errorf("load %q: package types not available", path)
-	}
-	l.packages[path] = pkg
-	return pkg, nil
+	return nil, fmt.Errorf("package %q not loaded", path)
 }
 
 func (l *typeLoader) lookupFunc(pkgPath, name string) (*types.Func, error) {
@@ -189,6 +169,57 @@ func outputPkgPath(modPath, modRoot, out string) string {
 		return modPath
 	}
 	return modPath + "/" + rel
+}
+
+func (l *typeLoader) loadPackages(paths []string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+	cfg := &packages.Config{
+		Mode: packages.NeedName |
+			packages.NeedTypes |
+			packages.NeedTypesInfo |
+			packages.NeedSyntax |
+			packages.NeedImports |
+			packages.NeedDeps,
+		Dir: l.moduleRoot,
+	}
+	pkgs, err := packages.Load(cfg, paths...)
+	if err != nil {
+		return fmt.Errorf("load packages: %w", err)
+	}
+	if err := packagesLoadError(pkgs); err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	for _, pkg := range pkgs {
+		cachePackageTree(l.packages, seen, pkg)
+	}
+	return nil
+}
+
+func cachePackageTree(cache map[string]*types.Package, seen map[string]bool, pkg *packages.Package) {
+	if pkg == nil {
+		return
+	}
+	key := pkg.PkgPath
+	if key == "" {
+		key = pkg.ID
+	}
+	if key != "" {
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+	}
+	if pkg.Types != nil {
+		if key != "" {
+			cache[key] = pkg.Types
+		}
+	}
+	for _, imp := range pkg.Imports {
+		cachePackageTree(cache, seen, imp)
+	}
 }
 
 func packagesLoadError(pkgs []*packages.Package) error {

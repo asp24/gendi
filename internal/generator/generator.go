@@ -118,6 +118,13 @@ func (g *Generator) buildContext() (*genContext, error) {
 	if err != nil {
 		return nil, err
 	}
+	paths, err := collectPackagePaths(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if err := loader.loadPackages(paths); err != nil {
+		return nil, err
+	}
 
 	services := map[string]*serviceDef{}
 	order := make([]string, 0, len(cfg.Services))
@@ -699,6 +706,69 @@ func paramGetterMethod(t types.Type) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported parameter type %s", types.TypeString(t, nil))
 	}
+}
+
+func collectPackagePaths(cfg *di.Config) ([]string, error) {
+	seen := map[string]bool{}
+	add := func(path string) {
+		if path != "" {
+			seen[path] = true
+		}
+	}
+
+	for _, svc := range cfg.Services {
+		if svc.Constructor.Func != "" {
+			pkg, _, err := splitPkgSymbol(svc.Constructor.Func)
+			if err != nil {
+				return nil, err
+			}
+			add(pkg)
+		}
+		if svc.Type != "" {
+			pkg, err := typePkgPath(svc.Type)
+			if err != nil {
+				return nil, err
+			}
+			add(pkg)
+		}
+	}
+	for _, param := range cfg.Parameters {
+		if param.Type != "" {
+			pkg, err := typePkgPath(param.Type)
+			if err != nil {
+				return nil, err
+			}
+			add(pkg)
+		}
+	}
+	for _, tag := range cfg.Tags {
+		if tag.ElementType != "" {
+			pkg, err := typePkgPath(tag.ElementType)
+			if err != nil {
+				return nil, err
+			}
+			add(pkg)
+		}
+	}
+
+	out := make([]string, 0, len(seen))
+	for path := range seen {
+		out = append(out, path)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+func typePkgPath(typeStr string) (string, error) {
+	t := strings.TrimPrefix(typeStr, "*")
+	if !strings.Contains(t, ".") {
+		return "", nil
+	}
+	pkg, _, err := splitPkgSymbol(t)
+	if err != nil {
+		return "", err
+	}
+	return pkg, nil
 }
 
 func uniqueStrings(in []string) []string {
