@@ -96,15 +96,15 @@ func (c *Container) buildTimer() (*app.Timer, error) {
 
 func (c *Container) buildDecoratedServiceDecorator() (*app.Service, error) {
 	var zero *app.Service
-	inner, err := c.buildService()
+	inner0, err := c.buildService()
 	if err != nil {
 		return zero, fmt.Errorf("service %q base %q: %w", "service.decorator", "service", err)
 	}
-	inner, err = c.buildServiceDecoratorDecorator(inner)
+	inner1, err := c.buildServiceDecoratorDecorator(inner0)
 	if err != nil {
 		return zero, fmt.Errorf("service %q decorator %q: %w", "service.decorator", "service.decorator", err)
 	}
-	return inner, nil
+	return inner1, nil
 }
 
 func (c *Container) getLogger() (*app.Logger, error) {

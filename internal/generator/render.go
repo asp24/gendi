@@ -208,19 +208,24 @@ func renderDecoratorChain(b *bytes.Buffer, ctx *genContext, svc *serviceDef) err
 
 	baseSvc := ctx.services[baseID]
 	baseBuild := buildName(baseSvc)
-	fmt.Fprintf(b, "\tinner, err := c.%s()\n", baseBuild)
+	innerVar := "inner0"
+	fmt.Fprintf(b, "\t%s, err := c.%s()\n", innerVar, baseBuild)
 	fmt.Fprintf(b, "\tif err != nil {\n\t\treturn zero, fmt.Errorf(\"service %%q base %%q: %%w\", %q, %q, err)\n\t}\n", svc.id, baseID)
 
-	for _, d := range decs {
-		call := fmt.Sprintf("c.%s(inner)", decoratorBuildName(d))
-		fmt.Fprintf(b, "\tinner, err = %s\n", call)
+	for i, d := range decs {
+		nextVar := fmt.Sprintf("inner%d", i+1)
+		call := fmt.Sprintf("c.%s(%s)", decoratorBuildName(d), innerVar)
+		fmt.Fprintf(b, "\t%s, err := %s\n", nextVar, call)
 		fmt.Fprintf(b, "\tif err != nil {\n\t\treturn zero, fmt.Errorf(\"service %%q decorator %%q: %%w\", %q, %q, err)\n\t}\n", svc.id, d.id)
 		if d.id == svc.id {
-			break
+			fmt.Fprintf(b, "\treturn %s, nil\n", nextVar)
+			b.WriteString("}\n\n")
+			return nil
 		}
+		innerVar = nextVar
 	}
 
-	fmt.Fprintf(b, "\treturn inner, nil\n")
+	fmt.Fprintf(b, "\treturn %s, nil\n", innerVar)
 	b.WriteString("}\n\n")
 	return nil
 }

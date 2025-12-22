@@ -12,7 +12,7 @@ parameters:
 services:
   mailer:
     constructor:
-      func: "github.com/asp24/gendi/examples/advanced/app.NewMailer"
+      func: "github.com/asp24/gendi/examples/advanced/app.NewMailerBasic"
       args:
         - "%mail_host%"
     shared: true

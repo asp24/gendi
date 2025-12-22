@@ -34,14 +34,15 @@ services:
         - "%dsn%"
     shared: true
   mailer:
+    type: "github.com/asp24/gendi/examples/advanced/app.Mailer"
     constructor:
-      func: "github.com/asp24/gendi/examples/advanced/app.NewMailer"
+      func: "github.com/asp24/gendi/examples/advanced/app.NewMailerBasic"
       args:
         - "%mail_host%"
     shared: true
   mailer.retry:
     constructor:
-      func: "github.com/asp24/gendi/examples/advanced/app.AddRetry"
+      func: "github.com/asp24/gendi/examples/advanced/app.NewMailerRetryDecorator"
       args:
         - "@.inner"
         - "%mail_retries%"
@@ -49,7 +50,7 @@ services:
     decoration_priority: 10
   mailer.prefix:
     constructor:
-      func: "github.com/asp24/gendi/examples/advanced/app.AddPrefix"
+      func: "github.com/asp24/gendi/examples/advanced/app.NewMailerPrefixDecorator"
       args:
         - "@.inner"
         - "%mail_prefix%"
