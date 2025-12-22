@@ -49,6 +49,9 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 		if !reachable[id] {
 			continue
 		}
+		if svc.isDecorator && !decoratorNeedsPrivateGetter(ctx, svc) {
+			continue
+		}
 		if !svc.shared {
 			continue
 		}
@@ -104,6 +107,10 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	}
 	for _, id := range ctx.orderedServiceIDs {
 		if !reachable[id] {
+			continue
+		}
+		svc := ctx.services[id]
+		if svc.isDecorator && !decoratorNeedsPrivateGetter(ctx, svc) {
 			continue
 		}
 		if err := renderPrivateGetter(body, ctx, ctx.services[id]); err != nil {
@@ -652,4 +659,36 @@ func reachableServices(ctx *genContext) map[string]bool {
 	}
 
 	return reachable
+}
+
+func decoratorNeedsPrivateGetter(ctx *genContext, svc *serviceDef) bool {
+	if !svc.isDecorator || svc.public {
+		return true
+	}
+	for _, other := range ctx.services {
+		if other == nil {
+			continue
+		}
+		if other.aliasTarget == svc.id {
+			return true
+		}
+		if other.constructor.kind == "method" && other.constructor.methodRecvID == svc.id {
+			return true
+		}
+		for _, arg := range other.constructor.argDefs {
+			switch arg.Kind {
+			case di.ArgServiceRef:
+				if arg.Value == svc.id {
+					return true
+				}
+			case di.ArgTagged:
+				for _, t := range svc.cfg.Tags {
+					if t.Name == arg.Value {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }

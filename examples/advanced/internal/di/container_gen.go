@@ -17,15 +17,13 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 })
 
 type Container struct {
-	mu                sync.Mutex
-	params            parameters.Provider
-	svc_db            *app.DB
-	svc_factory       *app.Factory
-	svc_handler       *app.Handler
-	svc_logger        *app.Logger
-	svc_mailer        *app.MailerPrefixDecorator
-	svc_mailer_prefix *app.MailerPrefixDecorator
-	svc_mailer_retry  *app.MailerRetryDecorator
+	mu          sync.Mutex
+	params      parameters.Provider
+	svc_db      *app.DB
+	svc_factory *app.Factory
+	svc_handler *app.Handler
+	svc_logger  *app.Logger
+	svc_mailer  *app.MailerPrefixDecorator
 }
 
 func NewContainer(params parameters.Provider) *Container {
@@ -217,32 +215,6 @@ func (c *Container) getMailer() (*app.MailerPrefixDecorator, error) {
 		return zero, err
 	}
 	c.svc_mailer = res
-	return res, nil
-}
-
-func (c *Container) getMailerPrefix() (*app.MailerPrefixDecorator, error) {
-	var zero *app.MailerPrefixDecorator
-	if c.svc_mailer_prefix != nil {
-		return c.svc_mailer_prefix, nil
-	}
-	res, err := c.buildDecoratedMailerPrefix()
-	if err != nil {
-		return zero, err
-	}
-	c.svc_mailer_prefix = res
-	return res, nil
-}
-
-func (c *Container) getMailerRetry() (*app.MailerRetryDecorator, error) {
-	var zero *app.MailerRetryDecorator
-	if c.svc_mailer_retry != nil {
-		return c.svc_mailer_retry, nil
-	}
-	res, err := c.buildDecoratedMailerRetry()
-	if err != nil {
-		return zero, err
-	}
-	c.svc_mailer_retry = res
 	return res, nil
 }
 

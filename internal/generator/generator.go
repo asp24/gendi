@@ -632,9 +632,9 @@ func validateServiceType(t types.Type) error {
 	case *types.Pointer:
 		return validateServiceType(tt.Elem())
 	case *types.Named:
-		if _, ok := tt.Underlying().(*types.Interface); ok {
-			return fmt.Errorf("service type must not be interface")
-		}
+		//if _, ok := tt.Underlying().(*types.Interface); ok {
+		//	return fmt.Errorf("service type must not be interface")
+		//}
 		return nil
 	case *types.TypeParam:
 		return fmt.Errorf("service type must not be type parameter")

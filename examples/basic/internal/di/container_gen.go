@@ -14,15 +14,14 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 })
 
 type Container struct {
-	mu                    sync.Mutex
-	params                parameters.Provider
-	svc_logger            *app.Logger
-	svc_provider_paypal   *app.PaymentProvider
-	svc_provider_stripe   *app.PaymentProvider
-	svc_repo              *app.Repo
-	svc_service           *app.Service
-	svc_service_decorator *app.Service
-	svc_timer             *app.Timer
+	mu                  sync.Mutex
+	params              parameters.Provider
+	svc_logger          *app.Logger
+	svc_provider_paypal *app.PaymentProvider
+	svc_provider_stripe *app.PaymentProvider
+	svc_repo            *app.Repo
+	svc_service         *app.Service
+	svc_timer           *app.Timer
 }
 
 func NewContainer(params parameters.Provider) *Container {
@@ -169,19 +168,6 @@ func (c *Container) getService() (*app.Service, error) {
 		return zero, err
 	}
 	c.svc_service = res
-	return res, nil
-}
-
-func (c *Container) getServiceDecorator() (*app.Service, error) {
-	var zero *app.Service
-	if c.svc_service_decorator != nil {
-		return c.svc_service_decorator, nil
-	}
-	res, err := c.buildDecoratedServiceDecorator()
-	if err != nil {
-		return zero, err
-	}
-	c.svc_service_decorator = res
 	return res, nil
 }
 

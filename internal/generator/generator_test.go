@@ -184,6 +184,96 @@ func TestServiceAliasCodegen(t *testing.T) {
 	}
 }
 
+func TestDecoratorPrivateGetterElidedWhenUnused(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]*di.Service{
+			"svc": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceBase",
+				},
+				Public: true,
+			},
+			"svc.decoratorA": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceDecoratorA",
+					Args: []di.Argument{
+						{Kind: di.ArgInner},
+					},
+				},
+				Decorates:          "svc",
+				DecorationPriority: 10,
+			},
+			"svc.decoratorB": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceDecoratorB",
+					Args: []di.Argument{
+						{Kind: di.ArgInner},
+					},
+				},
+				Decorates:          "svc",
+				DecorationPriority: 20,
+			},
+		},
+	}
+
+	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+	if strings.Contains(out, "getSvcDecoratorA") || strings.Contains(out, "getSvcDecoratorB") {
+		t.Fatalf("unexpected private getters for decorators")
+	}
+	if strings.Contains(out, "svc_svc_decoratorA") || strings.Contains(out, "svc_svc_decoratorB") {
+		t.Fatalf("unexpected fields for decorators")
+	}
+}
+
+func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]*di.Service{
+			"svc": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceBase",
+				},
+			},
+			"svc.decoratorA": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceDecoratorA",
+					Args: []di.Argument{
+						{Kind: di.ArgInner},
+					},
+				},
+				Decorates:          "svc",
+				DecorationPriority: 10,
+			},
+			"consumer": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewConsumer",
+					Args: []di.Argument{
+						{Kind: di.ArgServiceRef, Value: "svc.decoratorA"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+	if !strings.Contains(out, "getSvcDecoratorA") {
+		t.Fatalf("expected private getter for referenced decorator")
+	}
+	if !strings.Contains(out, "svc_svc_decoratorA") {
+		t.Fatalf("expected field for referenced decorator")
+	}
+}
+
 func mustLiteralNode(tag, value string) yaml.Node {
 	return yaml.Node{Kind: yaml.ScalarNode, Tag: tag, Value: value}
 }
