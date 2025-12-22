@@ -137,6 +137,62 @@ imports:
 	}
 }
 
+func TestLoadConfigImportGlobLocalRecursive(t *testing.T) {
+	dir := t.TempDir()
+	configsDir := filepath.Join(dir, "configs")
+	nestedDir := filepath.Join(configsDir, "nested")
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
+		t.Fatalf("create nested dir: %v", err)
+	}
+
+	baseAPath := filepath.Join(configsDir, "base_a.yaml")
+	baseBPath := filepath.Join(nestedDir, "base_b.yaml")
+	rootPath := filepath.Join(dir, "root.yaml")
+
+	baseA := []byte(strings.TrimSpace(`
+services:
+  dupe:
+    constructor:
+      func: "example.NewA"
+`))
+	if err := os.WriteFile(baseAPath, baseA, 0o644); err != nil {
+		t.Fatalf("write base_a config: %v", err)
+	}
+
+	baseB := []byte(strings.TrimSpace(`
+services:
+  dupe:
+    constructor:
+      func: "example.NewB"
+  extra_recursive:
+    constructor:
+      func: "example.NewExtraRecursive"
+`))
+	if err := os.WriteFile(baseBPath, baseB, 0o644); err != nil {
+		t.Fatalf("write base_b config: %v", err)
+	}
+
+	root := []byte(strings.TrimSpace(`
+imports:
+  - "./configs/**/*.yaml"
+`))
+	if err := os.WriteFile(rootPath, root, 0o644); err != nil {
+		t.Fatalf("write root config: %v", err)
+	}
+
+	cfg, err := LoadConfig(rootPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	dupe := cfg.Services["dupe"]
+	if dupe == nil || dupe.Constructor.Func != "example.NewB" {
+		t.Fatalf("expected dupe service to come from nested base_b")
+	}
+	if _, ok := cfg.Services["extra_recursive"]; !ok {
+		t.Fatalf("expected extra_recursive service from nested base_b")
+	}
+}
+
 func TestLoadConfigImportGlobModule(t *testing.T) {
 	modulePath := readModulePath(t)
 	importPath := modulePath + "/internal/generator/testdata/imports/*.yaml"
@@ -160,6 +216,35 @@ imports:
 	}
 	if _, ok := cfg.Services["module.extra"]; !ok {
 		t.Fatalf("expected extra service from module glob import to load")
+	}
+}
+
+func TestLoadConfigImportGlobModuleRecursive(t *testing.T) {
+	modulePath := readModulePath(t)
+	importPath := modulePath + "/internal/generator/testdata/imports/**/*.yaml"
+
+	dir := t.TempDir()
+	rootPath := filepath.Join(dir, "root.yaml")
+	root := []byte(strings.TrimSpace(fmt.Sprintf(`
+imports:
+  - path: %q
+`, importPath)))
+	if err := os.WriteFile(rootPath, root, 0o644); err != nil {
+		t.Fatalf("write root config: %v", err)
+	}
+
+	cfg, err := LoadConfig(rootPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if _, ok := cfg.Services["module.service"]; !ok {
+		t.Fatalf("expected service from module recursive glob import to load")
+	}
+	if _, ok := cfg.Services["module.extra"]; !ok {
+		t.Fatalf("expected extra service from module recursive glob import to load")
+	}
+	if _, ok := cfg.Services["module.nested"]; !ok {
+		t.Fatalf("expected nested service from module recursive glob import to load")
 	}
 }
 

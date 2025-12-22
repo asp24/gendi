@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"gopkg.in/yaml.v3"
 )
 
@@ -497,7 +498,7 @@ func parseModulePath(data []byte) string {
 }
 
 func globFiles(pattern string) ([]string, error) {
-	matches, err := filepath.Glob(pattern)
+	matches, err := doublestar.FilepathGlob(pattern)
 	if err != nil {
 		return nil, err
 	}
