@@ -3,7 +3,6 @@ package yaml
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/gomod"
 )
 
 // LoadConfig loads a YAML config file with imports resolved.
@@ -159,7 +159,7 @@ func resolveImportPaths(baseDir, importPath string) ([]string, error) {
 	if isExplicitRelative(importPath) {
 		return nil, fmt.Errorf("import not found at %s", localPath)
 	}
-	if !looksLikeModulePath(importPath) {
+	if !gomod.LooksLikeModulePath(importPath) {
 		return nil, fmt.Errorf("import not found at %s", localPath)
 	}
 	path, err := resolveModuleImport(baseDir, importPath)
@@ -188,14 +188,6 @@ func isExplicitRelative(path string) bool {
 	return strings.HasPrefix(path, "./") || strings.HasPrefix(path, "../")
 }
 
-func looksLikeModulePath(path string) bool {
-	parts := strings.Split(path, "/")
-	if len(parts) == 0 {
-		return false
-	}
-	return strings.Contains(parts[0], ".")
-}
-
 func hasGlob(path string) bool {
 	return strings.ContainsAny(path, "*?[")
 }
@@ -204,7 +196,7 @@ func resolveGlobImportPaths(baseDir, importPath string) ([]string, error) {
 	if filepath.IsAbs(importPath) {
 		return globFiles(importPath)
 	}
-	if isExplicitRelative(importPath) || !looksLikeModulePath(importPath) {
+	if isExplicitRelative(importPath) || !gomod.LooksLikeModulePath(importPath) {
 		pattern := filepath.Join(baseDir, importPath)
 		return globFiles(pattern)
 	}
@@ -212,13 +204,14 @@ func resolveGlobImportPaths(baseDir, importPath string) ([]string, error) {
 }
 
 func resolveModuleImport(baseDir, importPath string) (string, error) {
+	locator := gomod.NewLocator(baseDir)
 	parts := strings.Split(importPath, "/")
 	for i := len(parts); i >= 1; i-- {
 		candidate := strings.Join(parts[:i], "/")
 		if hasGlob(candidate) {
 			continue
 		}
-		moduleDir, err := goModuleDir(baseDir, candidate)
+		moduleDir, err := locator.FindModuleDir(candidate)
 		if err != nil {
 			continue
 		}
@@ -239,13 +232,14 @@ func resolveModuleImport(baseDir, importPath string) (string, error) {
 }
 
 func resolveModuleImportGlob(baseDir, importPath string) ([]string, error) {
+	locator := gomod.NewLocator(baseDir)
 	parts := strings.Split(importPath, "/")
 	for i := len(parts); i >= 1; i-- {
 		candidate := strings.Join(parts[:i], "/")
 		if hasGlob(candidate) {
 			continue
 		}
-		moduleDir, err := goModuleDir(baseDir, candidate)
+		moduleDir, err := locator.FindModuleDir(candidate)
 		if err != nil {
 			continue
 		}
@@ -281,74 +275,6 @@ func findDefaultConfig(moduleDir string) (string, bool) {
 		return path, true
 	}
 	return "", false
-}
-
-func goModuleDir(baseDir, modulePath string) (string, error) {
-	if dir, ok := localModuleDir(baseDir, modulePath); ok {
-		return dir, nil
-	}
-	if cwd, err := os.Getwd(); err == nil {
-		if dir, ok := localModuleDir(cwd, modulePath); ok {
-			return dir, nil
-		}
-	}
-
-	cmd := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", modulePath)
-	cmd.Dir = baseDir
-	out, err := cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			msg := strings.TrimSpace(string(exitErr.Stderr))
-			if msg == "" {
-				return "", err
-			}
-			return "", fmt.Errorf("%s", msg)
-		}
-		return "", err
-	}
-	dir := strings.TrimSpace(string(out))
-	if dir == "" {
-		return "", fmt.Errorf("go list returned empty module dir for %s", modulePath)
-	}
-	return dir, nil
-}
-
-func localModuleDir(startDir, modulePath string) (string, bool) {
-	dir, modPath, ok := findModuleRoot(startDir)
-	if !ok {
-		return "", false
-	}
-	if modPath != modulePath {
-		return "", false
-	}
-	return dir, true
-}
-
-func findModuleRoot(startDir string) (string, string, bool) {
-	dir := startDir
-	for {
-		modFile := filepath.Join(dir, "go.mod")
-		if data, err := os.ReadFile(modFile); err == nil {
-			if modPath := parseModulePath(data); modPath != "" {
-				return dir, modPath, true
-			}
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", "", false
-		}
-		dir = parent
-	}
-}
-
-func parseModulePath(data []byte) string {
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "module ") {
-			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
-		}
-	}
-	return ""
 }
 
 func globFiles(pattern string) ([]string, error) {
