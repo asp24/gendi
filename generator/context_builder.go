@@ -57,11 +57,8 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 	imports := NewImportManager(b.loader.outputPkgPath)
 
 	services := make(map[string]*serviceDef)
-	decoratorsByBase := make(map[string][]*serviceDef)
-	baseByDecorator := make(map[string]string)
 	buildCanError := make(map[string]bool)
 	getterCanError := make(map[string]bool)
-	paramGetters := make(map[string]string)
 
 	// Convert IR services to serviceDef
 	for id, irSvc := range container.Services {
@@ -71,48 +68,17 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 		getterCanError[id] = irSvc.CanError
 	}
 
-	// Build decorator mappings
-	for id, irSvc := range container.Services {
-		if irSvc.IsDecorator() {
-			baseID := irSvc.Decorates.ID
-			decoratorsByBase[baseID] = append(decoratorsByBase[baseID], services[id])
-			baseByDecorator[id] = baseID
+	decoratorsByBase := make(map[string][]*serviceDef)
+	for baseID, decs := range container.DecoratorsByBase() {
+		items := make([]*serviceDef, len(decs))
+		for i, dec := range decs {
+			items[i] = services[dec.ID]
 		}
+		decoratorsByBase[baseID] = items
 	}
 
-	// Sort decorators by priority (already sorted in IR, but keep order consistent)
-	for baseID, irSvc := range container.Services {
-		if len(irSvc.Decorators) > 0 {
-			decs := make([]*serviceDef, len(irSvc.Decorators))
-			for i, dec := range irSvc.Decorators {
-				decs[i] = services[dec.ID]
-			}
-			decoratorsByBase[baseID] = decs
-		}
-	}
-
-	// Collect parameter getter methods
-	for name, param := range container.Parameters {
-		method := param.GetterMethod()
-		if method != "" {
-			paramGetters[name] = method
-		}
-	}
-
-	// Also collect parameter getters from service args
-	for _, irSvc := range container.Services {
-		if irSvc.Constructor == nil {
-			continue
-		}
-		for _, arg := range irSvc.Constructor.Args {
-			if arg.Kind == ir.ParamRefArg && arg.Parameter != nil {
-				method := arg.Parameter.GetterMethod()
-				if method != "" {
-					paramGetters[arg.Parameter.Name] = method
-				}
-			}
-		}
-	}
+	baseByDecorator := container.BaseByDecorator()
+	paramGetters := container.ParamGetters()
 
 	ctx := &genContext{
 		services:          services,
