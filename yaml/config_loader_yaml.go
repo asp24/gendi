@@ -5,20 +5,20 @@ import (
 	"os"
 	"path/filepath"
 
-	"gopkg.in/yaml.v3"
+	ylib "gopkg.in/yaml.v3"
 
 	di "github.com/asp24/gendi"
 )
 
 // ConfigLoaderYaml loads YAML configuration files with import resolution.
 type ConfigLoaderYaml struct {
-	resolver *ImportResolver
-	merger   *ConfigMerger
+	resolver *di.ImportResolver
+	merger   *di.ConfigMerger
 	parser   *Parser
 }
 
 // NewConfigLoaderYaml creates a new YAML config loader with dependencies.
-func NewConfigLoaderYaml(resolver *ImportResolver, merger *ConfigMerger, parser *Parser) *ConfigLoaderYaml {
+func NewConfigLoaderYaml(resolver *di.ImportResolver, merger *di.ConfigMerger, parser *Parser) *ConfigLoaderYaml {
 	return &ConfigLoaderYaml{
 		resolver: resolver,
 		merger:   merger,
@@ -85,8 +85,8 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, visited map[string]bool) (
 }
 
 // parseRaw parses YAML data into raw config (with imports).
-func (l *ConfigLoaderYaml) parseRaw(data []byte) (*rawConfig, error) {
-	var raw rawConfig
+func (l *ConfigLoaderYaml) parseRaw(data []byte) (*RawConfig, error) {
+	var raw RawConfig
 	if err := l.yamlUnmarshal(data, &raw); err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (l *ConfigLoaderYaml) osReadFile(path string) ([]byte, error) {
 }
 
 // yamlUnmarshal wraps yaml.Unmarshal for testability.
-var defaultYamlUnmarshal = yaml.Unmarshal
+var defaultYamlUnmarshal = ylib.Unmarshal
 
 func (l *ConfigLoaderYaml) yamlUnmarshal(data []byte, v interface{}) error {
 	return defaultYamlUnmarshal(data, v)

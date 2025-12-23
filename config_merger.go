@@ -1,8 +1,4 @@
-package yaml
-
-import (
-	di "github.com/asp24/gendi"
-)
+package di
 
 // ConfigMerger handles merging DI configurations and applying prefixes.
 type ConfigMerger struct{}
@@ -14,15 +10,15 @@ func NewConfigMerger() *ConfigMerger {
 
 // Merge merges src config into dst config.
 // Returns the merged dst config.
-func (m *ConfigMerger) Merge(dst, src *di.Config) *di.Config {
+func (m *ConfigMerger) Merge(dst, src *Config) *Config {
 	if dst.Parameters == nil {
-		dst.Parameters = map[string]di.Parameter{}
+		dst.Parameters = map[string]Parameter{}
 	}
 	if dst.Tags == nil {
-		dst.Tags = map[string]di.Tag{}
+		dst.Tags = map[string]Tag{}
 	}
 	if dst.Services == nil {
-		dst.Services = map[string]*di.Service{}
+		dst.Services = map[string]*Service{}
 	}
 
 	for k, v := range src.Parameters {
@@ -40,7 +36,7 @@ func (m *ConfigMerger) Merge(dst, src *di.Config) *di.Config {
 
 // ApplyPrefix applies a prefix to all service names and internal references in cfg.
 // This is useful when importing configs with a namespace.
-func (m *ConfigMerger) ApplyPrefix(cfg *di.Config, prefix string) {
+func (m *ConfigMerger) ApplyPrefix(cfg *Config, prefix string) {
 	if prefix == "" || len(cfg.Services) == 0 {
 		return
 	}
@@ -61,14 +57,14 @@ func (m *ConfigMerger) ApplyPrefix(cfg *di.Config, prefix string) {
 		}
 		for i := range svc.Constructor.Args {
 			arg := &svc.Constructor.Args[i]
-			if arg.Kind == di.ArgServiceRef && original[arg.Value] {
+			if arg.Kind == ArgServiceRef && original[arg.Value] {
 				arg.Value = prefix + arg.Value
 			}
 		}
 	}
 
 	// Apply prefix to service names
-	prefixed := map[string]*di.Service{}
+	prefixed := map[string]*Service{}
 	for name, svc := range cfg.Services {
 		prefixed[prefix+name] = svc
 	}
