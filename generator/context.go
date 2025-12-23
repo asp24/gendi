@@ -13,8 +13,6 @@ type genContext struct {
 	imports           *ImportManager
 	outputPkgPath     string
 	containerName     string
-	buildCanError     map[string]bool
-	getterCanError    map[string]bool
 	cfg               *di.Config
 	paramGetters      map[string]string
 }

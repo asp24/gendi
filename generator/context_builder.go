@@ -57,15 +57,10 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 	imports := NewImportManager(b.loader.outputPkgPath)
 
 	services := make(map[string]*serviceDef)
-	buildCanError := make(map[string]bool)
-	getterCanError := make(map[string]bool)
-
 	// Convert IR services to serviceDef
 	for id, irSvc := range container.Services {
 		svcDef := b.convertService(irSvc)
 		services[id] = svcDef
-		buildCanError[id] = irSvc.BuildCanError
-		getterCanError[id] = irSvc.CanError
 	}
 
 	decoratorsByBase := make(map[string][]*serviceDef)
@@ -89,8 +84,6 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 		imports:           imports,
 		outputPkgPath:     b.loader.outputPkgPath,
 		containerName:     b.options.Container,
-		buildCanError:     buildCanError,
-		getterCanError:    getterCanError,
 		cfg:               b.cfg,
 		paramGetters:      paramGetters,
 	}
