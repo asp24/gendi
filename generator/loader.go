@@ -46,7 +46,8 @@ func (l *TypeLoader) ensurePackage(path string) (*types.Package, error) {
 	return nil, fmt.Errorf("package %q not loaded", path)
 }
 
-func (l *TypeLoader) lookupFunc(pkgPath, name string) (*types.Func, error) {
+// LookupFunc looks up a function by package path and name.
+func (l *TypeLoader) LookupFunc(pkgPath, name string) (*types.Func, error) {
 	pkg, err := l.ensurePackage(pkgPath)
 	if err != nil {
 		return nil, err
@@ -62,7 +63,8 @@ func (l *TypeLoader) lookupFunc(pkgPath, name string) (*types.Func, error) {
 	return fn, nil
 }
 
-func (l *TypeLoader) lookupType(typeStr string) (types.Type, error) {
+// LookupType resolves a type string to a types.Type.
+func (l *TypeLoader) LookupType(typeStr string) (types.Type, error) {
 	ptr := false
 	if strings.HasPrefix(typeStr, "*") {
 		ptr = true
@@ -98,7 +100,8 @@ func (l *TypeLoader) lookupType(typeStr string) (types.Type, error) {
 	return t, nil
 }
 
-func (l *TypeLoader) lookupMethod(recv types.Type, name string) (*types.Func, error) {
+// LookupMethod looks up a method on a type.
+func (l *TypeLoader) LookupMethod(recv types.Type, name string) (*types.Func, error) {
 	obj, _, _ := types.LookupFieldOrMethod(recv, true, nil, name)
 	if obj == nil {
 		return nil, fmt.Errorf("method %s not found", name)

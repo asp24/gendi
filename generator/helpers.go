@@ -96,15 +96,3 @@ func typePkgPath(typeStr string) (string, error) {
 	}
 	return pkg, nil
 }
-
-func uniqueStrings(in []string) []string {
-	seen := map[string]bool{}
-	out := make([]string, 0, len(in))
-	for _, s := range in {
-		if !seen[s] {
-			seen[s] = true
-			out = append(out, s)
-		}
-	}
-	return out
-}

@@ -1,4 +1,4 @@
-package di
+package di_test
 
 import (
 	"fmt"
@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/yaml"
 )
 
 func TestLoadConfigImportPrefix(t *testing.T) {
@@ -38,7 +41,7 @@ imports:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -78,7 +81,7 @@ imports:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -124,7 +127,7 @@ imports:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -180,7 +183,7 @@ imports:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -207,7 +210,7 @@ imports:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -233,7 +236,7 @@ imports:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -265,7 +268,7 @@ services:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -292,7 +295,7 @@ services:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -301,11 +304,11 @@ services:
 		t.Fatalf("expected one constructor arg")
 	}
 	arg := svc.Constructor.Args[0]
-	if arg.Kind != ArgLiteral {
+	if arg.Kind != di.ArgLiteral {
 		t.Fatalf("expected literal argument, got %v", arg.Kind)
 	}
-	if arg.Literal.Tag != "!!null" {
-		t.Fatalf("expected null literal tag, got %q", arg.Literal.Tag)
+	if !arg.Literal.IsNull() {
+		t.Fatalf("expected null literal, got %v", arg.Literal.Kind)
 	}
 }
 

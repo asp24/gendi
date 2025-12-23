@@ -8,9 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
-	"github.com/asp24/gendi"
+	di "github.com/asp24/gendi"
 )
 
 func (g *Generator) render(ctx *genContext) ([]byte, error) {
@@ -452,7 +450,7 @@ func tagPriority(svc *serviceDef, tag string) int {
 
 func tagElementType(ctx *genContext, tag string) types.Type {
 	if t, ok := ctx.cfg.Tags[tag]; ok {
-		typeName, _ := ctx.loader.lookupType(t.ElementType)
+		typeName, _ := ctx.loader.LookupType(t.ElementType)
 		return typeName
 	}
 	return types.Typ[types.Invalid]
@@ -561,18 +559,20 @@ func getterBuildExpr(ctx *genContext, svc *serviceDef) string {
 	return "c." + buildName(svc) + "()"
 }
 
-func literalExpr(node yaml.Node) (string, error) {
-	switch node.Tag {
-	case "!!str":
-		return strconv.Quote(node.Value), nil
-	case "!!int", "!!float":
-		return node.Value, nil
-	case "!!bool":
-		return strings.ToLower(node.Value), nil
-	case "!!null":
+func literalExpr(lit di.Literal) (string, error) {
+	switch lit.Kind {
+	case di.LiteralString:
+		return strconv.Quote(lit.String()), nil
+	case di.LiteralInt:
+		return fmt.Sprintf("%d", lit.Int()), nil
+	case di.LiteralFloat:
+		return fmt.Sprintf("%v", lit.Float()), nil
+	case di.LiteralBool:
+		return fmt.Sprintf("%t", lit.Bool()), nil
+	case di.LiteralNull:
 		return "nil", nil
 	default:
-		return "", fmt.Errorf("unsupported literal type %q", node.Tag)
+		return "", fmt.Errorf("unsupported literal kind %d", lit.Kind)
 	}
 }
 
@@ -607,7 +607,7 @@ func serviceDeclaredType(ctx *genContext, svc *serviceDef) types.Type {
 	if svc.cfg.Type == "" {
 		return svc.typeName
 	}
-	declType, err := ctx.loader.lookupType(svc.cfg.Type)
+	declType, err := ctx.loader.LookupType(svc.cfg.Type)
 	if err != nil {
 		return svc.typeName
 	}

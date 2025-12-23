@@ -45,10 +45,10 @@ func New() *Item {
 		t.Fatalf("load packages: %v", err)
 	}
 
-	if _, err := loader.lookupType(modPath + "/foo.Item"); err != nil {
+	if _, err := loader.LookupType(modPath + "/foo.Item"); err != nil {
 		t.Fatalf("lookup type: %v", err)
 	}
-	if _, err := loader.lookupFunc(modPath+"/foo", "New"); err != nil {
+	if _, err := loader.LookupFunc(modPath+"/foo", "New"); err != nil {
 		t.Fatalf("lookup func: %v", err)
 	}
 }

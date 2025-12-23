@@ -1,78 +1,40 @@
 package generator
 
 import (
-	"errors"
-	"fmt"
-	"go/types"
-	"sort"
-
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/ir"
 )
 
-// ContextBuilder builds the generation context in phases.
+// ContextBuilder builds the generation context using the IR layer.
 type ContextBuilder struct {
-	cfg              *di.Config
-	options          Options
-	loader           *TypeLoader
-	services         map[string]*serviceDef
-	order            []string
-	decoratorsByBase map[string][]*serviceDef
-	baseByDecorator  map[string]string
-	buildCanError    map[string]bool
-	getterCanError   map[string]bool
-	paramGetters     map[string]string
+	cfg     *di.Config
+	options Options
+	loader  *TypeLoader
 }
 
 // NewContextBuilder creates a new context builder.
 func NewContextBuilder(cfg *di.Config, options Options) *ContextBuilder {
 	return &ContextBuilder{
-		cfg:              cfg,
-		options:          options,
-		services:         make(map[string]*serviceDef),
-		decoratorsByBase: make(map[string][]*serviceDef),
-		baseByDecorator:  make(map[string]string),
-		paramGetters:     make(map[string]string),
+		cfg:     cfg,
+		options: options,
 	}
 }
 
 // Build executes all phases and returns the generation context.
 func (b *ContextBuilder) Build() (*genContext, error) {
-	if b.cfg.Services == nil {
-		return nil, errors.New("no services defined")
-	}
-
 	if err := b.initTypeLoader(); err != nil {
 		return nil, err
 	}
-	if err := b.initServices(); err != nil {
+
+	// Build IR using the IR builder
+	irBuilder := ir.NewBuilder(b.cfg, b.loader)
+	container, err := irBuilder.Build()
+	if err != nil {
 		return nil, err
-	}
-	if err := b.resolveConstructors(); err != nil {
-		return nil, err
-	}
-	if err := b.validatePublicServices(); err != nil {
-		return nil, err
-	}
-	if err := b.validateParameters(); err != nil {
-		return nil, err
-	}
-	if err := b.buildDecoratorMappings(); err != nil {
-		return nil, err
-	}
-	b.computeErrorPropagation()
-	if err := b.collectParameterGetters(); err != nil {
-		return nil, err
-	}
-	if err := b.validateArguments(); err != nil {
-		return nil, err
-	}
-	if b.options.Strict {
-		if err := b.detectCycles(); err != nil {
-			return nil, err
-		}
 	}
 
-	return b.buildResult()
+	// Convert IR to genContext for rendering
+	return b.convertToGenContext(container)
 }
 
 func (b *ContextBuilder) initTypeLoader() error {
@@ -91,220 +53,157 @@ func (b *ContextBuilder) initTypeLoader() error {
 	return nil
 }
 
-func (b *ContextBuilder) initServices() error {
-	b.order = make([]string, 0, len(b.cfg.Services))
-	for id, svc := range b.cfg.Services {
-		b.order = append(b.order, id)
-		shared := true
-		if svc.Shared != nil {
-			shared = *svc.Shared
-		}
-		if svc.Alias != "" {
-			shared = false
-		}
-		b.services[id] = &serviceDef{
-			id:                 id,
-			cfg:                svc,
-			shared:             shared,
-			public:             svc.Public,
-			decorates:          svc.Decorates,
-			decorationPriority: svc.DecorationPriority,
-			isDecorator:        svc.Decorates != "",
-		}
-	}
-	sort.Strings(b.order)
-	return nil
-}
-
-func (b *ContextBuilder) resolveConstructors() error {
-	tracker := NewResolutionTracker()
-	var resolveService func(id string) error
-	resolveService = func(id string) error {
-		if tracker.IsResolved(id) {
-			return nil
-		}
-		if err := tracker.StartResolving(id); err != nil {
-			return err
-		}
-		svc := b.services[id]
-		if svc == nil {
-			return fmt.Errorf("unknown service %q", id)
-		}
-		var resolveErr error
-		if svc.IsAlias() {
-			resolveErr = resolveAliasService(svc, b.services, b.loader, resolveService)
-		} else {
-			resolveErr = resolveConstructorService(svc, b.services, b.loader, resolveService)
-		}
-		tracker.FinishResolving(id)
-		return resolveErr
-	}
-
-	for _, id := range b.order {
-		if err := resolveService(id); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (b *ContextBuilder) validatePublicServices() error {
-	for _, svc := range b.services {
-		if svc.public {
-			return nil
-		}
-	}
-	return errors.New("at least one public service is required")
-}
-
-func (b *ContextBuilder) validateParameters() error {
-	for name, param := range b.cfg.Parameters {
-		if param.Type == "" {
-			return fmt.Errorf("parameter %q missing type", name)
-		}
-		if param.Value.Kind == 0 {
-			return fmt.Errorf("parameter %q missing value", name)
-		}
-		paramType, err := b.loader.lookupType(param.Type)
-		if err != nil {
-			return fmt.Errorf("parameter %q type: %w", name, err)
-		}
-		if _, err := paramGetterMethod(paramType); err != nil {
-			return fmt.Errorf("parameter %q type: %w", name, err)
-		}
-		if isTimeDuration(paramType) {
-			if _, err := durationLiteral(param.Value); err != nil {
-				return fmt.Errorf("parameter %q value: %w", name, err)
-			}
-			continue
-		}
-		litType, err := literalType(param.Value)
-		if err != nil {
-			return fmt.Errorf("parameter %q value: %w", name, err)
-		}
-		if !types.AssignableTo(litType, paramType) {
-			return fmt.Errorf("parameter %q value: expected %s, got %s", name, b.loader.typeString(paramType), b.loader.typeString(litType))
-		}
-	}
-	return nil
-}
-
-func (b *ContextBuilder) buildDecoratorMappings() error {
-	for _, svc := range b.services {
-		if !svc.isDecorator {
-			continue
-		}
-		base := svc.decorates
-		baseSvc := b.services[base]
-		if baseSvc == nil {
-			return fmt.Errorf("decorator %q decorates unknown service %q", svc.id, base)
-		}
-		baseType := baseSvc.typeName
-		if baseSvc.cfg.Type != "" {
-			declType, err := b.loader.lookupType(baseSvc.cfg.Type)
-			if err != nil {
-				return fmt.Errorf("decorator %q base %q type: %w", svc.id, base, err)
-			}
-			baseType = declType
-		}
-		if !types.AssignableTo(svc.typeName, baseType) {
-			return fmt.Errorf("decorator %q type %s not assignable to %s", svc.id, b.loader.typeString(svc.typeName), b.loader.typeString(baseType))
-		}
-		b.decoratorsByBase[base] = append(b.decoratorsByBase[base], svc)
-		b.baseByDecorator[svc.id] = base
-	}
-
-	for base, decs := range b.decoratorsByBase {
-		sort.Slice(decs, func(i, j int) bool { return decs[i].decorationPriority < decs[j].decorationPriority })
-		b.decoratorsByBase[base] = decs
-	}
-	return nil
-}
-
-func (b *ContextBuilder) computeErrorPropagation() {
-	b.buildCanError, b.getterCanError = computeGetterErrors(b.services, b.cfg, b.decoratorsByBase)
-	for id, svc := range b.services {
-		svc.canError = b.getterCanError[id]
-	}
-}
-
-func (b *ContextBuilder) collectParameterGetters() error {
-	for _, id := range b.order {
-		svc := b.services[id]
-		cons := svc.constructor
-		for i, arg := range cons.argDefs {
-			if arg.Kind != di.ArgParam {
-				continue
-			}
-			if i >= len(cons.params) {
-				continue
-			}
-			method, err := paramGetterMethod(cons.params[i])
-			if err != nil {
-				return fmt.Errorf("service %q arg[%d]: parameter %q type: %w", id, i, arg.Value, err)
-			}
-			if existing, ok := b.paramGetters[arg.Value]; ok && existing != method {
-				return fmt.Errorf("parameter %q used with conflicting types", arg.Value)
-			}
-			b.paramGetters[arg.Value] = method
-		}
-	}
-	return nil
-}
-
-func (b *ContextBuilder) validateArguments() error {
-	for _, id := range b.order {
-		svc := b.services[id]
-		if err := validateArgs(id, svc, b.services, b.cfg, b.loader, b.decoratorsByBase, b.getterCanError); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (b *ContextBuilder) detectCycles() error {
-	detector := NewCycleDetector(b.services, b.cfg)
-	return detector.Detect()
-}
-
-func (b *ContextBuilder) buildResult() (*genContext, error) {
+func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genContext, error) {
 	imports := NewImportManager(b.loader.outputPkgPath)
+
+	services := make(map[string]*serviceDef)
+	decoratorsByBase := make(map[string][]*serviceDef)
+	baseByDecorator := make(map[string]string)
+	buildCanError := make(map[string]bool)
+	getterCanError := make(map[string]bool)
+	paramGetters := make(map[string]string)
+
+	// Convert IR services to serviceDef
+	for id, irSvc := range container.Services {
+		svcDef := b.convertService(irSvc)
+		services[id] = svcDef
+		buildCanError[id] = irSvc.BuildCanError
+		getterCanError[id] = irSvc.CanError
+	}
+
+	// Build decorator mappings
+	for id, irSvc := range container.Services {
+		if irSvc.IsDecorator() {
+			baseID := irSvc.Decorates.ID
+			decoratorsByBase[baseID] = append(decoratorsByBase[baseID], services[id])
+			baseByDecorator[id] = baseID
+		}
+	}
+
+	// Sort decorators by priority (already sorted in IR, but keep order consistent)
+	for baseID, irSvc := range container.Services {
+		if len(irSvc.Decorators) > 0 {
+			decs := make([]*serviceDef, len(irSvc.Decorators))
+			for i, dec := range irSvc.Decorators {
+				decs[i] = services[dec.ID]
+			}
+			decoratorsByBase[baseID] = decs
+		}
+	}
+
+	// Collect parameter getter methods
+	for name, param := range container.Parameters {
+		method := param.GetterMethod()
+		if method != "" {
+			paramGetters[name] = method
+		}
+	}
+
+	// Also collect parameter getters from service args
+	for _, irSvc := range container.Services {
+		if irSvc.Constructor == nil {
+			continue
+		}
+		for _, arg := range irSvc.Constructor.Args {
+			if arg.Kind == ir.ParamRefArg && arg.Parameter != nil {
+				method := arg.Parameter.GetterMethod()
+				if method != "" {
+					paramGetters[arg.Parameter.Name] = method
+				}
+			}
+		}
+	}
+
 	ctx := &genContext{
-		services:          b.services,
-		orderedServiceIDs: b.order,
-		decoratorsByBase:  b.decoratorsByBase,
-		baseByDecorator:   b.baseByDecorator,
+		services:          services,
+		orderedServiceIDs: container.ServiceOrder,
+		decoratorsByBase:  decoratorsByBase,
+		baseByDecorator:   baseByDecorator,
 		loader:            b.loader,
 		imports:           imports,
 		outputPkgPath:     b.loader.outputPkgPath,
 		containerName:     b.options.Container,
-		buildCanError:     b.buildCanError,
-		getterCanError:    b.getterCanError,
+		buildCanError:     buildCanError,
+		getterCanError:    getterCanError,
 		cfg:               b.cfg,
-		paramGetters:      b.paramGetters,
-	}
-
-	for _, svc := range b.services {
-		if svc.shared {
-			ctx.hasShared = true
-			break
-		}
-	}
-
-	for name, param := range b.cfg.Parameters {
-		paramType, err := b.loader.lookupType(param.Type)
-		if err != nil {
-			return nil, fmt.Errorf("parameter %q type: %w", name, err)
-		}
-		method, err := paramGetterMethod(paramType)
-		if err != nil {
-			return nil, fmt.Errorf("parameter %q type: %w", name, err)
-		}
-		if existing, ok := ctx.paramGetters[name]; ok && existing != method {
-			return nil, fmt.Errorf("parameter %q used with conflicting types", name)
-		}
-		ctx.paramGetters[name] = method
+		paramGetters:      paramGetters,
 	}
 
 	return ctx, nil
+}
+
+func (b *ContextBuilder) convertService(irSvc *ir.Service) *serviceDef {
+	svcDef := &serviceDef{
+		id:                 irSvc.ID,
+		cfg:                b.cfg.Services[irSvc.ID],
+		typeName:           irSvc.Type,
+		public:             irSvc.Public,
+		shared:             irSvc.Shared,
+		canError:           irSvc.CanError,
+		decorationPriority: irSvc.Priority,
+		isDecorator:        irSvc.IsDecorator(),
+	}
+
+	if irSvc.IsAlias() {
+		svcDef.aliasTarget = irSvc.Alias.ID
+	}
+
+	if irSvc.IsDecorator() {
+		svcDef.decorates = irSvc.Decorates.ID
+	}
+
+	if irSvc.Constructor != nil {
+		svcDef.constructor = b.convertConstructor(irSvc.ID, irSvc.Constructor)
+	}
+
+	return svcDef
+}
+
+func (b *ContextBuilder) convertConstructor(svcID string, irCons *ir.Constructor) constructorDef {
+	cons := constructorDef{
+		funcObj:      irCons.Func,
+		params:       irCons.Params,
+		result:       irCons.ResultType,
+		returnsError: irCons.ReturnsError,
+	}
+
+	if irCons.Kind == ir.FuncConstructor {
+		cons.kind = "func"
+		cons.funcObj = irCons.Func
+	} else {
+		cons.kind = "method"
+		cons.methodObj = irCons.Func
+		if irCons.Receiver != nil {
+			cons.methodRecvID = irCons.Receiver.ID
+		}
+	}
+
+	// Get arg definitions from original config
+	if svc, ok := b.cfg.Services[svcID]; ok {
+		cons.argDefs = svc.Constructor.Args
+	}
+
+	return cons
+}
+
+// convertConstructorArgs converts IR arguments back to di.Argument for render compatibility.
+// This is a bridge until render is updated to use IR directly.
+func (b *ContextBuilder) convertConstructorArgs(irArgs []*ir.Argument) []di.Argument {
+	args := make([]di.Argument, len(irArgs))
+	for i, irArg := range irArgs {
+		switch irArg.Kind {
+		case ir.ServiceRefArg:
+			args[i] = di.Argument{Kind: di.ArgServiceRef, Value: irArg.Service.ID}
+		case ir.InnerArg:
+			args[i] = di.Argument{Kind: di.ArgInner}
+		case ir.ParamRefArg:
+			args[i] = di.Argument{Kind: di.ArgParam, Value: irArg.Parameter.Name}
+		case ir.TaggedArg:
+			args[i] = di.Argument{Kind: di.ArgTagged, Value: irArg.Tag.Name}
+		case ir.LiteralArg:
+			// For literals, we need the original yaml.Node which is in the config
+			// The render will use the original config's args
+		}
+	}
+	return args
 }

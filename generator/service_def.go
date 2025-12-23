@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"fmt"
 	"go/types"
 
 	di "github.com/asp24/gendi"
@@ -33,11 +32,6 @@ func (s *serviceDef) HasConstructor() bool {
 	return s.constructor.kind != ""
 }
 
-// Dependencies returns the service IDs this service depends on.
-func (s *serviceDef) Dependencies(cfg *di.Config) ([]string, error) {
-	return constructorDeps(s.id, s, cfg)
-}
-
 type constructorDef struct {
 	kind         string // func|method
 	funcObj      *types.Func
@@ -47,67 +41,6 @@ type constructorDef struct {
 	result       types.Type
 	returnsError bool
 	argDefs      []di.Argument
-}
-
-func constructorDeps(id string, svc *serviceDef, cfg *di.Config) ([]string, error) {
-	deps := []string{}
-	if svc.aliasTarget != "" {
-		return []string{svc.aliasTarget}, nil
-	}
-	cons := svc.constructor
-	if cons.kind == "method" {
-		deps = append(deps, cons.methodRecvID)
-	}
-	for _, arg := range cons.argDefs {
-		switch arg.Kind {
-		case di.ArgServiceRef:
-			deps = append(deps, arg.Value)
-		case di.ArgInner:
-			if svc.decorates == "" {
-				return nil, fmt.Errorf("service %q uses @.inner but is not a decorator", id)
-			}
-			deps = append(deps, svc.decorates)
-		case di.ArgTagged:
-			for sid, tagSvc := range cfg.Services {
-				for _, t := range tagSvc.Tags {
-					if t.Name == arg.Value {
-						deps = append(deps, sid)
-						break
-					}
-				}
-			}
-		}
-	}
-	return uniqueStrings(deps), nil
-}
-
-func buildDeps(id string, svc *serviceDef, cfg *di.Config) ([]string, error) {
-	deps := []string{}
-	if svc.aliasTarget != "" {
-		return []string{svc.aliasTarget}, nil
-	}
-	cons := svc.constructor
-	if cons.kind == "method" {
-		deps = append(deps, cons.methodRecvID)
-	}
-	for _, arg := range cons.argDefs {
-		switch arg.Kind {
-		case di.ArgServiceRef:
-			deps = append(deps, arg.Value)
-		case di.ArgTagged:
-			for sid, tagSvc := range cfg.Services {
-				for _, t := range tagSvc.Tags {
-					if t.Name == arg.Value {
-						deps = append(deps, sid)
-						break
-					}
-				}
-			}
-		case di.ArgInner:
-			// inner is provided by decorator chain; its errors are handled there.
-		}
-	}
-	return uniqueStrings(deps), nil
 }
 
 func getterType(svc *serviceDef, services map[string]*serviceDef, decoratorsByBase map[string][]*serviceDef) types.Type {

@@ -13,7 +13,6 @@ type genContext struct {
 	imports           *ImportManager
 	outputPkgPath     string
 	containerName     string
-	hasShared         bool
 	buildCanError     map[string]bool
 	getterCanError    map[string]bool
 	cfg               *di.Config

@@ -5,7 +5,7 @@ import (
 	"go/types"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	di "github.com/asp24/gendi"
 )
 
 func isTimeDuration(t types.Type) bool {
@@ -28,13 +28,13 @@ func isTimeDuration(t types.Type) bool {
 	return pkg != nil && pkg.Path() == "time"
 }
 
-func durationLiteral(node yaml.Node) (int64, error) {
-	if node.Tag != "!!str" {
-		return 0, fmt.Errorf("duration literal must be string, got %q", node.Tag)
+func durationLiteral(lit di.Literal) (int64, error) {
+	if lit.Kind != di.LiteralString {
+		return 0, fmt.Errorf("duration literal must be string")
 	}
-	d, err := time.ParseDuration(node.Value)
+	d, err := time.ParseDuration(lit.String())
 	if err != nil {
-		return 0, fmt.Errorf("invalid duration %q: %w", node.Value, err)
+		return 0, fmt.Errorf("invalid duration %q: %w", lit.String(), err)
 	}
 	return int64(d), nil
 }

@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/asp24/gendi"
 )
 
@@ -80,7 +78,7 @@ func TestParameterProviderCodegen(t *testing.T) {
 		Parameters: map[string]di.Parameter{
 			"log_prefix": {
 				Type:  "string",
-				Value: mustLiteralNode("!!str", "[app] "),
+				Value: di.NewStringLiteral("[app] "),
 			},
 		},
 		Services: map[string]*di.Service{
@@ -115,7 +113,7 @@ func TestDurationParameterCodegen(t *testing.T) {
 		Parameters: map[string]di.Parameter{
 			"timeout": {
 				Type:  "time.Duration",
-				Value: mustLiteralNode("!!str", "1s"),
+				Value: di.NewStringLiteral("1s"),
 			},
 		},
 		Services: map[string]*di.Service{
@@ -149,7 +147,7 @@ func TestNullLiteralArgument(t *testing.T) {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewB",
 					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: mustLiteralNode("!!null", "null")},
+						{Kind: di.ArgLiteral, Literal: di.NewNullLiteral()},
 					},
 				},
 				Public: true,
@@ -187,7 +185,7 @@ func TestServiceAliasCodegen(t *testing.T) {
 		Parameters: map[string]di.Parameter{
 			"log_prefix": {
 				Type:  "string",
-				Value: mustLiteralNode("!!str", "[app] "),
+				Value: di.NewStringLiteral("[app] "),
 			},
 		},
 	}
@@ -345,8 +343,4 @@ func TestDecoratorAssignableToDeclaredBaseType(t *testing.T) {
 	if _, err := gen.Generate(); err != nil {
 		t.Fatalf("generate failed: %v", err)
 	}
-}
-
-func mustLiteralNode(tag, value string) yaml.Node {
-	return yaml.Node{Kind: yaml.ScalarNode, Tag: tag, Value: value}
 }
