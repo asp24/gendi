@@ -4,6 +4,7 @@ import (
 	"go/types"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/ir"
 )
 
 type serviceDef struct {
@@ -40,7 +41,7 @@ type constructorDef struct {
 	params       []types.Type
 	result       types.Type
 	returnsError bool
-	argDefs      []di.Argument
+	argDefs      []*ir.Argument
 }
 
 func getterType(svc *serviceDef, services map[string]*serviceDef, decoratorsByBase map[string][]*serviceDef) types.Type {

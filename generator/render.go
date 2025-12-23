@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/ir"
 )
 
 func (g *Generator) render(ctx *genContext) ([]byte, error) {
@@ -327,12 +328,12 @@ func constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsE
 	return stmts, call, nil
 }
 
-func buildArg(ctx *genContext, svc *serviceDef, arg di.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
+func buildArg(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
 	switch arg.Kind {
-	case di.ArgServiceRef:
-		dep := ctx.services[arg.Value]
+	case ir.ServiceRefArg:
+		dep := ctx.services[arg.Service.ID]
 		if dep == nil {
-			return "", nil, fmt.Errorf("unknown service %q", arg.Value)
+			return "", nil, fmt.Errorf("unknown service %q", arg.Service.ID)
 		}
 		call := fmt.Sprintf("c.%s()", dep.privateGetterName)
 		depVar := varIdent("dep", dep.id)
@@ -345,25 +346,25 @@ func buildArg(ctx *genContext, svc *serviceDef, arg di.Argument, innerVar string
 		}
 		stmts := []string{fmt.Sprintf("%s, _ := %s", depVar, call)}
 		return depVar, stmts, nil
-	case di.ArgInner:
+	case ir.InnerArg:
 		if innerVar == "" {
 			return "", nil, fmt.Errorf("@.inner used outside decorator")
 		}
 		return innerVar, nil, nil
-	case di.ArgParam:
-		method := ctx.paramGetters[arg.Value]
+	case ir.ParamRefArg:
+		method := ctx.paramGetters[arg.Parameter.Name]
 		if method == "" {
-			return "", nil, fmt.Errorf("unknown parameter %q", arg.Value)
+			return "", nil, fmt.Errorf("unknown parameter %q", arg.Parameter.Name)
 		}
-		paramVar := varIdent("param", arg.Value)
+		paramVar := varIdent("param", arg.Parameter.Name)
 		stmts := []string{
-			fmt.Sprintf("if c.params == nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: parameters provider is nil\", %q, %d, %q) }", svc.id, argIndex, arg.Value),
-			fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, arg.Value),
-			fmt.Sprintf("if err != nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: %%w\", %q, %d, %q, err) }", svc.id, argIndex, arg.Value),
+			fmt.Sprintf("if c.params == nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: parameters provider is nil\", %q, %d, %q) }", svc.id, argIndex, arg.Parameter.Name),
+			fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, arg.Parameter.Name),
+			fmt.Sprintf("if err != nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: %%w\", %q, %d, %q, err) }", svc.id, argIndex, arg.Parameter.Name),
 		}
 		return paramVar, stmts, nil
-	case di.ArgTagged:
-		values := taggedServices(ctx, arg.Value)
+	case ir.TaggedArg:
+		values := taggedServices(ctx, arg.Tag.Name)
 		items := make([]string, 0, len(values))
 		stmts := []string{}
 		for _, dep := range values {
@@ -371,24 +372,24 @@ func buildArg(ctx *genContext, svc *serviceDef, arg di.Argument, innerVar string
 			varName := varIdent("tag", dep.id)
 			if returnsErr {
 				stmts = append(stmts, fmt.Sprintf("%s, err := %s", varName, call))
-				stmts = append(stmts, fmt.Sprintf("if err != nil { return zero, fmt.Errorf(\"service %%q arg[%%d] tag %%q: %%w\", %q, %d, %q, err) }", svc.id, argIndex, arg.Value))
+				stmts = append(stmts, fmt.Sprintf("if err != nil { return zero, fmt.Errorf(\"service %%q arg[%%d] tag %%q: %%w\", %q, %d, %q, err) }", svc.id, argIndex, arg.Tag.Name))
 				items = append(items, varName)
 			} else {
 				stmts = append(stmts, fmt.Sprintf("%s, _ := %s", varName, call))
 				items = append(items, varName)
 			}
 		}
-		sliceExpr := "[]" + ctx.imports.typeString(tagElementType(ctx, arg.Value)) + "{" + strings.Join(items, ", ") + "}"
+		sliceExpr := "[]" + ctx.imports.typeString(tagElementType(ctx, arg.Tag.Name)) + "{" + strings.Join(items, ", ") + "}"
 		return sliceExpr, stmts, nil
 	default:
 		if isTimeDuration(paramType) {
-			nanos, err := durationLiteral(arg.Literal)
+			nanos, err := durationLiteralValue(arg.Literal)
 			if err != nil {
 				return "", nil, err
 			}
 			return fmt.Sprintf("%d", nanos), nil, nil
 		}
-		lit, err := literalExpr(arg.Literal)
+		lit, err := literalValueExpr(arg.Literal)
 		if err != nil {
 			return "", nil, err
 		}
@@ -593,7 +594,7 @@ func buildNeedsErrorHandling(svc *serviceDef) bool {
 	}
 	for _, arg := range svc.constructor.argDefs {
 		switch arg.Kind {
-		case di.ArgServiceRef, di.ArgTagged, di.ArgParam:
+		case ir.ServiceRefArg, ir.TaggedArg, ir.ParamRefArg:
 			return true
 		}
 	}
@@ -648,18 +649,13 @@ func reachableServices(ctx *genContext) map[string]bool {
 		}
 		for _, arg := range svc.constructor.argDefs {
 			switch arg.Kind {
-			case di.ArgServiceRef:
-				add(arg.Value)
-			case di.ArgInner:
+			case ir.ServiceRefArg:
+				add(arg.Service.ID)
+			case ir.InnerArg:
 				add(svc.decorates)
-			case di.ArgTagged:
-				for sid, tagSvc := range ctx.services {
-					for _, t := range tagSvc.cfg.Tags {
-						if t.Name == arg.Value {
-							add(sid)
-							break
-						}
-					}
+			case ir.TaggedArg:
+				for _, tagSvc := range arg.Tag.Services {
+					add(tagSvc.ID)
 				}
 			}
 		}
@@ -693,13 +689,13 @@ func decoratorNeedsPrivateGetter(ctx *genContext, svc *serviceDef) bool {
 		}
 		for _, arg := range other.constructor.argDefs {
 			switch arg.Kind {
-			case di.ArgServiceRef:
-				if arg.Value == svc.id {
+			case ir.ServiceRefArg:
+				if arg.Service.ID == svc.id {
 					return true
 				}
-			case di.ArgTagged:
+			case ir.TaggedArg:
 				for _, t := range svc.cfg.Tags {
-					if t.Name == arg.Value {
+					if t.Name == arg.Tag.Name {
 						return true
 					}
 				}

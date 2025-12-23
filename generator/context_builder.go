@@ -145,31 +145,7 @@ func (b *ContextBuilder) convertConstructor(svcID string, irCons *ir.Constructor
 	}
 
 	// Get arg definitions from original config
-	if svc, ok := b.cfg.Services[svcID]; ok {
-		cons.argDefs = svc.Constructor.Args
-	}
+	cons.argDefs = irCons.Args
 
 	return cons
-}
-
-// convertConstructorArgs converts IR arguments back to di.Argument for render compatibility.
-// This is a bridge until render is updated to use IR directly.
-func (b *ContextBuilder) convertConstructorArgs(irArgs []*ir.Argument) []di.Argument {
-	args := make([]di.Argument, len(irArgs))
-	for i, irArg := range irArgs {
-		switch irArg.Kind {
-		case ir.ServiceRefArg:
-			args[i] = di.Argument{Kind: di.ArgServiceRef, Value: irArg.Service.ID}
-		case ir.InnerArg:
-			args[i] = di.Argument{Kind: di.ArgInner}
-		case ir.ParamRefArg:
-			args[i] = di.Argument{Kind: di.ArgParam, Value: irArg.Parameter.Name}
-		case ir.TaggedArg:
-			args[i] = di.Argument{Kind: di.ArgTagged, Value: irArg.Tag.Name}
-		case ir.LiteralArg:
-			// For literals, we need the original yaml.Node which is in the config
-			// The render will use the original config's args
-		}
-	}
-	return args
 }
