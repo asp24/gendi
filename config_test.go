@@ -11,55 +11,6 @@ import (
 	"github.com/asp24/gendi/yaml"
 )
 
-func TestLoadConfigImportPrefix(t *testing.T) {
-	dir := t.TempDir()
-	basePath := filepath.Join(dir, "base.yaml")
-	rootPath := filepath.Join(dir, "root.yaml")
-
-	base := []byte(strings.TrimSpace(`
-services:
-  base:
-    constructor:
-      func: "example.NewBase"
-  api:
-    constructor:
-      func: "example.NewAPI"
-      args:
-        - "@base"
-    decorates: "base"
-`))
-	if err := os.WriteFile(basePath, base, 0o644); err != nil {
-		t.Fatalf("write base config: %v", err)
-	}
-
-	root := []byte(strings.TrimSpace(fmt.Sprintf(`
-imports:
-  - path: %q
-    prefix: "mod."
-`, "./base.yaml")))
-	if err := os.WriteFile(rootPath, root, 0o644); err != nil {
-		t.Fatalf("write root config: %v", err)
-	}
-
-	cfg, err := yaml.LoadConfig(rootPath)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-	if _, ok := cfg.Services["mod.base"]; !ok {
-		t.Fatalf("expected prefixed service mod.base")
-	}
-	api := cfg.Services["mod.api"]
-	if api == nil {
-		t.Fatalf("expected prefixed service mod.api")
-	}
-	if got := api.Constructor.Args[0].Value; got != "mod.base" {
-		t.Fatalf("expected service ref to be prefixed, got %q", got)
-	}
-	if api.Decorates != "mod.base" {
-		t.Fatalf("expected decorates to be prefixed, got %q", api.Decorates)
-	}
-}
-
 func TestLoadConfigModuleImport(t *testing.T) {
 	modulePath := readModulePath(t)
 	importPath := modulePath + "/generator/testdata/imports/module.yaml"

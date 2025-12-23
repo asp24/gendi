@@ -18,8 +18,7 @@ type RawConfig struct {
 }
 
 type rawImport struct {
-	Path   string `yaml:"path"`
-	Prefix string `yaml:"prefix"`
+	Path string `yaml:"path"`
 }
 
 func (i *rawImport) UnmarshalYAML(node *yaml.Node) error {

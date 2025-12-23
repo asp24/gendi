@@ -69,9 +69,6 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, visited map[string]bool) (
 			if err != nil {
 				return nil, err
 			}
-			if imp.Prefix != "" {
-				l.merger.ApplyPrefix(child, imp.Prefix)
-			}
 			merged = l.merger.Merge(merged, child)
 		}
 	}
