@@ -14,7 +14,7 @@ func TestRequiresPublicService(t *testing.T) {
 		Services: map[string]*di.Service{
 			"a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewA",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
 				},
 			},
 		},
@@ -31,12 +31,12 @@ func TestReachabilityAndPublicGetters(t *testing.T) {
 		Services: map[string]*di.Service{
 			"a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewA",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
 				},
 			},
 			"b": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewB",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewB",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "a"},
 					},
@@ -45,7 +45,7 @@ func TestReachabilityAndPublicGetters(t *testing.T) {
 			},
 			"unused": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewC",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewC",
 				},
 			},
 		},
@@ -86,7 +86,7 @@ func TestParameterProviderCodegen(t *testing.T) {
 		Services: map[string]*di.Service{
 			"logger": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewLogger",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
 						{Kind: di.ArgParam, Value: "log_prefix"},
 					},
@@ -121,7 +121,7 @@ func TestDurationParameterCodegen(t *testing.T) {
 		Services: map[string]*di.Service{
 			"timer": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewTimer",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
 					Args: []di.Argument{
 						{Kind: di.ArgParam, Value: "timeout"},
 					},
@@ -147,7 +147,7 @@ func TestNullLiteralArgument(t *testing.T) {
 		Services: map[string]*di.Service{
 			"b": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewB",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewB",
 					Args: []di.Argument{
 						{Kind: di.ArgLiteral, Literal: mustLiteralNode("!!null", "null")},
 					},
@@ -172,7 +172,7 @@ func TestServiceAliasCodegen(t *testing.T) {
 		Services: map[string]*di.Service{
 			"logger": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewLogger",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
 						{Kind: di.ArgParam, Value: "log_prefix"},
 					},
@@ -214,13 +214,13 @@ func TestDecoratorPrivateGetterElidedWhenUnused(t *testing.T) {
 		Services: map[string]*di.Service{
 			"svc": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceBase",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
 				},
 				Public: true,
 			},
 			"svc.decoratorA": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceDecoratorA",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -230,7 +230,7 @@ func TestDecoratorPrivateGetterElidedWhenUnused(t *testing.T) {
 			},
 			"svc.decoratorB": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceDecoratorB",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorB",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -260,12 +260,12 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 		Services: map[string]*di.Service{
 			"svc": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceBase",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
 				},
 			},
 			"svc.decoratorA": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceDecoratorA",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -275,7 +275,7 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 			},
 			"consumer": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewConsumer",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewConsumer",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "svc.decoratorA"},
 					},
@@ -303,9 +303,9 @@ func TestServiceTypeAssignableOverride(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]*di.Service{
 			"svc": {
-				Type: "github.com/asp24/gendi/internal/generator/testdata/app.Service",
+				Type: "github.com/asp24/gendi/generator/testdata/app.Service",
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceBaseConcrete",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBaseConcrete",
 				},
 				Public: true,
 			},
@@ -322,15 +322,15 @@ func TestDecoratorAssignableToDeclaredBaseType(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]*di.Service{
 			"svc": {
-				Type: "github.com/asp24/gendi/internal/generator/testdata/app.Service",
+				Type: "github.com/asp24/gendi/generator/testdata/app.Service",
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceBaseConcrete",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBaseConcrete",
 				},
 				Public: true,
 			},
 			"svc.decorator": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceDecoratorAConcrete",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorAConcrete",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},

@@ -59,7 +59,7 @@ imports:
 
 func TestLoadConfigModuleImport(t *testing.T) {
 	modulePath := readModulePath(t)
-	importPath := modulePath + "/internal/generator/testdata/imports/module.yaml"
+	importPath := modulePath + "/generator/testdata/imports/module.yaml"
 
 	dir, err := os.MkdirTemp(".", "config-import-")
 	if err != nil {
@@ -195,7 +195,7 @@ imports:
 
 func TestLoadConfigImportGlobModule(t *testing.T) {
 	modulePath := readModulePath(t)
-	importPath := modulePath + "/internal/generator/testdata/imports/*.yaml"
+	importPath := modulePath + "/generator/testdata/imports/*.yaml"
 
 	dir := t.TempDir()
 	rootPath := filepath.Join(dir, "root.yaml")
@@ -221,7 +221,7 @@ imports:
 
 func TestLoadConfigImportGlobModuleRecursive(t *testing.T) {
 	modulePath := readModulePath(t)
-	importPath := modulePath + "/internal/generator/testdata/imports/**/*.yaml"
+	importPath := modulePath + "/generator/testdata/imports/**/*.yaml"
 
 	dir := t.TempDir()
 	rootPath := filepath.Join(dir, "root.yaml")

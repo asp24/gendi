@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/asp24/gendi"
-	"github.com/asp24/gendi/internal/generator"
+	"github.com/asp24/gendi/generator"
 )
 
 func main() {

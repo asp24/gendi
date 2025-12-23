@@ -9,15 +9,15 @@ import (
 )
 
 type importManager struct {
-	aliases      map[string]string
-	used         map[string]bool
+	aliases       map[string]string
+	used          map[string]bool
 	outputPkgPath string
 }
 
 func newImportManager(outputPkgPath string) *importManager {
 	return &importManager{
-		aliases:      map[string]string{},
-		used:         map[string]bool{},
+		aliases:       map[string]string{},
+		used:          map[string]bool{},
 		outputPkgPath: outputPkgPath,
 	}
 }
@@ -91,4 +91,3 @@ func (m *importManager) renderImports(extra []string) string {
 	}
 	return "import (\n" + strings.Join(imports, "") + ")\n\n"
 }
-
