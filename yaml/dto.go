@@ -11,17 +11,17 @@ import (
 
 // RawConfig is the YAML-specific representation of a config file.
 type RawConfig struct {
-	Imports    []rawImport             `yaml:"imports"`
+	Imports    []RawImport             `yaml:"imports"`
 	Parameters map[string]RawParameter `yaml:"parameters"`
 	Tags       map[string]RawTag       `yaml:"tags"`
 	Services   map[string]*RawService  `yaml:"services"`
 }
 
-type rawImport struct {
+type RawImport struct {
 	Path string `yaml:"path"`
 }
 
-func (i *rawImport) UnmarshalYAML(node *yaml.Node) error {
+func (i *RawImport) UnmarshalYAML(node *yaml.Node) error {
 	switch node.Kind {
 	case yaml.ScalarNode:
 		var path string
@@ -31,7 +31,7 @@ func (i *rawImport) UnmarshalYAML(node *yaml.Node) error {
 		i.Path = path
 		return nil
 	case yaml.MappingNode:
-		type alias rawImport
+		type alias RawImport
 		var decoded alias
 		if err := node.Decode(&decoded); err != nil {
 			return err
@@ -39,7 +39,7 @@ func (i *rawImport) UnmarshalYAML(node *yaml.Node) error {
 		if decoded.Path == "" {
 			return fmt.Errorf("import path is required")
 		}
-		*i = rawImport(decoded)
+		*i = RawImport(decoded)
 		return nil
 	default:
 		return fmt.Errorf("import must be a string or mapping")
