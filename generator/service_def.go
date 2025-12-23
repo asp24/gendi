@@ -3,14 +3,13 @@ package generator
 import (
 	"go/types"
 
-	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/ir"
 )
 
 type serviceDef struct {
 	id                 string
-	cfg                *di.Service
 	typeName           types.Type
+	declaredType       types.Type
 	constructor        constructorDef
 	getterName         string
 	privateGetterName  string
@@ -21,11 +20,12 @@ type serviceDef struct {
 	decorationPriority int
 	isDecorator        bool
 	aliasTarget        string
+	tags               []*ir.ServiceTag
 }
 
 // IsAlias returns true if this service is an alias to another service.
 func (s *serviceDef) IsAlias() bool {
-	return s.cfg.Alias != ""
+	return s.aliasTarget != ""
 }
 
 // HasConstructor returns true if this service defines a constructor.

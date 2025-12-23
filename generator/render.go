@@ -400,14 +400,14 @@ func buildArg(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar strin
 func taggedServices(ctx *genContext, tag string) []*serviceDef {
 	var items []*serviceDef
 	for id, svc := range ctx.services {
-		for _, t := range svc.cfg.Tags {
-			if t.Name == tag {
+		for _, t := range svc.tags {
+			if t.Tag.Name == tag {
 				items = append(items, ctx.services[id])
 			}
 		}
 	}
 	sortByPriority := false
-	if def, ok := ctx.cfg.Tags[tag]; ok && def.SortBy == "priority" {
+	if def, ok := ctx.tags[tag]; ok && def.SortBy == "priority" {
 		sortByPriority = true
 	}
 	if sortByPriority {
@@ -427,8 +427,8 @@ func taggedServices(ctx *genContext, tag string) []*serviceDef {
 }
 
 func tagPriority(svc *serviceDef, tag string) int {
-	for _, t := range svc.cfg.Tags {
-		if t.Name != tag {
+	for _, t := range svc.tags {
+		if t.Tag.Name != tag {
 			continue
 		}
 		if v, ok := t.Attributes["priority"]; ok {
@@ -450,9 +450,8 @@ func tagPriority(svc *serviceDef, tag string) int {
 }
 
 func tagElementType(ctx *genContext, tag string) types.Type {
-	if t, ok := ctx.cfg.Tags[tag]; ok {
-		typeName, _ := ctx.loader.LookupType(t.ElementType)
-		return typeName
+	if t, ok := ctx.tags[tag]; ok {
+		return t.ElementType
 	}
 	return types.Typ[types.Invalid]
 }
@@ -605,14 +604,10 @@ func serviceDeclaredType(ctx *genContext, svc *serviceDef) types.Type {
 	if svc == nil {
 		return types.Typ[types.Invalid]
 	}
-	if svc.cfg.Type == "" {
+	if svc.declaredType == nil {
 		return svc.typeName
 	}
-	declType, err := ctx.loader.LookupType(svc.cfg.Type)
-	if err != nil {
-		return svc.typeName
-	}
-	return declType
+	return svc.declaredType
 }
 
 func reachableServices(ctx *genContext) map[string]bool {
@@ -694,8 +689,8 @@ func decoratorNeedsPrivateGetter(ctx *genContext, svc *serviceDef) bool {
 					return true
 				}
 			case ir.TaggedArg:
-				for _, t := range svc.cfg.Tags {
-					if t.Name == arg.Tag.Name {
+				for _, t := range svc.tags {
+					if t.Tag.Name == arg.Tag.Name {
 						return true
 					}
 				}

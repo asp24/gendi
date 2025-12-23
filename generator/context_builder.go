@@ -80,11 +80,11 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 		orderedServiceIDs: container.ServiceOrder,
 		decoratorsByBase:  decoratorsByBase,
 		baseByDecorator:   baseByDecorator,
+		tags:              container.Tags,
 		loader:            b.loader,
 		imports:           imports,
 		outputPkgPath:     b.loader.outputPkgPath,
 		containerName:     b.options.Container,
-		cfg:               b.cfg,
 		paramGetters:      paramGetters,
 	}
 
@@ -94,13 +94,19 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 func (b *ContextBuilder) convertService(irSvc *ir.Service) *serviceDef {
 	svcDef := &serviceDef{
 		id:                 irSvc.ID,
-		cfg:                b.cfg.Services[irSvc.ID],
 		typeName:           irSvc.Type,
 		public:             irSvc.Public,
 		shared:             irSvc.Shared,
 		canError:           irSvc.CanError,
 		decorationPriority: irSvc.Priority,
 		isDecorator:        irSvc.IsDecorator(),
+		tags:               irSvc.Tags,
+	}
+
+	if cfg := b.cfg.Services[irSvc.ID]; cfg != nil && cfg.Type != "" {
+		if declType, err := b.loader.LookupType(cfg.Type); err == nil {
+			svcDef.declaredType = declType
+		}
 	}
 
 	if irSvc.IsAlias() {
