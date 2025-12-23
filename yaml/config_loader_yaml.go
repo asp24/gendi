@@ -13,15 +13,13 @@ import (
 // ConfigLoaderYaml loads YAML configuration files with import resolution.
 type ConfigLoaderYaml struct {
 	resolver *di.ImportResolver
-	merger   *di.ConfigMerger
 	parser   *Parser
 }
 
 // NewConfigLoaderYaml creates a new YAML config loader with dependencies.
-func NewConfigLoaderYaml(resolver *di.ImportResolver, merger *di.ConfigMerger, parser *Parser) *ConfigLoaderYaml {
+func NewConfigLoaderYaml(resolver *di.ImportResolver, parser *Parser) *ConfigLoaderYaml {
 	return &ConfigLoaderYaml{
 		resolver: resolver,
-		merger:   merger,
 		parser:   parser,
 	}
 }
@@ -52,11 +50,7 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, visited map[string]bool) (
 		return nil, fmt.Errorf("parse %s: %w", abs, err)
 	}
 
-	merged := &di.Config{
-		Parameters: map[string]di.Parameter{},
-		Tags:       map[string]di.Tag{},
-		Services:   map[string]*di.Service{},
-	}
+	merged := di.NewConfig()
 
 	baseDir := filepath.Dir(abs)
 	for _, imp := range raw.Imports {
@@ -69,7 +63,7 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, visited map[string]bool) (
 			if err != nil {
 				return nil, err
 			}
-			merged = l.merger.Merge(merged, child)
+			merged = merged.MergeWith(child)
 		}
 	}
 
@@ -77,8 +71,8 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, visited map[string]bool) (
 	if err != nil {
 		return nil, fmt.Errorf("convert %s: %w", abs, err)
 	}
-	merged = l.merger.Merge(merged, cfg)
-	return merged, nil
+
+	return merged.MergeWith(cfg), nil
 }
 
 // parseRaw parses YAML data into raw config (with imports).

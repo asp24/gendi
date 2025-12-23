@@ -14,6 +14,33 @@ type Config struct {
 	Services   map[string]*Service
 }
 
+func NewConfig() *Config {
+	return &Config{
+		Parameters: make(map[string]Parameter),
+		Tags:       make(map[string]Tag),
+		Services:   make(map[string]*Service),
+	}
+}
+
+// MergeWith merges src into cfg and returns cfg.
+func (cfg *Config) MergeWith(src *Config) *Config {
+	if src == nil {
+		return cfg
+	}
+
+	for k, v := range src.Parameters {
+		cfg.Parameters[k] = v
+	}
+	for k, v := range src.Tags {
+		cfg.Tags[k] = v
+	}
+	for k, v := range src.Services {
+		copySvc := *v
+		cfg.Services[k] = &copySvc
+	}
+	return cfg
+}
+
 // Parameter defines a typed parameter literal.
 type Parameter struct {
 	Type  string

@@ -8,8 +8,7 @@ import (
 // This is a convenience function that creates a ConfigLoaderYaml with default dependencies.
 func LoadConfig(path string) (*di.Config, error) {
 	resolver := di.NewImportResolver()
-	merger := di.NewConfigMerger()
 	parser := NewParser()
-	loader := NewConfigLoaderYaml(resolver, merger, parser)
+	loader := NewConfigLoaderYaml(resolver, parser)
 	return loader.Load(path)
 }
