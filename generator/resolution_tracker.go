@@ -41,7 +41,7 @@ func (r *ResolutionTracker) FinishResolving(id string) {
 }
 
 // resolveAliasService resolves an alias service's type from its target.
-func resolveAliasService(svc *serviceDef, services map[string]*serviceDef, loader *typeLoader, resolveFunc func(string) error) error {
+func resolveAliasService(svc *serviceDef, services map[string]*serviceDef, loader *TypeLoader, resolveFunc func(string) error) error {
 	if svc.cfg.Constructor.Func != "" || svc.cfg.Constructor.Method != "" || len(svc.cfg.Constructor.Args) > 0 {
 		return fmt.Errorf("service %q alias cannot define constructor", svc.id)
 	}
@@ -74,7 +74,7 @@ func resolveAliasService(svc *serviceDef, services map[string]*serviceDef, loade
 }
 
 // resolveConstructorService resolves a service's constructor and result type.
-func resolveConstructorService(svc *serviceDef, services map[string]*serviceDef, loader *typeLoader, resolveFunc func(string) error) error {
+func resolveConstructorService(svc *serviceDef, services map[string]*serviceDef, loader *TypeLoader, resolveFunc func(string) error) error {
 	cons, err := resolveConstructor(svc.id, svc.cfg, loader, services, resolveFunc)
 	if err != nil {
 		return err

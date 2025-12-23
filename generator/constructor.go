@@ -8,7 +8,7 @@ import (
 	di "github.com/asp24/gendi"
 )
 
-func resolveConstructor(id string, svc *di.Service, loader *typeLoader, services map[string]*serviceDef, resolve func(string) error) (constructorDef, error) {
+func resolveConstructor(id string, svc *di.Service, loader *TypeLoader, services map[string]*serviceDef, resolve func(string) error) (constructorDef, error) {
 	cons := svc.Constructor
 	if cons.Func == "" && cons.Method == "" {
 		return constructorDef{}, fmt.Errorf("service %q missing constructor", id)

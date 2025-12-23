@@ -32,7 +32,7 @@ func New() *Item {
 		t.Fatalf("write package source: %v", err)
 	}
 
-	loader, err := newTypeLoader(Options{
+	loader, err := NewTypeLoader(Options{
 		ModulePath: modPath,
 		ModuleRoot: dir,
 		Out:        dir,

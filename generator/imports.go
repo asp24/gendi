@@ -2,27 +2,26 @@ package generator
 
 import (
 	"fmt"
+	"go/types"
 	"sort"
 	"strings"
-
-	"go/types"
 )
 
-type importManager struct {
+type ImportManager struct {
 	aliases       map[string]string
 	used          map[string]bool
 	outputPkgPath string
 }
 
-func newImportManager(outputPkgPath string) *importManager {
-	return &importManager{
+func NewImportManager(outputPkgPath string) *ImportManager {
+	return &ImportManager{
 		aliases:       map[string]string{},
 		used:          map[string]bool{},
 		outputPkgPath: outputPkgPath,
 	}
 }
 
-func (m *importManager) qualifier(pkg *types.Package) string {
+func (m *ImportManager) qualifier(pkg *types.Package) string {
 	if pkg.Path() == m.outputPkgPath {
 		return ""
 	}
@@ -48,7 +47,7 @@ func (m *importManager) qualifier(pkg *types.Package) string {
 	return alias
 }
 
-func (m *importManager) aliasInUse(alias string) bool {
+func (m *ImportManager) aliasInUse(alias string) bool {
 	for _, v := range m.aliases {
 		if v == alias {
 			return true
@@ -57,11 +56,11 @@ func (m *importManager) aliasInUse(alias string) bool {
 	return false
 }
 
-func (m *importManager) typeString(t types.Type) string {
+func (m *ImportManager) typeString(t types.Type) string {
 	return types.TypeString(t, m.qualifier)
 }
 
-func (m *importManager) funcName(fn *types.Func) string {
+func (m *ImportManager) funcName(fn *types.Func) string {
 	pkg := fn.Pkg()
 	if pkg == nil {
 		return fn.Name()
@@ -73,7 +72,7 @@ func (m *importManager) funcName(fn *types.Func) string {
 	return alias + "." + fn.Name()
 }
 
-func (m *importManager) renderImports(extra []string) string {
+func (m *ImportManager) renderImports(extra []string) string {
 	imports := []string{}
 	for path, alias := range m.aliases {
 		if alias == "" {

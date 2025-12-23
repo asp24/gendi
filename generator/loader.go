@@ -12,13 +12,13 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-type typeLoader struct {
+type TypeLoader struct {
 	packages      map[string]*types.Package
 	outputPkgPath string
 	moduleRoot    string
 }
 
-func newTypeLoader(opts Options) (*typeLoader, error) {
+func NewTypeLoader(opts Options) (*TypeLoader, error) {
 	modPath, modRoot := opts.ModulePath, opts.ModuleRoot
 	if modPath == "" || modRoot == "" {
 		path, root, err := moduleInfo()
@@ -32,21 +32,21 @@ func newTypeLoader(opts Options) (*typeLoader, error) {
 		outputPath = outputPkgPath(modPath, modRoot, opts.Out)
 	}
 
-	return &typeLoader{
+	return &TypeLoader{
 		packages:      map[string]*types.Package{},
 		outputPkgPath: outputPath,
 		moduleRoot:    modRoot,
 	}, nil
 }
 
-func (l *typeLoader) ensurePackage(path string) (*types.Package, error) {
+func (l *TypeLoader) ensurePackage(path string) (*types.Package, error) {
 	if pkg, ok := l.packages[path]; ok {
 		return pkg, nil
 	}
 	return nil, fmt.Errorf("package %q not loaded", path)
 }
 
-func (l *typeLoader) lookupFunc(pkgPath, name string) (*types.Func, error) {
+func (l *TypeLoader) lookupFunc(pkgPath, name string) (*types.Func, error) {
 	pkg, err := l.ensurePackage(pkgPath)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func (l *typeLoader) lookupFunc(pkgPath, name string) (*types.Func, error) {
 	return fn, nil
 }
 
-func (l *typeLoader) lookupType(typeStr string) (types.Type, error) {
+func (l *TypeLoader) lookupType(typeStr string) (types.Type, error) {
 	ptr := false
 	if strings.HasPrefix(typeStr, "*") {
 		ptr = true
@@ -98,7 +98,7 @@ func (l *typeLoader) lookupType(typeStr string) (types.Type, error) {
 	return t, nil
 }
 
-func (l *typeLoader) lookupMethod(recv types.Type, name string) (*types.Func, error) {
+func (l *TypeLoader) lookupMethod(recv types.Type, name string) (*types.Func, error) {
 	obj, _, _ := types.LookupFieldOrMethod(recv, true, nil, name)
 	if obj == nil {
 		return nil, fmt.Errorf("method %s not found", name)
@@ -110,7 +110,7 @@ func (l *typeLoader) lookupMethod(recv types.Type, name string) (*types.Func, er
 	return fn, nil
 }
 
-func (l *typeLoader) typeString(t types.Type) string {
+func (l *TypeLoader) typeString(t types.Type) string {
 	return types.TypeString(t, func(pkg *types.Package) string {
 		if pkg.Path() == l.outputPkgPath {
 			return ""
@@ -171,7 +171,7 @@ func outputPkgPath(modPath, modRoot, out string) string {
 	return modPath + "/" + rel
 }
 
-func (l *typeLoader) loadPackages(paths []string) error {
+func (l *TypeLoader) loadPackages(paths []string) error {
 	if len(paths) == 0 {
 		return nil
 	}

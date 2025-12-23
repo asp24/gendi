@@ -13,7 +13,7 @@ import (
 type ContextBuilder struct {
 	cfg              *di.Config
 	options          Options
-	loader           *typeLoader
+	loader           *TypeLoader
 	services         map[string]*serviceDef
 	order            []string
 	decoratorsByBase map[string][]*serviceDef
@@ -76,7 +76,7 @@ func (b *ContextBuilder) Build() (*genContext, error) {
 }
 
 func (b *ContextBuilder) initTypeLoader() error {
-	loader, err := newTypeLoader(b.options)
+	loader, err := NewTypeLoader(b.options)
 	if err != nil {
 		return err
 	}
@@ -268,7 +268,7 @@ func (b *ContextBuilder) detectCycles() error {
 }
 
 func (b *ContextBuilder) buildResult() (*genContext, error) {
-	imports := newImportManager(b.loader.outputPkgPath)
+	imports := NewImportManager(b.loader.outputPkgPath)
 	ctx := &genContext{
 		services:          b.services,
 		orderedServiceIDs: b.order,

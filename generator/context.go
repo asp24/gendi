@@ -9,8 +9,8 @@ type genContext struct {
 	orderedServiceIDs []string
 	decoratorsByBase  map[string][]*serviceDef
 	baseByDecorator   map[string]string
-	loader            *typeLoader
-	imports           *importManager
+	loader            *TypeLoader
+	imports           *ImportManager
 	outputPkgPath     string
 	containerName     string
 	hasShared         bool

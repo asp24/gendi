@@ -46,7 +46,7 @@ func isErrorType(t types.Type) bool {
 	return types.Identical(t, types.Universe.Lookup("error").Type())
 }
 
-func validateArgs(id string, svc *serviceDef, services map[string]*serviceDef, cfg *di.Config, loader *typeLoader, decoratorsByBase map[string][]*serviceDef, canError map[string]bool) error {
+func validateArgs(id string, svc *serviceDef, services map[string]*serviceDef, cfg *di.Config, loader *TypeLoader, decoratorsByBase map[string][]*serviceDef, canError map[string]bool) error {
 	cons := svc.constructor
 	params := cons.params
 	if len(cons.argDefs) != len(params) {
