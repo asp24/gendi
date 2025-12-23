@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	di "github.com/asp24/gendi"
 	"gopkg.in/yaml.v3"
-)
 
+	di "github.com/asp24/gendi"
+)
 
 // rawConfig is the YAML-specific representation of a config file.
 type rawConfig struct {
@@ -166,16 +166,25 @@ func (a *rawArgument) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
+// Parser converts raw YAML structures to di.Config.
+type Parser struct{}
+
+// NewParser creates a new YAML parser.
+func NewParser() *Parser {
+	return &Parser{}
+}
+
 // Parse parses YAML data into a di.Config.
 func Parse(data []byte) (*di.Config, error) {
+	parser := NewParser()
 	var raw rawConfig
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
-	return convertConfig(&raw)
+	return parser.convertConfig(&raw)
 }
 
-func convertConfig(raw *rawConfig) (*di.Config, error) {
+func (p *Parser) convertConfig(raw *rawConfig) (*di.Config, error) {
 	cfg := &di.Config{
 		Parameters: make(map[string]di.Parameter),
 		Tags:       make(map[string]di.Tag),
@@ -184,7 +193,7 @@ func convertConfig(raw *rawConfig) (*di.Config, error) {
 
 	// Convert parameters
 	for name, param := range raw.Parameters {
-		lit, err := convertLiteral(&param.Value)
+		lit, err := p.convertLiteral(&param.Value)
 		if err != nil {
 			return nil, fmt.Errorf("parameter %q: %w", name, err)
 		}
@@ -204,7 +213,7 @@ func convertConfig(raw *rawConfig) (*di.Config, error) {
 
 	// Convert services
 	for name, svc := range raw.Services {
-		converted, err := convertService(svc)
+		converted, err := p.convertService(svc)
 		if err != nil {
 			return nil, fmt.Errorf("service %q: %w", name, err)
 		}
@@ -214,7 +223,7 @@ func convertConfig(raw *rawConfig) (*di.Config, error) {
 	return cfg, nil
 }
 
-func convertService(raw *rawService) (*di.Service, error) {
+func (p *Parser) convertService(raw *rawService) (*di.Service, error) {
 	svc := &di.Service{
 		Type:               raw.Type,
 		Shared:             raw.Shared,
@@ -242,7 +251,7 @@ func convertService(raw *rawService) (*di.Service, error) {
 	if len(raw.Constructor.Args) > 0 {
 		svc.Constructor.Args = make([]di.Argument, len(raw.Constructor.Args))
 		for i, arg := range raw.Constructor.Args {
-			converted, err := convertArgument(&arg)
+			converted, err := p.convertArgument(&arg)
 			if err != nil {
 				return nil, fmt.Errorf("arg[%d]: %w", i, err)
 			}
@@ -253,14 +262,14 @@ func convertService(raw *rawService) (*di.Service, error) {
 	return svc, nil
 }
 
-func convertArgument(raw *rawArgument) (di.Argument, error) {
+func (p *Parser) convertArgument(raw *rawArgument) (di.Argument, error) {
 	arg := di.Argument{
 		Kind:  raw.kind,
 		Value: raw.value,
 	}
 
 	if raw.kind == di.ArgLiteral {
-		lit, err := convertLiteral(&raw.literal)
+		lit, err := p.convertLiteral(&raw.literal)
 		if err != nil {
 			return di.Argument{}, err
 		}
@@ -270,7 +279,7 @@ func convertArgument(raw *rawArgument) (di.Argument, error) {
 	return arg, nil
 }
 
-func convertLiteral(node *yaml.Node) (di.Literal, error) {
+func (p *Parser) convertLiteral(node *yaml.Node) (di.Literal, error) {
 	switch node.Tag {
 	case "!!str":
 		return di.NewStringLiteral(node.Value), nil
