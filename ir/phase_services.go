@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // servicePhase initializes services from config
@@ -12,6 +13,14 @@ type servicePhase struct{}
 func (p *servicePhase) build(ctx *buildContext) error {
 	ctx.order = make([]string, 0, len(ctx.cfg.Services))
 	for id, svc := range ctx.cfg.Services {
+		// Validate service ID is not empty or whitespace-only
+		if id == "" {
+			return fmt.Errorf("service ID cannot be empty")
+		}
+		if strings.TrimSpace(id) == "" {
+			return fmt.Errorf("service ID %q cannot be whitespace-only", id)
+		}
+
 		ctx.order = append(ctx.order, id)
 
 		shared := true
