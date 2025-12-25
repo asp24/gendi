@@ -114,18 +114,22 @@ func (b *literalBuilder) build(ctx *argBuildContext) (string, []string, error) {
 	return lit, nil, nil
 }
 
-// getArgumentBuilder returns the appropriate builder for the argument kind
+// argumentBuilderRegistry maps argument kinds to their builder implementations.
+// This registry pattern allows adding new argument types without modifying lookup logic.
+var argumentBuilderRegistry = map[ir.ArgumentKind]argumentBuilder{
+	ir.ServiceRefArg: &serviceRefBuilder{},
+	ir.InnerArg:      &innerBuilder{},
+	ir.ParamRefArg:   &paramRefBuilder{},
+	ir.TaggedArg:     &taggedBuilder{},
+	ir.LiteralArg:    &literalBuilder{},
+}
+
+// getArgumentBuilder returns the appropriate builder for the argument kind.
+// Returns a literal builder as default for unknown argument kinds.
 func getArgumentBuilder(kind ir.ArgumentKind) argumentBuilder {
-	switch kind {
-	case ir.ServiceRefArg:
-		return &serviceRefBuilder{}
-	case ir.InnerArg:
-		return &innerBuilder{}
-	case ir.ParamRefArg:
-		return &paramRefBuilder{}
-	case ir.TaggedArg:
-		return &taggedBuilder{}
-	default:
-		return &literalBuilder{}
+	if builder, ok := argumentBuilderRegistry[kind]; ok {
+		return builder
 	}
+	// Default to literal builder for unknown kinds
+	return &literalBuilder{}
 }
