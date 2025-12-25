@@ -13,11 +13,23 @@ type ImportManager struct {
 	outputPkgPath string
 }
 
-func NewImportManager(outputPkgPath string) *ImportManager {
-	return &ImportManager{
+func NewImportManager(outputPkgPath string, reservedAliases ...string) *ImportManager {
+	m := &ImportManager{
 		aliases:       map[string]string{},
 		used:          map[string]bool{},
 		outputPkgPath: outputPkgPath,
+	}
+	m.ReserveAliases(reservedAliases...)
+	return m
+}
+
+// ReserveAliases marks aliases as used so they cannot be selected.
+func (m *ImportManager) ReserveAliases(aliases ...string) {
+	for _, alias := range aliases {
+		if alias == "" {
+			continue
+		}
+		m.used[alias] = true
 	}
 }
 
@@ -48,12 +60,7 @@ func (m *ImportManager) qualifier(pkg *types.Package) string {
 }
 
 func (m *ImportManager) aliasInUse(alias string) bool {
-	for _, v := range m.aliases {
-		if v == alias {
-			return true
-		}
-	}
-	return false
+	return m.used[alias]
 }
 
 func (m *ImportManager) typeString(t types.Type) string {

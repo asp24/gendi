@@ -19,6 +19,11 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 
 	body := &bytes.Buffer{}
 	hasParams := len(g.cfg.Parameters) > 0
+	reservedAliases := []string{"sync", "fmt"}
+	if hasParams {
+		reservedAliases = append(reservedAliases, "parameters")
+	}
+	ctx.imports.ReserveAliases(reservedAliases...)
 
 	// Render main code sections
 	if err := g.renderParameters(body, hasParams); err != nil {
