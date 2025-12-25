@@ -239,6 +239,62 @@ constructor:
 
 ---
 
+### 6.3.4.1 The `$this` Package Token
+
+The special token `$this` can be used in constructor `func` and `method` fields to reference the Go package where the configuration file is located.
+
+**Purpose:**
+
+* Eliminates repetitive package paths in service definitions
+* Automatically resolves to the package containing the config file
+* Each imported config file has its own `$this` context
+
+**Usage:**
+
+```yaml
+services:
+  logger:
+    constructor:
+      func: "$this.NewLogger"  # Resolves to current package
+```
+
+**Resolution:**
+
+* `$this` is resolved by:
+  1. Finding the directory containing the config file
+  2. Walking up to find `go.mod`
+  3. Computing the full Go package path relative to module root
+* For a config at `/home/user/myapp/services/config.yaml` in module `github.com/user/myapp`:
+  * `$this` resolves to `github.com/user/myapp/services`
+  * `$this.NewLogger` becomes `github.com/user/myapp/services.NewLogger`
+
+**Rules:**
+
+* `$this` must appear at the start of the path (before the first dot)
+* Only the prefix `$this.` is substituted
+* Each imported file has its own `$this` context based on its location
+* If package resolution fails, `$this` remains unchanged and will cause a generation error if the symbol is not found
+
+**Example:**
+
+```yaml
+# File: /myapp/config.yaml
+# Module: github.com/acme/myapp
+
+services:
+  logger:
+    type: "*Logger"
+    constructor:
+      func: "$this.NewLogger"  # → github.com/acme/myapp.NewLogger
+
+  cache:
+    type: "*Cache"
+    constructor:
+      func: "$this.NewCache"  # → github.com/acme/myapp.NewCache
+```
+
+---
+
 ### 6.3.5 Allowed Constructor Signatures
 
 A constructor must return **exactly one** of the following:

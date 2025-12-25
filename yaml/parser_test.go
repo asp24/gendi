@@ -309,3 +309,102 @@ func findSubstr(s, substr string) bool {
 	}
 	return false
 }
+
+func TestThisSubstitutionInFunc(t *testing.T) {
+	raw := &RawService{
+		Type: "string",
+		Constructor: RawConstructor{
+			Func: "$this.NewService",
+		},
+	}
+	p := NewParser()
+	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	if err != nil {
+		t.Fatalf("convertServiceWithPackage failed: %v", err)
+	}
+
+	expected := "github.com/example/app.NewService"
+	if svc.Constructor.Func != expected {
+		t.Errorf("expected constructor func '%s', got '%s'", expected, svc.Constructor.Func)
+	}
+}
+
+func TestThisSubstitutionInMethod(t *testing.T) {
+	raw := &RawService{
+		Type: "string",
+		Constructor: RawConstructor{
+			Method: "$this.@service.Method",
+		},
+	}
+	p := NewParser()
+	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	if err != nil {
+		t.Fatalf("convertServiceWithPackage failed: %v", err)
+	}
+
+	expected := "github.com/example/app.@service.Method"
+	if svc.Constructor.Method != expected {
+		t.Errorf("expected constructor method '%s', got '%s'", expected, svc.Constructor.Method)
+	}
+}
+
+func TestThisSubstitutionNoPackage(t *testing.T) {
+	// When no package is provided, $this should remain unchanged
+	raw := &RawService{
+		Type: "string",
+		Constructor: RawConstructor{
+			Func: "$this.NewService",
+		},
+	}
+	p := NewParser()
+	svc, err := p.convertServiceWithPackage(raw, nil, "")
+	if err != nil {
+		t.Fatalf("convertServiceWithPackage failed: %v", err)
+	}
+
+	// Should remain unchanged when thisPackage is empty
+	if svc.Constructor.Func != "$this.NewService" {
+		t.Errorf("expected constructor func '$this.NewService', got '%s'", svc.Constructor.Func)
+	}
+}
+
+func TestThisSubstitutionNotAtStart(t *testing.T) {
+	// $this should only be substituted when at the start
+	raw := &RawService{
+		Type: "string",
+		Constructor: RawConstructor{
+			Func: "github.com/other/$this.NewService",
+		},
+	}
+	p := NewParser()
+	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	if err != nil {
+		t.Fatalf("convertServiceWithPackage failed: %v", err)
+	}
+
+	// Should remain unchanged since $this is not at the start
+	expected := "github.com/other/$this.NewService"
+	if svc.Constructor.Func != expected {
+		t.Errorf("expected constructor func '%s', got '%s'", expected, svc.Constructor.Func)
+	}
+}
+
+func TestThisSubstitutionNoConstructor(t *testing.T) {
+	// Test with alias (no constructor)
+	raw := &RawService{
+		Alias: "@other",
+	}
+	p := NewParser()
+	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	if err != nil {
+		t.Fatalf("convertServiceWithPackage failed: %v", err)
+	}
+
+	// Should not crash, constructor fields should be empty
+	if svc.Constructor.Func != "" {
+		t.Errorf("expected empty constructor func, got '%s'", svc.Constructor.Func)
+	}
+	if svc.Constructor.Method != "" {
+		t.Errorf("expected empty constructor method, got '%s'", svc.Constructor.Method)
+	}
+}
