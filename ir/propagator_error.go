@@ -3,49 +3,76 @@ package ir
 // errorPropagator propagates error flags through the dependency graph
 type errorPropagator struct{}
 
-// propagate computes error propagation for all services
+// propagate computes error propagation for all services in O(n) time
+// using topological ordering to avoid iterative convergence.
 func (p *errorPropagator) propagate(ctx *buildContext) {
-	// Initialize from constructors
-	for _, svc := range ctx.services {
-		if svc.Constructor != nil {
-			svc.BuildCanError = svc.Constructor.ReturnsError
+	// Build topological order based on dependency graph
+	order := p.topologicalSort(ctx.services)
+
+	// Phase 1: Propagate BuildCanError in dependency order
+	// Process services in topological order (dependencies before dependents)
+	for _, id := range order {
+		svc := ctx.services[id]
+
+		// Initialize from constructor
+		if svc.Constructor != nil && svc.Constructor.ReturnsError {
+			svc.BuildCanError = true
+		}
+
+		// Propagate from dependencies
+		// If any dependency's getter can error, then building this service can error
+		for _, dep := range svc.Dependencies {
+			if dep.CanError {
+				svc.BuildCanError = true
+				break
+			}
 		}
 	}
 
-	// Propagate until stable
-	changed := true
-	for changed {
-		changed = false
+	// Phase 2: Compute CanError from BuildCanError and decorators
+	// Process in reverse order (decorators before base services)
+	for i := len(order) - 1; i >= 0; i-- {
+		svc := ctx.services[order[i]]
 
-		// Build errors propagate from dependencies
-		for _, svc := range ctx.services {
-			if svc.BuildCanError {
-				continue
-			}
-			for _, dep := range svc.Dependencies {
-				if dep.CanError {
-					svc.BuildCanError = true
-					changed = true
-					break
-				}
-			}
-		}
+		// CanError starts as BuildCanError
+		svc.CanError = svc.BuildCanError
 
-		// Getter errors include decorator errors
-		for _, svc := range ctx.services {
-			newVal := svc.BuildCanError
-			if len(svc.Decorators) > 0 {
-				for _, dec := range svc.Decorators {
-					if dec.BuildCanError {
-						newVal = true
-						break
-					}
-				}
-			}
-			if svc.CanError != newVal {
-				svc.CanError = newVal
-				changed = true
+		// Include decorator build errors
+		for _, dec := range svc.Decorators {
+			if dec.BuildCanError {
+				svc.CanError = true
+				break
 			}
 		}
 	}
+}
+
+// topologicalSort returns service IDs in topological order using DFS.
+// Dependencies come before dependents in the result.
+func (p *errorPropagator) topologicalSort(services map[string]*Service) []string {
+	result := make([]string, 0, len(services))
+	visited := make(map[string]bool)
+
+	var visit func(svc *Service)
+	visit = func(svc *Service) {
+		if visited[svc.ID] {
+			return
+		}
+		visited[svc.ID] = true
+
+		// Visit dependencies first (including decorator base)
+		for _, dep := range svc.Dependencies {
+			visit(dep)
+		}
+
+		// Add this service after its dependencies
+		result = append(result, svc.ID)
+	}
+
+	// Visit all services
+	for _, svc := range services {
+		visit(svc)
+	}
+
+	return result
 }
