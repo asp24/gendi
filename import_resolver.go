@@ -95,34 +95,45 @@ func (r *ImportResolver) resolveGlob(baseDir, importPath string) ([]string, erro
 }
 
 func (r *ImportResolver) resolveModuleImport(baseDir, importPath string) (string, error) {
-	locator := gomod.NewLocator(baseDir)
-	parts := strings.Split(importPath, "/")
-	for i := len(parts); i >= 1; i-- {
-		candidate := strings.Join(parts[:i], "/")
-		if r.hasGlob(candidate) {
-			continue
-		}
-		moduleDir, err := locator.FindModuleDir(candidate)
-		if err != nil {
-			continue
-		}
-		remainder := strings.Join(parts[i:], "/")
-		if remainder == "" {
-			if path, ok := r.findDefaultConfig(moduleDir); ok {
-				return path, nil
-			}
-			return "", fmt.Errorf("module %s has no gendi.yaml", candidate)
-		}
-		full := filepath.Join(moduleDir, filepath.FromSlash(remainder))
-		if r.fileExists(full) {
-			return filepath.Abs(full)
-		}
-		return "", fmt.Errorf("module %s does not contain %s", candidate, remainder)
+	moduleDir, modulePath, remainder, err := r.findModule(baseDir, importPath)
+	if err != nil {
+		return "", err
 	}
-	return "", fmt.Errorf("module %s not found", importPath)
+	if remainder == "" {
+		if path, ok := r.findDefaultConfig(moduleDir); ok {
+			return path, nil
+		}
+		return "", fmt.Errorf("module %s has no gendi.yaml", modulePath)
+	}
+	full := filepath.Join(moduleDir, filepath.FromSlash(remainder))
+	if r.fileExists(full) {
+		return filepath.Abs(full)
+	}
+	return "", fmt.Errorf("module %s does not contain %s", modulePath, remainder)
 }
 
 func (r *ImportResolver) resolveModuleImportGlob(baseDir, importPath string) ([]string, error) {
+	moduleDir, modulePath, remainder, err := r.findModule(baseDir, importPath)
+	if err != nil {
+		return nil, err
+	}
+	if remainder == "" {
+		path, ok := r.findDefaultConfig(moduleDir)
+		if !ok {
+			return nil, fmt.Errorf("module %s has no gendi.yaml", modulePath)
+		}
+		return []string{path}, nil
+	}
+	pattern := filepath.Join(moduleDir, filepath.FromSlash(remainder))
+	return r.globFiles(pattern)
+}
+
+// findModule locates a Go module by iterating through import path segments.
+// Returns (moduleDir, modulePath, remainder, error) where:
+//   - moduleDir: absolute path to the module directory
+//   - modulePath: the import path of the found module
+//   - remainder: the path segment after the module path
+func (r *ImportResolver) findModule(baseDir, importPath string) (string, string, string, error) {
 	locator := gomod.NewLocator(baseDir)
 	parts := strings.Split(importPath, "/")
 	for i := len(parts); i >= 1; i-- {
@@ -135,17 +146,9 @@ func (r *ImportResolver) resolveModuleImportGlob(baseDir, importPath string) ([]
 			continue
 		}
 		remainder := strings.Join(parts[i:], "/")
-		if remainder == "" {
-			path, ok := r.findDefaultConfig(moduleDir)
-			if !ok {
-				return nil, fmt.Errorf("module %s has no gendi.yaml", candidate)
-			}
-			return []string{path}, nil
-		}
-		pattern := filepath.Join(moduleDir, filepath.FromSlash(remainder))
-		return r.globFiles(pattern)
+		return moduleDir, candidate, remainder, nil
 	}
-	return nil, fmt.Errorf("module %s not found", importPath)
+	return "", "", "", fmt.Errorf("module %s not found", importPath)
 }
 
 func (r *ImportResolver) findDefaultConfig(moduleDir string) (string, bool) {
