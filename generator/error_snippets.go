@@ -1,45 +1,151 @@
 package generator
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
-// errorSnippets provides helper functions for generating consistent error handling code snippets
+// ErrorSnippetBuilder generates consistent error handling code snippets.
+type ErrorSnippetBuilder struct {
+	serviceID   string
+	context     []string
+	contextVars []interface{}
+	multiline   bool
+	customCheck string // For non-standard conditions like nil checks
+}
 
-// serviceConstructorError generates error handling for service constructor failures
+// NewErrorSnippet creates a new error snippet builder for a service.
+func NewErrorSnippet(serviceID string) *ErrorSnippetBuilder {
+	return &ErrorSnippetBuilder{
+		serviceID:   serviceID,
+		context:     []string{},
+		contextVars: []interface{}{},
+		multiline:   false,
+	}
+}
+
+// WithContext adds a context component to the error message.
+func (b *ErrorSnippetBuilder) WithContext(format string, args ...interface{}) *ErrorSnippetBuilder {
+	b.context = append(b.context, format)
+	b.contextVars = append(b.contextVars, args...)
+	return b
+}
+
+// Multiline sets whether to use multiline formatting.
+func (b *ErrorSnippetBuilder) Multiline() *ErrorSnippetBuilder {
+	b.multiline = true
+	return b
+}
+
+// CustomCondition sets a custom condition instead of "err != nil".
+func (b *ErrorSnippetBuilder) CustomCondition(condition string) *ErrorSnippetBuilder {
+	b.customCheck = condition
+	return b
+}
+
+// Build generates the error handling code snippet.
+func (b *ErrorSnippetBuilder) Build() string {
+	// Build the error message format
+	msgParts := []string{"service %q"}
+	msgArgs := []interface{}{b.serviceID}
+
+	for i, ctx := range b.context {
+		msgParts = append(msgParts, ctx)
+		// Calculate how many args this format string needs
+		argCount := strings.Count(ctx, "%")
+		for j := 0; j < argCount; j++ {
+			if i*2+j < len(b.contextVars) {
+				msgArgs = append(msgArgs, b.contextVars[i*2+j])
+			}
+		}
+	}
+
+	// Determine the condition
+	condition := "err != nil"
+	wrappedErr := true
+	if b.customCheck != "" {
+		condition = b.customCheck
+		wrappedErr = false
+	}
+
+	// Build the error format string
+	errorMsg := strings.Join(msgParts, " ")
+	if wrappedErr {
+		errorMsg += ": %w"
+	}
+
+	// Build the fmt.Errorf call
+	fmtArgs := make([]string, 0, len(msgArgs)+1)
+	for _, arg := range msgArgs {
+		fmtArgs = append(fmtArgs, fmt.Sprintf("%q", arg))
+	}
+	if wrappedErr {
+		fmtArgs = append(fmtArgs, "err")
+	}
+
+	errCall := fmt.Sprintf("fmt.Errorf(%q, %s)", errorMsg, strings.Join(fmtArgs, ", "))
+
+	// Format the final snippet
+	if b.multiline {
+		return fmt.Sprintf("if %s {\n\t\treturn zero, %s\n\t}", condition, errCall)
+	}
+	return fmt.Sprintf("if %s { return zero, %s }", condition, errCall)
+}
+
+// Convenience functions for common error patterns
+
 func serviceConstructorError(serviceID string) string {
-	return fmt.Sprintf("if err != nil {\n\t\treturn zero, fmt.Errorf(\"service %%q constructor: %%w\", %q, err)\n\t}", serviceID)
+	return NewErrorSnippet(serviceID).
+		WithContext("constructor").
+		Multiline().
+		Build()
 }
 
-// serviceArgError generates error handling for service argument resolution failures
 func serviceArgError(serviceID string, argIndex int) string {
-	return fmt.Sprintf("if err != nil { return zero, fmt.Errorf(\"service %%q arg[%%d]: %%w\", %q, %d, err) }", serviceID, argIndex)
+	return NewErrorSnippet(serviceID).
+		WithContext("arg[%d]", argIndex).
+		Build()
 }
 
-// serviceParamError generates error handling for parameter resolution failures
 func serviceParamError(serviceID string, argIndex int, paramName string) string {
-	return fmt.Sprintf("if err != nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: %%w\", %q, %d, %q, err) }", serviceID, argIndex, paramName)
+	return NewErrorSnippet(serviceID).
+		WithContext("arg[%d]", argIndex).
+		WithContext("param %q", paramName).
+		Build()
 }
 
-// serviceParamNilCheck generates nil check for parameters provider
 func serviceParamNilCheck(serviceID string, argIndex int, paramName string) string {
-	return fmt.Sprintf("if c.params == nil { return zero, fmt.Errorf(\"service %%q arg[%%d] param %%q: parameters provider is nil\", %q, %d, %q) }", serviceID, argIndex, paramName)
+	return NewErrorSnippet(serviceID).
+		WithContext("arg[%d]", argIndex).
+		WithContext("param %q", paramName).
+		WithContext("parameters provider is nil").
+		CustomCondition("c.params == nil").
+		Build()
 }
 
-// serviceTagError generates error handling for tagged service resolution failures
 func serviceTagError(serviceID string, argIndex int, tagName string) string {
-	return fmt.Sprintf("if err != nil { return zero, fmt.Errorf(\"service %%q arg[%%d] tag %%q: %%w\", %q, %d, %q, err) }", serviceID, argIndex, tagName)
+	return NewErrorSnippet(serviceID).
+		WithContext("arg[%d]", argIndex).
+		WithContext("tag %q", tagName).
+		Build()
 }
 
-// serviceReceiverError generates error handling for method receiver resolution failures
 func serviceReceiverError(serviceID, receiverID string) string {
-	return fmt.Sprintf("if err != nil { return zero, fmt.Errorf(\"service %%q receiver %%q: %%w\", %q, %q, err) }", serviceID, receiverID)
+	return NewErrorSnippet(serviceID).
+		WithContext("receiver %q", receiverID).
+		Build()
 }
 
-// serviceBaseError generates error handling for decorator base service resolution failures
 func serviceBaseError(serviceID, baseID string) string {
-	return fmt.Sprintf("if err != nil {\n\t\treturn zero, fmt.Errorf(\"service %%q base %%q: %%w\", %q, %q, err)\n\t}", serviceID, baseID)
+	return NewErrorSnippet(serviceID).
+		WithContext("base %q", baseID).
+		Multiline().
+		Build()
 }
 
-// serviceDecoratorError generates error handling for decorator resolution failures
 func serviceDecoratorError(serviceID, decoratorID string) string {
-	return fmt.Sprintf("if err != nil {\n\t\treturn zero, fmt.Errorf(\"service %%q decorator %%q: %%w\", %q, %q, err)\n\t}", serviceID, decoratorID)
+	return NewErrorSnippet(serviceID).
+		WithContext("decorator %q", decoratorID).
+		Multiline().
+		Build()
 }
