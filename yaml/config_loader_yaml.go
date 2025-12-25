@@ -8,16 +8,17 @@ import (
 	ylib "gopkg.in/yaml.v3"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/imprt"
 )
 
 // ConfigLoaderYaml loads YAML configuration files with import resolution.
 type ConfigLoaderYaml struct {
-	resolver *di.ImportResolver
+	resolver imprt.Resolver
 	parser   *Parser
 }
 
 // NewConfigLoaderYaml creates a new YAML config loader with dependencies.
-func NewConfigLoaderYaml(resolver *di.ImportResolver, parser *Parser) *ConfigLoaderYaml {
+func NewConfigLoaderYaml(resolver imprt.Resolver, parser *Parser) *ConfigLoaderYaml {
 	return &ConfigLoaderYaml{
 		resolver: resolver,
 		parser:   parser,

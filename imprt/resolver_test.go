@@ -1,4 +1,4 @@
-package di
+package imprt
 
 import (
 	"os"
@@ -11,7 +11,7 @@ import (
 func TestImportResolverResolveErrors(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewImportResolver()
+	resolver := NewResolverCompositeDefault()
 	tempDir := t.TempDir()
 
 	_, err := resolver.Resolve(tempDir, "")
@@ -33,7 +33,7 @@ func TestImportResolverResolveErrors(t *testing.T) {
 func TestImportResolverResolveLocalAndAbsolute(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewImportResolver()
+	resolver := NewResolverCompositeDefault()
 	tempDir := t.TempDir()
 
 	relativePath := filepath.Join(tempDir, "config.yaml")
@@ -63,7 +63,7 @@ func TestImportResolverResolveLocalAndAbsolute(t *testing.T) {
 func TestImportResolverResolveGlob(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewImportResolver()
+	resolver := NewResolverCompositeDefault()
 	tempDir := t.TempDir()
 
 	writeFile(t, filepath.Join(tempDir, "a.yaml"), "a")
@@ -86,7 +86,7 @@ func TestImportResolverResolveGlob(t *testing.T) {
 func TestImportResolverResolveModuleDefaultConfig(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewImportResolver()
+	resolver := NewResolverCompositeDefault()
 	moduleRoot, baseDir, modulePath := createModule(t)
 	defaultConfig := filepath.Join(moduleRoot, "gendi.yaml")
 	writeFile(t, defaultConfig, "name: module")
@@ -104,7 +104,7 @@ func TestImportResolverResolveModuleDefaultConfig(t *testing.T) {
 func TestImportResolverResolveModuleFile(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewImportResolver()
+	resolver := NewResolverCompositeDefault()
 	moduleRoot, baseDir, modulePath := createModule(t)
 	configPath := filepath.Join(moduleRoot, "configs", "app.yaml")
 	writeFile(t, configPath, "name: app")
@@ -122,7 +122,7 @@ func TestImportResolverResolveModuleFile(t *testing.T) {
 func TestImportResolverResolveModuleFileMissing(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewImportResolver()
+	resolver := NewResolverCompositeDefault()
 	_, baseDir, modulePath := createModule(t)
 
 	_, err := resolver.Resolve(baseDir, modulePath+"/configs/missing.yaml")
@@ -134,7 +134,7 @@ func TestImportResolverResolveModuleFileMissing(t *testing.T) {
 func TestImportResolverResolveModuleGlob(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewImportResolver()
+	resolver := NewResolverCompositeDefault()
 	moduleRoot, baseDir, modulePath := createModule(t)
 	writeFile(t, filepath.Join(moduleRoot, "configs", "a.yaml"), "a")
 	writeFile(t, filepath.Join(moduleRoot, "configs", "b.yaml"), "b")
