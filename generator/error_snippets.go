@@ -49,13 +49,15 @@ func (b *ErrorSnippetBuilder) Build() string {
 	msgParts := []string{"service %q"}
 	msgArgs := []interface{}{b.serviceID}
 
-	for i, ctx := range b.context {
+	varIndex := 0
+	for _, ctx := range b.context {
 		msgParts = append(msgParts, ctx)
 		// Calculate how many args this format string needs
 		argCount := strings.Count(ctx, "%")
 		for j := 0; j < argCount; j++ {
-			if i*2+j < len(b.contextVars) {
-				msgArgs = append(msgArgs, b.contextVars[i*2+j])
+			if varIndex < len(b.contextVars) {
+				msgArgs = append(msgArgs, b.contextVars[varIndex])
+				varIndex++
 			}
 		}
 	}
