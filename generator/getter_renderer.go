@@ -1,0 +1,110 @@
+package generator
+
+import (
+	"bytes"
+	"fmt"
+	"go/types"
+)
+
+// privateGetterRenderer renders a private getter function for a service.
+type privateGetterRenderer interface {
+	render(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error
+}
+
+// selectPrivateGetterRenderer chooses the appropriate renderer based on service properties.
+func selectPrivateGetterRenderer(svc *serviceDef, resType types.Type) privateGetterRenderer {
+	if svc.aliasTarget != "" {
+		return &aliasGetterRenderer{}
+	}
+	if !svc.shared {
+		return &nonSharedGetterRenderer{}
+	}
+	if isNilablePointer(resType) {
+		return &sharedPtrGetterRenderer{}
+	}
+	return &sharedValueGetterRenderer{}
+}
+
+// aliasGetterRenderer renders a getter that delegates to an alias target.
+type aliasGetterRenderer struct{}
+
+func (r *aliasGetterRenderer) render(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+	getter := svc.privateGetterName
+	resType := getterType(svc, ctx.services, ctx.decoratorsByBase)
+	getterTypeStr := ctx.imports.typeString(resType)
+
+	target := ctx.services[svc.aliasTarget]
+	if target == nil {
+		return fmt.Errorf("unknown alias target %q", svc.aliasTarget)
+	}
+
+	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, getterTypeStr)
+	fmt.Fprintf(b, "\treturn c.%s()\n", target.privateGetterName)
+	b.WriteString("}\n\n")
+	return nil
+}
+
+// sharedPtrGetterRenderer renders a getter for shared services with pointer types.
+// Uses the field directly for caching (nil check).
+type sharedPtrGetterRenderer struct{}
+
+func (r *sharedPtrGetterRenderer) render(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+	getter := svc.privateGetterName
+	resType := getterType(svc, ctx.services, ctx.decoratorsByBase)
+	getterTypeStr := ctx.imports.typeString(resType)
+	fieldName := ctx.nameGen.fieldIdent(svc.id)
+
+	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, getterTypeStr)
+	fmt.Fprintf(b, "\tvar zero %s\n", getterTypeStr)
+	fmt.Fprintf(b, "\tif c.%s != nil {\n\t\treturn c.%s, nil\n\t}\n", fieldName, fieldName)
+	fmt.Fprintf(b, "\tres, err := %s\n", getterBuildExpr(ctx, svc))
+	fmt.Fprintf(b, "\tif err != nil {\n")
+	fmt.Fprintf(b, "\t\treturn zero, err\n\t}\n")
+	fmt.Fprintf(b, "\tc.%s = res\n", fieldName)
+	fmt.Fprintf(b, "\treturn res, nil\n")
+	b.WriteString("}\n\n")
+	return nil
+}
+
+// sharedValueGetterRenderer renders a getter for shared services with value types.
+// Uses a separate Init flag for caching.
+type sharedValueGetterRenderer struct{}
+
+func (r *sharedValueGetterRenderer) render(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+	getter := svc.privateGetterName
+	resType := getterType(svc, ctx.services, ctx.decoratorsByBase)
+	getterTypeStr := ctx.imports.typeString(resType)
+	fieldName := ctx.nameGen.fieldIdent(svc.id)
+
+	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, getterTypeStr)
+	fmt.Fprintf(b, "\tvar zero %s\n", getterTypeStr)
+	fmt.Fprintf(b, "\tif c.%sInit {\n", fieldName)
+	fmt.Fprintf(b, "\t\treturn c.%s, nil\n", fieldName)
+	fmt.Fprintf(b, "\t}\n")
+	fmt.Fprintf(b, "\tres, err := %s\n", getterBuildExpr(ctx, svc))
+	fmt.Fprintf(b, "\tif err != nil {\n")
+	fmt.Fprintf(b, "\t\treturn zero, err\n\t}\n")
+	fmt.Fprintf(b, "\tc.%s = res\n", fieldName)
+	fmt.Fprintf(b, "\tc.%sInit = true\n", fieldName)
+	fmt.Fprintf(b, "\treturn res, nil\n")
+	b.WriteString("}\n\n")
+	return nil
+}
+
+// nonSharedGetterRenderer renders a getter for non-shared (prototype) services.
+// No caching - builds a new instance on every call.
+type nonSharedGetterRenderer struct{}
+
+func (r *nonSharedGetterRenderer) render(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+	getter := svc.privateGetterName
+	resType := getterType(svc, ctx.services, ctx.decoratorsByBase)
+	getterTypeStr := ctx.imports.typeString(resType)
+
+	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, getterTypeStr)
+	fmt.Fprintf(b, "\tvar zero %s\n", getterTypeStr)
+	fmt.Fprintf(b, "\tres, err := %s\n", getterBuildExpr(ctx, svc))
+	fmt.Fprintf(b, "\tif err != nil {\n\t\treturn zero, err\n\t}\n")
+	fmt.Fprintf(b, "\treturn res, nil\n")
+	b.WriteString("}\n\n")
+	return nil
+}

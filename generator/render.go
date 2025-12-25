@@ -284,49 +284,9 @@ func renderDecoratorChain(b *bytes.Buffer, ctx *genContext, svc *serviceDef) err
 }
 
 func renderPrivateGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
-	getter := svc.privateGetterName
 	resType := getterType(svc, ctx.services, ctx.decoratorsByBase)
-	getterType := ctx.imports.typeString(resType)
-	isPtr := isNilablePointer(resType)
-	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, getterType)
-
-	if svc.aliasTarget != "" {
-		target := ctx.services[svc.aliasTarget]
-		if target == nil {
-			return fmt.Errorf("unknown alias target %q", svc.aliasTarget)
-		}
-		fmt.Fprintf(b, "\treturn c.%s()\n", target.privateGetterName)
-		b.WriteString("}\n\n")
-		return nil
-	}
-	fmt.Fprintf(b, "\tvar zero %s\n", getterType)
-
-	if svc.shared {
-		if isPtr {
-			fmt.Fprintf(b, "\tif c.%s != nil {\n\t\treturn c.%s, nil\n\t}\n", ctx.nameGen.fieldIdent(svc.id), ctx.nameGen.fieldIdent(svc.id))
-			fmt.Fprintf(b, "\tres, err := %s\n", getterBuildExpr(ctx, svc))
-			fmt.Fprintf(b, "\tif err != nil {\n")
-			fmt.Fprintf(b, "\t\treturn zero, err\n\t}\n")
-			fmt.Fprintf(b, "\tc.%s = res\n", ctx.nameGen.fieldIdent(svc.id))
-			fmt.Fprintf(b, "\treturn res, nil\n")
-		} else {
-			fmt.Fprintf(b, "\tif c.%sInit {\n", ctx.nameGen.fieldIdent(svc.id))
-			fmt.Fprintf(b, "\t\treturn c.%s, nil\n", ctx.nameGen.fieldIdent(svc.id))
-			fmt.Fprintf(b, "\t}\n")
-			fmt.Fprintf(b, "\tres, err := %s\n", getterBuildExpr(ctx, svc))
-			fmt.Fprintf(b, "\tif err != nil {\n")
-			fmt.Fprintf(b, "\t\treturn zero, err\n\t}\n")
-			fmt.Fprintf(b, "\tc.%s = res\n", ctx.nameGen.fieldIdent(svc.id))
-			fmt.Fprintf(b, "\tc.%sInit = true\n", ctx.nameGen.fieldIdent(svc.id))
-			fmt.Fprintf(b, "\treturn res, nil\n")
-		}
-	} else {
-		fmt.Fprintf(b, "\tres, err := %s\n", getterBuildExpr(ctx, svc))
-		fmt.Fprintf(b, "\tif err != nil {\n\t\treturn zero, err\n\t}\n")
-		fmt.Fprintf(b, "\treturn res, nil\n")
-	}
-	b.WriteString("}\n\n")
-	return nil
+	renderer := selectPrivateGetterRenderer(svc, resType)
+	return renderer.render(b, ctx, svc)
 }
 
 func renderGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
