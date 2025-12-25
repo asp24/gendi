@@ -1,31 +1,12 @@
 package generator
 
 import (
-	"fmt"
-	"go/types"
 	"sort"
 	"strings"
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/internal/typeutil"
 )
-
-func paramGetterMethod(t types.Type) (string, error) {
-	switch {
-	case types.Identical(t, types.Typ[types.String]):
-		return "GetString", nil
-	case types.Identical(t, types.Typ[types.Int]):
-		return "GetInt", nil
-	case types.Identical(t, types.Typ[types.Bool]):
-		return "GetBool", nil
-	case types.Identical(t, types.Typ[types.Float64]):
-		return "GetFloat", nil
-	case typeutil.IsDuration(t):
-		return "GetDuration", nil
-	default:
-		return "", fmt.Errorf("unsupported parameter type %s", types.TypeString(t, nil))
-	}
-}
 
 func collectPackagePaths(cfg *di.Config) ([]string, error) {
 	seen := map[string]bool{}
