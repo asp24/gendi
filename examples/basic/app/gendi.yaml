@@ -27,16 +27,14 @@ services:
     shared: true
     tags:
       - name: payment.provider
-        attributes:
-          priority: 100
+        priority: 100
   provider.paypal:
     constructor:
       func: "$this.NewPaypalProvider"
     shared: true
     tags:
       - name: payment.provider
-        attributes:
-          priority: 10
+        priority: 10
   service:
     constructor:
       func: "$this.NewService"

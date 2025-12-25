@@ -78,13 +78,11 @@ services:
     shared: false
     tags:
       - name: notifier
-        attributes:
-          priority: 50
+        priority: 50
   notifier.sms:
     constructor:
       func: "github.com/asp24/gendi/examples/advanced/app.NewSMSNotifier"
     shared: false
     tags:
       - name: notifier
-        attributes:
-          priority: 10
+        priority: 10

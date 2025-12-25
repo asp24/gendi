@@ -187,6 +187,126 @@ func TestServiceDefaults(t *testing.T) {
 	}
 }
 
+func TestServiceTagFlattened(t *testing.T) {
+	// Test new syntax where attributes are at the same level as name
+	raw := &RawService{
+		Type: "string",
+		Tags: []RawServiceTag{
+			{
+				Name: "test.tag",
+				Attributes: map[string]interface{}{
+					"priority": 10,
+					"enabled":  true,
+				},
+			},
+		},
+	}
+
+	p := NewParser()
+	svc, err := p.convertService(raw, nil)
+	if err != nil {
+		t.Fatalf("convertService failed: %v", err)
+	}
+
+	if len(svc.Tags) != 1 {
+		t.Fatalf("expected 1 tag, got %d", len(svc.Tags))
+	}
+
+	tag := svc.Tags[0]
+	if tag.Name != "test.tag" {
+		t.Errorf("expected tag name 'test.tag', got '%s'", tag.Name)
+	}
+
+	if priority, ok := tag.Attributes["priority"].(int); !ok || priority != 10 {
+		t.Errorf("expected priority=10, got %v", tag.Attributes["priority"])
+	}
+
+	if enabled, ok := tag.Attributes["enabled"].(bool); !ok || !enabled {
+		t.Errorf("expected enabled=true, got %v", tag.Attributes["enabled"])
+	}
+}
+
+func TestServiceTagOnlyName(t *testing.T) {
+	// Test tag with only name (no attributes)
+	raw := &RawService{
+		Type: "string",
+		Tags: []RawServiceTag{
+			{
+				Name:       "marker.tag",
+				Attributes: map[string]interface{}{},
+			},
+		},
+	}
+
+	p := NewParser()
+	svc, err := p.convertService(raw, nil)
+	if err != nil {
+		t.Fatalf("convertService failed: %v", err)
+	}
+
+	if len(svc.Tags) != 1 {
+		t.Fatalf("expected 1 tag, got %d", len(svc.Tags))
+	}
+
+	tag := svc.Tags[0]
+	if tag.Name != "marker.tag" {
+		t.Errorf("expected tag name 'marker.tag', got '%s'", tag.Name)
+	}
+
+	if len(tag.Attributes) != 0 {
+		t.Errorf("expected no attributes, got %v", tag.Attributes)
+	}
+}
+
+func TestServiceTagYAMLParsing(t *testing.T) {
+	// Test that YAML parsing works with the new flattened syntax
+	yamlContent := `
+services:
+  test.service:
+    type: string
+    tags:
+      - name: handler.http
+        priority: 10
+        path: /api/test
+      - name: marker.tag
+`
+
+	var raw RawConfig
+	if err := yaml.Unmarshal([]byte(yamlContent), &raw); err != nil {
+		t.Fatalf("failed to unmarshal YAML: %v", err)
+	}
+
+	svc, ok := raw.Services["test.service"]
+	if !ok {
+		t.Fatal("service 'test.service' not found")
+	}
+
+	if len(svc.Tags) != 2 {
+		t.Fatalf("expected 2 tags, got %d", len(svc.Tags))
+	}
+
+	// First tag: handler.http with attributes
+	tag1 := svc.Tags[0]
+	if tag1.Name != "handler.http" {
+		t.Errorf("expected tag name 'handler.http', got '%s'", tag1.Name)
+	}
+	if priority, ok := tag1.Attributes["priority"].(int); !ok || priority != 10 {
+		t.Errorf("expected priority=10, got %v", tag1.Attributes["priority"])
+	}
+	if path, ok := tag1.Attributes["path"].(string); !ok || path != "/api/test" {
+		t.Errorf("expected path='/api/test', got %v", tag1.Attributes["path"])
+	}
+
+	// Second tag: marker.tag with no attributes
+	tag2 := svc.Tags[1]
+	if tag2.Name != "marker.tag" {
+		t.Errorf("expected tag name 'marker.tag', got '%s'", tag2.Name)
+	}
+	if len(tag2.Attributes) != 0 {
+		t.Errorf("expected no attributes for marker tag, got %v", tag2.Attributes)
+	}
+}
+
 func TestValidateDefaultsRejectsInvalidFields(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -233,7 +353,7 @@ func TestValidateDefaultsRejectsInvalidFields(t *testing.T) {
 		{
 			name: "tags not allowed",
 			service: &RawService{
-				Tags: []rawServiceTag{{Name: "foo"}},
+				Tags: []RawServiceTag{{Name: "foo"}},
 			},
 			expectError: "tags",
 		},

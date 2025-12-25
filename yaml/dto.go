@@ -53,9 +53,45 @@ type RawTag struct {
 	SortBy      string `yaml:"sort_by"`
 }
 
-type rawServiceTag struct {
-	Name       string                 `yaml:"name"`
-	Attributes map[string]interface{} `yaml:"attributes"`
+type RawServiceTag struct {
+	Name       string
+	Attributes map[string]interface{}
+}
+
+func (t *RawServiceTag) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind != yaml.MappingNode {
+		return fmt.Errorf("tag must be a mapping")
+	}
+
+	t.Attributes = make(map[string]interface{})
+
+	// Iterate over key-value pairs in the mapping
+	for i := 0; i < len(node.Content); i += 2 {
+		keyNode := node.Content[i]
+		valueNode := node.Content[i+1]
+
+		key := keyNode.Value
+
+		if key == "name" {
+			// Decode name field
+			if err := valueNode.Decode(&t.Name); err != nil {
+				return fmt.Errorf("failed to decode tag name: %w", err)
+			}
+		} else {
+			// All other fields are attributes
+			var value interface{}
+			if err := valueNode.Decode(&value); err != nil {
+				return fmt.Errorf("failed to decode tag attribute %q: %w", key, err)
+			}
+			t.Attributes[key] = value
+		}
+	}
+
+	if t.Name == "" {
+		return fmt.Errorf("tag name is required")
+	}
+
+	return nil
 }
 
 // ServiceDefaults holds default values for service configuration.
@@ -72,7 +108,7 @@ type RawService struct {
 	Public             *bool           `yaml:"public"`
 	Decorates          string          `yaml:"decorates"`
 	DecorationPriority int             `yaml:"decoration_priority"`
-	Tags               []rawServiceTag `yaml:"tags"`
+	Tags               []RawServiceTag `yaml:"tags"`
 	Alias              string          `yaml:"alias"`
 }
 

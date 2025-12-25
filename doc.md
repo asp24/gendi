@@ -176,7 +176,31 @@ services:
     decoration_priority: 10
     tags:
       - name: tag.name
-        attributes: {}
+        priority: 10              # any field except 'name' becomes an attribute
+        custom_field: value
+```
+
+**Service Tags:**
+
+Tags are specified as a list of mappings. Each tag must have a `name` field. All other fields are automatically treated as tag attributes:
+
+```yaml
+tags:
+  - name: handler.http
+    priority: 10
+    path: /api/users
+
+  - name: marker.tag           # Tag with no attributes (only name)
+```
+
+This is equivalent to the old verbose syntax:
+
+```yaml
+tags:
+  - name: handler.http
+    attributes:
+      priority: 10
+      path: /api/users
 ```
 
 ---
