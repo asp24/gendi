@@ -408,3 +408,105 @@ func TestThisSubstitutionNoConstructor(t *testing.T) {
 		t.Errorf("expected empty constructor method, got '%s'", svc.Constructor.Method)
 	}
 }
+
+func TestThisSubstitutionInType(t *testing.T) {
+	raw := &RawService{
+		Type: "$this.Logger",
+		Constructor: RawConstructor{
+			Func: "example.com/pkg.NewLogger",
+		},
+	}
+	p := NewParser()
+	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	if err != nil {
+		t.Fatalf("convertServiceWithPackage failed: %v", err)
+	}
+
+	expected := "github.com/example/app.Logger"
+	if svc.Type != expected {
+		t.Errorf("expected type '%s', got '%s'", expected, svc.Type)
+	}
+}
+
+func TestThisSubstitutionInTypePointer(t *testing.T) {
+	raw := &RawService{
+		Type: "*$this.Logger",
+		Constructor: RawConstructor{
+			Func: "example.com/pkg.NewLogger",
+		},
+	}
+	p := NewParser()
+	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	if err != nil {
+		t.Fatalf("convertServiceWithPackage failed: %v", err)
+	}
+
+	// Should substitute $this even with pointer prefix
+	expected := "*github.com/example/app.Logger"
+	if svc.Type != expected {
+		t.Errorf("expected type '%s', got '%s'", expected, svc.Type)
+	}
+}
+
+func TestThisSubstitutionInTypeSlice(t *testing.T) {
+	raw := &RawService{
+		Type: "[]$this.Logger",
+		Constructor: RawConstructor{
+			Func: "example.com/pkg.NewLoggers",
+		},
+	}
+	p := NewParser()
+	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	if err != nil {
+		t.Fatalf("convertServiceWithPackage failed: %v", err)
+	}
+
+	expected := "[]github.com/example/app.Logger"
+	if svc.Type != expected {
+		t.Errorf("expected type '%s', got '%s'", expected, svc.Type)
+	}
+}
+
+func TestThisSubstitutionInTypeMap(t *testing.T) {
+	raw := &RawService{
+		Type: "map[string]$this.Logger",
+		Constructor: RawConstructor{
+			Func: "example.com/pkg.NewLoggerMap",
+		},
+	}
+	p := NewParser()
+	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	if err != nil {
+		t.Fatalf("convertServiceWithPackage failed: %v", err)
+	}
+
+	expected := "map[string]github.com/example/app.Logger"
+	if svc.Type != expected {
+		t.Errorf("expected type '%s', got '%s'", expected, svc.Type)
+	}
+}
+
+func TestThisSubstitutionInTypeAndFunc(t *testing.T) {
+	// Test that both type and func are substituted
+	raw := &RawService{
+		Type: "$this.Logger",
+		Constructor: RawConstructor{
+			Func: "$this.NewLogger",
+		},
+	}
+	p := NewParser()
+	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	if err != nil {
+		t.Fatalf("convertServiceWithPackage failed: %v", err)
+	}
+
+	expectedType := "github.com/example/app.Logger"
+	if svc.Type != expectedType {
+		t.Errorf("expected type '%s', got '%s'", expectedType, svc.Type)
+	}
+
+	expectedFunc := "github.com/example/app.NewLogger"
+	if svc.Constructor.Func != expectedFunc {
+		t.Errorf("expected constructor func '%s', got '%s'", expectedFunc, svc.Constructor.Func)
+	}
+}

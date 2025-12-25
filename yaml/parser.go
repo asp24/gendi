@@ -144,6 +144,11 @@ func (p *Parser) convertServiceWithPackage(raw *RawService, defaults *ServiceDef
 
 	// Substitute $this with the resolved package path
 	if thisPackage != "" {
+		// Substitute in type field (can appear anywhere due to type prefixes like *, [], etc.)
+		if strings.Contains(svc.Type, "$this.") {
+			svc.Type = strings.ReplaceAll(svc.Type, "$this.", thisPackage+".")
+		}
+		// Substitute in constructor fields (must be at start)
 		if strings.HasPrefix(svc.Constructor.Func, "$this.") {
 			svc.Constructor.Func = strings.Replace(svc.Constructor.Func, "$this.", thisPackage+".", 1)
 		}

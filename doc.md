@@ -241,7 +241,7 @@ constructor:
 
 ### 6.3.4.1 The `$this` Package Token
 
-The special token `$this` can be used in constructor `func` and `method` fields to reference the Go package where the configuration file is located.
+The special token `$this` can be used in service `type`, constructor `func`, and `method` fields to reference the Go package where the configuration file is located.
 
 **Purpose:**
 
@@ -254,8 +254,9 @@ The special token `$this` can be used in constructor `func` and `method` fields 
 ```yaml
 services:
   logger:
+    type: "*$this.Logger"       # Resolves to current package
     constructor:
-      func: "$this.NewLogger"  # Resolves to current package
+      func: "$this.NewLogger"   # Resolves to current package
 ```
 
 **Resolution:**
@@ -270,8 +271,8 @@ services:
 
 **Rules:**
 
-* `$this` must appear at the start of the path (before the first dot)
-* Only the prefix `$this.` is substituted
+* For `type` field: `$this.` can appear anywhere in the type (supports `*$this.T`, `[]$this.T`, `map[K]$this.V`, etc.)
+* For `func` and `method` fields: `$this` must appear at the start of the path
 * Each imported file has its own `$this` context based on its location
 * If package resolution fails, `$this` remains unchanged and will cause a generation error if the symbol is not found
 
@@ -283,14 +284,14 @@ services:
 
 services:
   logger:
-    type: "*Logger"
+    type: "*$this.Logger"           # → *github.com/acme/myapp.Logger
     constructor:
-      func: "$this.NewLogger"  # → github.com/acme/myapp.NewLogger
+      func: "$this.NewLogger"       # → github.com/acme/myapp.NewLogger
 
   cache:
-    type: "*Cache"
+    type: "*$this.Cache"            # → *github.com/acme/myapp.Cache
     constructor:
-      func: "$this.NewCache"  # → github.com/acme/myapp.NewCache
+      func: "$this.NewCache"        # → github.com/acme/myapp.NewCache
 ```
 
 ---
