@@ -17,6 +17,11 @@ type ConfigLoaderYaml struct {
 	parser   *Parser
 }
 
+type loadState struct {
+	inProgress map[string]bool
+	cache      map[string]*di.Config
+}
+
 // NewConfigLoaderYaml creates a new YAML config loader with dependencies.
 func NewConfigLoaderYaml(resolver imprt.Resolver, parser *Parser) *ConfigLoaderYaml {
 	return &ConfigLoaderYaml{
@@ -27,19 +32,26 @@ func NewConfigLoaderYaml(resolver imprt.Resolver, parser *Parser) *ConfigLoaderY
 
 // Load loads a YAML config file with imports resolved.
 func (l *ConfigLoaderYaml) Load(path string) (*di.Config, error) {
-	visited := map[string]bool{}
-	return l.loadRecursive(path, visited)
+	state := &loadState{
+		inProgress: map[string]bool{},
+		cache:      map[string]*di.Config{},
+	}
+	return l.loadRecursive(path, state)
 }
 
-func (l *ConfigLoaderYaml) loadRecursive(path string, visited map[string]bool) (*di.Config, error) {
+func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Config, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
-	if visited[abs] {
+	if cfg, ok := state.cache[abs]; ok {
+		return cfg, nil
+	}
+	if state.inProgress[abs] {
 		return nil, fmt.Errorf("cyclic import detected at %s", abs)
 	}
-	visited[abs] = true
+	state.inProgress[abs] = true
+	defer delete(state.inProgress, abs)
 
 	data, err := l.readFile(abs)
 	if err != nil {
@@ -60,7 +72,7 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, visited map[string]bool) (
 			return nil, fmt.Errorf("resolve import %q: %w", imp.Path, err)
 		}
 		for _, impPath := range impPaths {
-			child, err := l.loadRecursive(impPath, visited)
+			child, err := l.loadRecursive(impPath, state)
 			if err != nil {
 				return nil, err
 			}
@@ -73,7 +85,9 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, visited map[string]bool) (
 		return nil, fmt.Errorf("convert %s: %w", abs, err)
 	}
 
-	return merged.MergeWith(cfg), nil
+	result := merged.MergeWith(cfg)
+	state.cache[abs] = result
+	return result, nil
 }
 
 // parseRaw parses YAML data into raw config (with imports).
