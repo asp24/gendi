@@ -194,58 +194,14 @@ func (g *Generator) assembleOutput(body *bytes.Buffer, ctx *genContext, hasParam
 	return out.Bytes()
 }
 
-type buildConfig struct {
-	isDecorator bool
-}
-
-func renderBuildFunction(b *bytes.Buffer, ctx *genContext, svc *serviceDef, cfg buildConfig) error {
-	var name string
-	var signature string
-	var innerVar string
-
-	retType := ctx.imports.typeString(svc.typeName)
-	returnsErr := buildNeedsErrorHandling(svc)
-
-	if cfg.isDecorator {
-		name = ctx.nameGen.decoratorBuildName(svc)
-		innerType := ctx.imports.typeString(serviceDeclaredType(ctx, ctx.services[svc.decorates]))
-		signature = fmt.Sprintf("func (c *%s) %s(inner %s) (%s, error)", ctx.containerName, name, innerType, retType)
-		innerVar = "inner"
-	} else {
-		name = ctx.nameGen.buildName(svc)
-		signature = fmt.Sprintf("func (c *%s) %s() (%s, error)", ctx.containerName, name, retType)
-		innerVar = ""
-	}
-
-	fmt.Fprintf(b, "%s {\n", signature)
-	if returnsErr {
-		fmt.Fprintf(b, "\tvar zero %s\n", retType)
-	}
-
-	stmts, callExpr, err := constructorCall(ctx, svc, innerVar, returnsErr)
-	if err != nil {
-		return err
-	}
-	for _, stmt := range stmts {
-		fmt.Fprintf(b, "\t%s\n", stmt)
-	}
-	if svc.constructor.returnsError {
-		fmt.Fprintf(b, "\tres, err := %s\n", callExpr)
-		fmt.Fprintf(b, "\t%s\n", serviceConstructorError(svc.id))
-		fmt.Fprintf(b, "\treturn res, nil\n")
-	} else {
-		fmt.Fprintf(b, "\treturn %s, nil\n", callExpr)
-	}
-	b.WriteString("}\n\n")
-	return nil
-}
-
 func renderBuild(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
-	return renderBuildFunction(b, ctx, svc, buildConfig{isDecorator: false})
+	renderer := selectBuildRenderer(svc)
+	return renderer.render(b, ctx, svc)
 }
 
 func renderDecoratorBuild(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
-	return renderBuildFunction(b, ctx, svc, buildConfig{isDecorator: true})
+	renderer := selectBuildRenderer(svc)
+	return renderer.render(b, ctx, svc)
 }
 
 func renderDecoratorChain(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
