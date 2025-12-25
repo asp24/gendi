@@ -66,7 +66,7 @@ func (b *paramRefBuilder) build(ctx *argBuildContext) (string, []string, error) 
 	}
 	paramVar := ctx.genCtx.nameGen.varIdent("param", ctx.argument.Parameter.Name)
 	stmts := []string{
-		serviceParamNilCheck(ctx.service.id, ctx.argIndex, ctx.argument.Parameter.Name),
+		// Note: No need to check c.params == nil because the constructor ensures params is never nil
 		fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, ctx.argument.Parameter.Name),
 		serviceParamError(ctx.service.id, ctx.argIndex, ctx.argument.Parameter.Name),
 	}

@@ -35,9 +35,6 @@ func NewContainer(params parameters.Provider) *Container {
 
 func (c *Container) buildDb() (*app.DB, error) {
 	var zero *app.DB
-	if c.params == nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q parameters provider is nil", "db", '\x00', "dsn")
-	}
 	param_dsn, err := c.params.GetString("dsn")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "db", '\x00', "dsn", err)
@@ -77,9 +74,6 @@ func (c *Container) buildHandler() (*app.Handler, error) {
 
 func (c *Container) buildLogger() (*app.Logger, error) {
 	var zero *app.Logger
-	if c.params == nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q parameters provider is nil", "logger", '\x00', "log_prefix")
-	}
 	param_log_prefix, err := c.params.GetString("log_prefix")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "logger", '\x00', "log_prefix", err)
@@ -89,9 +83,6 @@ func (c *Container) buildLogger() (*app.Logger, error) {
 
 func (c *Container) buildMailer() (app.Mailer, error) {
 	var zero app.Mailer
-	if c.params == nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q parameters provider is nil", "mailer", '\x00', "mail_host")
-	}
 	param_mail_host, err := c.params.GetString("mail_host")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer", '\x00', "mail_host", err)
@@ -101,9 +92,6 @@ func (c *Container) buildMailer() (app.Mailer, error) {
 
 func (c *Container) buildMailerPrefixDecorator(inner app.Mailer) (*app.MailerPrefixDecorator, error) {
 	var zero *app.MailerPrefixDecorator
-	if c.params == nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q parameters provider is nil", "mailer.prefix", '\x01', "mail_prefix")
-	}
 	param_mail_prefix, err := c.params.GetString("mail_prefix")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.prefix", '\x01', "mail_prefix", err)
@@ -113,9 +101,6 @@ func (c *Container) buildMailerPrefixDecorator(inner app.Mailer) (*app.MailerPre
 
 func (c *Container) buildMailerRetryDecorator(inner app.Mailer) (*app.MailerRetryDecorator, error) {
 	var zero *app.MailerRetryDecorator
-	if c.params == nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q parameters provider is nil", "mailer.retry", '\x01', "mail_retries")
-	}
 	param_mail_retries, err := c.params.GetInt("mail_retries")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.retry", '\x01', "mail_retries", err)

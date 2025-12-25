@@ -45,9 +45,6 @@ func (c *Container) buildProviderStripe() (*app.PaymentProvider, error) {
 
 func (c *Container) buildRepo() (*app.Repo, error) {
 	var zero *app.Repo
-	if c.params == nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q parameters provider is nil", "repo", '\x00', "dsn")
-	}
 	param_dsn, err := c.params.GetString("dsn")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "repo", '\x00', "dsn", err)
