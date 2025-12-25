@@ -13,4 +13,5 @@ type genContext struct {
 	outputPkgPath     string
 	containerName     string
 	paramGetters      map[string]string
+	nameGen           *nameGenerator
 }

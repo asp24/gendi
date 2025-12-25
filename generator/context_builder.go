@@ -75,6 +75,8 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 	baseByDecorator := container.BaseByDecorator()
 	paramGetters := container.ParamGetters()
 
+	nameGen := newNameGenerator()
+
 	ctx := &genContext{
 		services:          services,
 		orderedServiceIDs: container.ServiceOrder,
@@ -86,6 +88,7 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 		outputPkgPath:     b.loader.outputPkgPath,
 		containerName:     b.options.Container,
 		paramGetters:      paramGetters,
+		nameGen:           nameGen,
 	}
 
 	return ctx, nil
