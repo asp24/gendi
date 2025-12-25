@@ -5,6 +5,35 @@ import (
 	"strings"
 )
 
+// countFormatSpecifiers counts the number of format specifiers in a format string.
+// It correctly handles %% (escaped percent) which is not a format specifier.
+func countFormatSpecifiers(format string) int {
+	count := 0
+	i := 0
+	for i < len(format) {
+		if format[i] == '%' {
+			if i+1 < len(format) {
+				next := format[i+1]
+				if next == '%' {
+					// %% is escaped percent, skip both
+					i += 2
+					continue
+				}
+				// Any other %X is a format specifier
+				count++
+				i += 2
+			} else {
+				// Trailing %, count it as specifier (will cause runtime error anyway)
+				count++
+				i++
+			}
+		} else {
+			i++
+		}
+	}
+	return count
+}
+
 // ErrorSnippetBuilder generates consistent error handling code snippets.
 type ErrorSnippetBuilder struct {
 	serviceID   string
@@ -53,7 +82,8 @@ func (b *ErrorSnippetBuilder) Build() string {
 	for _, ctx := range b.context {
 		msgParts = append(msgParts, ctx)
 		// Calculate how many args this format string needs
-		argCount := strings.Count(ctx, "%")
+		// Use proper counting that handles %% escape sequences
+		argCount := countFormatSpecifiers(ctx)
 		for j := 0; j < argCount; j++ {
 			if varIndex < len(b.contextVars) {
 				msgArgs = append(msgArgs, b.contextVars[varIndex])
