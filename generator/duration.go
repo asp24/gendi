@@ -6,27 +6,12 @@ import (
 	"time"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/internal/typeutil"
 	"github.com/asp24/gendi/ir"
 )
 
 func isTimeDuration(t types.Type) bool {
-	for {
-		ptr, ok := t.(*types.Pointer)
-		if !ok {
-			break
-		}
-		t = ptr.Elem()
-	}
-	named, ok := t.(*types.Named)
-	if !ok {
-		return false
-	}
-	obj := named.Obj()
-	if obj == nil || obj.Name() != "Duration" {
-		return false
-	}
-	pkg := obj.Pkg()
-	return pkg != nil && pkg.Path() == "time"
+	return typeutil.IsDuration(t)
 }
 
 func durationLiteral(lit di.Literal) (int64, error) {

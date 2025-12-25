@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"strings"
 
+	"github.com/asp24/gendi/internal/typeutil"
 	"github.com/asp24/gendi/ir"
 )
 
@@ -88,7 +89,7 @@ func (b *taggedBuilder) build(ctx *genContext, svc *serviceDef, arg *ir.Argument
 type literalBuilder struct{}
 
 func (b *literalBuilder) build(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
-	if isTimeDuration(paramType) {
+	if typeutil.IsDuration(paramType) {
 		nanos, err := durationLiteralValue(arg.Literal)
 		if err != nil {
 			return "", nil, err

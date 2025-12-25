@@ -20,7 +20,7 @@ func paramGetterMethod(t types.Type) (string, error) {
 		return "GetBool", nil
 	case types.Identical(t, types.Typ[types.Float64]):
 		return "GetFloat", nil
-	case isTimeDuration(t):
+	case typeutil.IsDuration(t):
 		return "GetDuration", nil
 	default:
 		return "", fmt.Errorf("unsupported parameter type %s", types.TypeString(t, nil))

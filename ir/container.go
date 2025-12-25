@@ -3,6 +3,8 @@ package ir
 import (
 	"go/types"
 	"time"
+
+	"github.com/asp24/gendi/internal/typeutil"
 )
 
 // Container is the fully resolved intermediate representation of a DI container.
@@ -191,44 +193,19 @@ type ServiceTag struct {
 // GetterMethod returns the Provider method name for this parameter's type.
 func (p *Parameter) GetterMethod() string {
 	switch {
-	case isString(p.Type):
+	case typeutil.IsString(p.Type):
 		return "GetString"
-	case isInt(p.Type):
+	case typeutil.IsInt(p.Type):
 		return "GetInt"
-	case isBool(p.Type):
+	case typeutil.IsBool(p.Type):
 		return "GetBool"
-	case isFloat64(p.Type):
+	case typeutil.IsFloat64(p.Type):
 		return "GetFloat"
-	case isDuration(p.Type):
+	case typeutil.IsDuration(p.Type):
 		return "GetDuration"
 	default:
 		return ""
 	}
-}
-
-func isString(t types.Type) bool {
-	return types.Identical(t, types.Typ[types.String])
-}
-
-func isInt(t types.Type) bool {
-	return types.Identical(t, types.Typ[types.Int])
-}
-
-func isBool(t types.Type) bool {
-	return types.Identical(t, types.Typ[types.Bool])
-}
-
-func isFloat64(t types.Type) bool {
-	return types.Identical(t, types.Typ[types.Float64])
-}
-
-func isDuration(t types.Type) bool {
-	named, ok := t.(*types.Named)
-	if !ok {
-		return false
-	}
-	obj := named.Obj()
-	return obj.Pkg() != nil && obj.Pkg().Path() == "time" && obj.Name() == "Duration"
 }
 
 // DurationValue represents a parsed duration.
