@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/asp24/gendi/internal/typeutil"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -77,7 +78,7 @@ func (l *TypeLoader) LookupType(typeStr string) (types.Type, error) {
 		}
 		return t, nil
 	}
-	pkgPath, name, err := splitPkgSymbol(typeStr)
+	pkgPath, name, err := typeutil.SplitQualifiedName(typeStr)
 	if err != nil {
 		return nil, err
 	}

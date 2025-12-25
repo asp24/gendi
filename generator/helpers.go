@@ -7,15 +7,8 @@ import (
 	"strings"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/internal/typeutil"
 )
-
-func splitPkgSymbol(s string) (string, string, error) {
-	idx := strings.LastIndex(s, ".")
-	if idx <= 0 || idx == len(s)-1 {
-		return "", "", fmt.Errorf("invalid qualified name %q", s)
-	}
-	return s[:idx], s[idx+1:], nil
-}
 
 func paramGetterMethod(t types.Type) (string, error) {
 	switch {
@@ -44,7 +37,7 @@ func collectPackagePaths(cfg *di.Config) ([]string, error) {
 
 	for _, svc := range cfg.Services {
 		if svc.Constructor.Func != "" {
-			pkg, _, err := splitPkgSymbol(svc.Constructor.Func)
+			pkg, _, err := typeutil.SplitQualifiedName(svc.Constructor.Func)
 			if err != nil {
 				return nil, err
 			}
@@ -90,7 +83,7 @@ func typePkgPath(typeStr string) (string, error) {
 	if !strings.Contains(t, ".") {
 		return "", nil
 	}
-	pkg, _, err := splitPkgSymbol(t)
+	pkg, _, err := typeutil.SplitQualifiedName(t)
 	if err != nil {
 		return "", err
 	}

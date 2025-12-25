@@ -3,19 +3,9 @@ package ir
 import (
 	"fmt"
 	"go/types"
-	"strings"
 
 	di "github.com/asp24/gendi"
 )
-
-// splitPkgSymbol splits a qualified symbol like "pkg/path.Symbol" into package path and symbol name
-func splitPkgSymbol(s string) (string, string, error) {
-	idx := strings.LastIndex(s, ".")
-	if idx <= 0 || idx == len(s)-1 {
-		return "", "", fmt.Errorf("invalid qualified name %q", s)
-	}
-	return s[:idx], s[idx+1:], nil
-}
 
 // validateConstructorSignature validates that a signature returns T or (T, error)
 func validateConstructorSignature(sig *types.Signature) (types.Type, bool, error) {

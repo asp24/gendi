@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/internal/typeutil"
 )
 
 // constructorResolver resolves service constructors (functions, methods, and aliases)
@@ -135,7 +136,7 @@ func (r *constructorResolver) resolveConstructor(ctx *buildContext, svc *Service
 
 // resolveFuncConstructor resolves a function constructor
 func (r *constructorResolver) resolveFuncConstructor(ctx *buildContext, id string, cons di.Constructor) (*Constructor, error) {
-	pkgPath, name, err := splitPkgSymbol(cons.Func)
+	pkgPath, name, err := typeutil.SplitQualifiedName(cons.Func)
 	if err != nil {
 		return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
 	}
