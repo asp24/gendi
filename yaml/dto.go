@@ -58,11 +58,18 @@ type rawServiceTag struct {
 	Attributes map[string]interface{} `yaml:"attributes"`
 }
 
+// ServiceDefaults holds default values for service configuration.
+// Only shared and public fields are allowed in _default section.
+type ServiceDefaults struct {
+	Shared *bool `yaml:"shared"`
+	Public *bool `yaml:"public"`
+}
+
 type RawService struct {
 	Type               string          `yaml:"type"`
 	Constructor        RawConstructor  `yaml:"constructor"`
 	Shared             *bool           `yaml:"shared"`
-	Public             bool            `yaml:"public,omitempty"`
+	Public             *bool           `yaml:"public"`
 	Decorates          string          `yaml:"decorates"`
 	DecorationPriority int             `yaml:"decoration_priority"`
 	Tags               []rawServiceTag `yaml:"tags"`

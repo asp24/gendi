@@ -44,9 +44,25 @@ func (p *Parser) convertConfig(raw *RawConfig) (*di.Config, error) {
 		}
 	}
 
+	// Extract and parse _default if present
+	var defaults *ServiceDefaults
+	if defaultSvc, ok := raw.Services["_default"]; ok {
+		defaults = &ServiceDefaults{
+			Shared: defaultSvc.Shared,
+			Public: defaultSvc.Public,
+		}
+		// Validate that _default only contains allowed fields
+		if err := p.validateDefaults(defaultSvc); err != nil {
+			return nil, fmt.Errorf("_default: %w", err)
+		}
+	}
+
 	// Convert services
 	for name, svc := range raw.Services {
-		converted, err := p.convertService(svc)
+		if name == "_default" {
+			continue // Skip _default itself
+		}
+		converted, err := p.convertService(svc, defaults)
 		if err != nil {
 			return nil, fmt.Errorf("service %q: %w", name, err)
 		}
@@ -56,11 +72,28 @@ func (p *Parser) convertConfig(raw *RawConfig) (*di.Config, error) {
 	return cfg, nil
 }
 
-func (p *Parser) convertService(raw *RawService) (di.Service, error) {
+func (p *Parser) convertService(raw *RawService, defaults *ServiceDefaults) (di.Service, error) {
+	// Apply defaults if not explicitly set
+	shared := raw.Shared
+	if shared == nil && defaults != nil && defaults.Shared != nil {
+		shared = defaults.Shared
+	}
+
+	public := raw.Public
+	if public == nil && defaults != nil && defaults.Public != nil {
+		public = defaults.Public
+	}
+
+	// Convert to non-pointer for di.Service
+	publicBool := false
+	if public != nil {
+		publicBool = *public
+	}
+
 	svc := di.Service{
 		Type:               raw.Type,
-		Shared:             raw.Shared,
-		Public:             raw.Public,
+		Shared:             shared,
+		Public:             publicBool,
 		Decorates:          raw.Decorates,
 		DecorationPriority: raw.DecorationPriority,
 	}
@@ -158,4 +191,28 @@ func (p *Parser) convertLiteral(node *yaml.Node) (di.Literal, error) {
 	default:
 		return di.Literal{}, fmt.Errorf("unsupported literal type %q", node.Tag)
 	}
+}
+
+// validateDefaults ensures _default only contains allowed fields (shared, public)
+func (p *Parser) validateDefaults(raw *RawService) error {
+	if raw.Type != "" {
+		return fmt.Errorf("field 'type' is not allowed in _default")
+	}
+	if raw.Constructor.Func != "" || raw.Constructor.Method != "" || len(raw.Constructor.Args) > 0 {
+		return fmt.Errorf("field 'constructor' is not allowed in _default")
+	}
+	if raw.Alias != "" {
+		return fmt.Errorf("field 'alias' is not allowed in _default")
+	}
+	if raw.Decorates != "" {
+		return fmt.Errorf("field 'decorates' is not allowed in _default")
+	}
+	if raw.DecorationPriority != 0 {
+		return fmt.Errorf("field 'decoration_priority' is not allowed in _default")
+	}
+	if len(raw.Tags) > 0 {
+		return fmt.Errorf("field 'tags' is not allowed in _default")
+	}
+	// Only shared and public are allowed, which we already extracted
+	return nil
 }

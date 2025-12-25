@@ -181,7 +181,38 @@ services:
 
 ---
 
-### 6.3.2 `type` Field (Optional)
+### 6.3.2 Service Defaults
+
+The `_default` key allows setting default values for `shared` and `public` fields across all services:
+
+```yaml
+services:
+  _default:
+    shared: true      # All services are shared by default
+    public: false     # All services are private by default
+
+  logger:
+    type: "*app.Logger"
+    constructor:
+      func: app.NewLogger
+    public: true      # Overrides default: make this one public
+
+  cache:
+    type: "*app.Cache"
+    constructor:
+      func: app.NewCache
+    # Inherits: shared=true, public=false
+```
+
+Rules:
+* Only `shared` and `public` fields are allowed in `_default`
+* Explicit values in individual services always override defaults
+* Other fields (type, constructor, alias, decorates, tags) are forbidden in `_default`
+* If a field is not set in `_default` or the service, the standard default applies (shared defaults to true, public defaults to false)
+
+---
+
+### 6.3.3 `type` Field (Optional)
 
 * If omitted, the service type is **inferred from the constructor return type**.
 * If present, it is treated as a **contract**.
@@ -190,7 +221,7 @@ services:
 
 ---
 
-### 6.3.3 Constructor
+### 6.3.4 Constructor
 
 Supported forms:
 
@@ -208,7 +239,7 @@ constructor:
 
 ---
 
-### 6.3.4 Allowed Constructor Signatures
+### 6.3.5 Allowed Constructor Signatures
 
 A constructor must return **exactly one** of the following:
 
@@ -228,7 +259,7 @@ Violation results in a generation error.
 
 ---
 
-### 6.3.5 Constructor Arguments
+### 6.3.6 Constructor Arguments
 
 | Syntax             | Meaning                      |
 | ------------------ | ---------------------------- |
