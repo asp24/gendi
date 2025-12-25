@@ -15,13 +15,13 @@ import (
 // ImportResolver resolves import paths to actual file paths.
 // It handles absolute paths, relative paths, glob patterns, and Go module imports.
 type ImportResolver struct {
-	composite *pathResolverComposite
+	pathResolver pathResolver
 }
 
 // NewImportResolver creates a new import resolver.
 func NewImportResolver() *ImportResolver {
 	return &ImportResolver{
-		composite: newPathResolverComposite(),
+		pathResolver: newPathResolverComposite(),
 	}
 }
 
@@ -40,7 +40,7 @@ func (r *ImportResolver) Resolve(baseDir, importPath string) ([]string, error) {
 		globFiles:         r.globFiles,
 	}
 
-	return r.composite.Resolve(baseDir, importPath, fs)
+	return r.pathResolver.Resolve(baseDir, importPath, fs)
 }
 
 func (r *ImportResolver) fileExists(path string) bool {

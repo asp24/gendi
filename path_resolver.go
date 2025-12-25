@@ -25,12 +25,22 @@ type pathResolverComposite struct {
 func newPathResolverComposite() *pathResolverComposite {
 	return &pathResolverComposite{
 		resolvers: []pathResolver{
-			&globResolver{},           // Try glob patterns first
-			&absolutePathResolver{},   // Then absolute paths
-			&localPathResolver{},      // Then local paths
-			&modulePathResolver{},     // Finally module imports
+			&globResolver{},         // Try glob patterns first
+			&absolutePathResolver{}, // Then absolute paths
+			&localPathResolver{},    // Then local paths
+			&modulePathResolver{},   // Finally module imports
 		},
 	}
+}
+
+func (c *pathResolverComposite) CanResolve(importPath string) bool {
+	for _, resolver := range c.resolvers {
+		if resolver.CanResolve(importPath) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Resolve attempts resolution with each resolver in the chain.
