@@ -21,7 +21,7 @@ func (p *Parser) convertConfig(raw *RawConfig) (*di.Config, error) {
 	cfg := &di.Config{
 		Parameters: make(map[string]di.Parameter),
 		Tags:       make(map[string]di.Tag),
-		Services:   make(map[string]*di.Service),
+		Services:   make(map[string]di.Service),
 	}
 
 	// Convert parameters
@@ -56,8 +56,8 @@ func (p *Parser) convertConfig(raw *RawConfig) (*di.Config, error) {
 	return cfg, nil
 }
 
-func (p *Parser) convertService(raw *RawService) (*di.Service, error) {
-	svc := &di.Service{
+func (p *Parser) convertService(raw *RawService) (di.Service, error) {
+	svc := di.Service{
 		Type:               raw.Type,
 		Shared:             raw.Shared,
 		Public:             raw.Public,
@@ -93,7 +93,7 @@ func (p *Parser) convertService(raw *RawService) (*di.Service, error) {
 		for i, arg := range raw.Constructor.Args {
 			converted, err := p.convertArgument(&arg)
 			if err != nil {
-				return nil, fmt.Errorf("arg[%d]: %w", i, err)
+				return di.Service{}, fmt.Errorf("arg[%d]: %w", i, err)
 			}
 			svc.Constructor.Args[i] = converted
 		}

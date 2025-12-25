@@ -34,9 +34,9 @@ func (r *constructorResolver) resolve(ctx *buildContext) error {
 		cfg := ctx.cfg.Services[id]
 
 		if cfg.Alias != "" {
-			return r.resolveAlias(ctx, svc, cfg, resolveService)
+			return r.resolveAlias(ctx, svc, &cfg, resolveService)
 		}
-		return r.resolveConstructor(ctx, svc, cfg, resolveService)
+		return r.resolveConstructor(ctx, svc, &cfg, resolveService)
 	}
 
 	for _, id := range ctx.order {

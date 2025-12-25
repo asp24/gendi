@@ -106,7 +106,7 @@ func (b *ContextBuilder) convertService(irSvc *ir.Service) *serviceDef {
 		tags:               irSvc.Tags,
 	}
 
-	if cfg := b.cfg.Services[irSvc.ID]; cfg != nil && cfg.Type != "" {
+	if cfg, ok := b.cfg.Services[irSvc.ID]; ok && cfg.Type != "" {
 		if declType, err := b.loader.LookupType(cfg.Type); err == nil {
 			svcDef.declaredType = declType
 		}

@@ -11,14 +11,14 @@ type Pass interface {
 type Config struct {
 	Parameters map[string]Parameter
 	Tags       map[string]Tag
-	Services   map[string]*Service
+	Services   map[string]Service
 }
 
 func NewConfig() *Config {
 	return &Config{
 		Parameters: make(map[string]Parameter),
 		Tags:       make(map[string]Tag),
-		Services:   make(map[string]*Service),
+		Services:   make(map[string]Service),
 	}
 }
 
@@ -35,8 +35,7 @@ func (cfg *Config) MergeWith(src *Config) *Config {
 		cfg.Tags[k] = v
 	}
 	for k, v := range src.Services {
-		copySvc := *v
-		cfg.Services[k] = &copySvc
+		cfg.Services[k] = v
 	}
 	return cfg
 }

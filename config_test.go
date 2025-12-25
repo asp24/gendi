@@ -82,8 +82,8 @@ imports:
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	dupe := cfg.Services["dupe"]
-	if dupe == nil || dupe.Constructor.Func != "example.NewB" {
+	dupe, ok := cfg.Services["dupe"]
+	if !ok || dupe.Constructor.Func != "example.NewB" {
 		t.Fatalf("expected dupe service to come from base_b")
 	}
 	if _, ok := cfg.Services["extra"]; !ok {
@@ -138,11 +138,11 @@ imports:
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	dupe := cfg.Services["dupe"]
-	if dupe == nil || dupe.Constructor.Func != "example.NewB" {
+	dupe, ok := cfg.Services["dupe"]
+	if !ok || dupe.Constructor.Func != "example.NewB" {
 		t.Fatalf("expected dupe service to come from nested base_b")
 	}
-	if _, ok := cfg.Services["extra_recursive"]; !ok {
+	if _, ok = cfg.Services["extra_recursive"]; !ok {
 		t.Fatalf("expected extra_recursive service from nested base_b")
 	}
 }
@@ -250,8 +250,8 @@ services:
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	svc := cfg.Services["svc"]
-	if svc == nil || len(svc.Constructor.Args) != 1 {
+	svc, ok := cfg.Services["svc"]
+	if !ok || len(svc.Constructor.Args) != 1 {
 		t.Fatalf("expected one constructor arg")
 	}
 	arg := svc.Constructor.Args[0]

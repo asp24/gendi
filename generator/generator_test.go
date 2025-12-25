@@ -9,7 +9,7 @@ import (
 
 func TestRequiresPublicService(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"a": {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
@@ -26,7 +26,7 @@ func TestRequiresPublicService(t *testing.T) {
 
 func TestReachabilityAndPublicGetters(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"a": {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
@@ -81,7 +81,7 @@ func TestParameterProviderCodegen(t *testing.T) {
 				Value: di.NewStringLiteral("[app] "),
 			},
 		},
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"logger": {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
@@ -116,7 +116,7 @@ func TestDurationParameterCodegen(t *testing.T) {
 				Value: di.NewStringLiteral("1s"),
 			},
 		},
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"timer": {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
@@ -142,7 +142,7 @@ func TestDurationParameterCodegen(t *testing.T) {
 
 func TestNullLiteralArgument(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"b": {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewB",
@@ -167,7 +167,7 @@ func TestNullLiteralArgument(t *testing.T) {
 
 func TestServiceAliasCodegen(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"logger": {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
@@ -209,7 +209,7 @@ func TestServiceAliasCodegen(t *testing.T) {
 
 func TestDecoratorPrivateGetterElidedWhenUnused(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"svc": {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
@@ -255,7 +255,7 @@ func TestDecoratorPrivateGetterElidedWhenUnused(t *testing.T) {
 
 func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"svc": {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
@@ -299,7 +299,7 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 
 func TestServiceTypeAssignableOverride(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"svc": {
 				Type: "github.com/asp24/gendi/generator/testdata/app.Service",
 				Constructor: di.Constructor{
@@ -318,7 +318,7 @@ func TestServiceTypeAssignableOverride(t *testing.T) {
 
 func TestDecoratorAssignableToDeclaredBaseType(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"svc": {
 				Type: "github.com/asp24/gendi/generator/testdata/app.Service",
 				Constructor: di.Constructor{
