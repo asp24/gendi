@@ -337,7 +337,16 @@ func constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsE
 
 func buildArg(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
 	builder := getArgumentBuilder(arg.Kind)
-	return builder.build(ctx, svc, arg, innerVar, returnsErr, argIndex, paramType)
+	buildCtx := &argBuildContext{
+		genCtx:     ctx,
+		service:    svc,
+		argument:   arg,
+		innerVar:   innerVar,
+		returnsErr: returnsErr,
+		argIndex:   argIndex,
+		paramType:  paramType,
+	}
+	return builder.build(buildCtx)
 }
 
 func taggedServices(ctx *genContext, tag string) []*serviceDef {

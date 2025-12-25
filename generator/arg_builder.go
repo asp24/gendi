@@ -9,25 +9,36 @@ import (
 	"github.com/asp24/gendi/ir"
 )
 
+// argBuildContext bundles parameters for building constructor arguments.
+type argBuildContext struct {
+	genCtx     *genContext
+	service    *serviceDef
+	argument   *ir.Argument
+	innerVar   string
+	returnsErr bool
+	argIndex   int
+	paramType  types.Type
+}
+
 // argumentBuilder builds a code expression for a constructor argument
 type argumentBuilder interface {
-	build(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (expr string, stmts []string, err error)
+	build(ctx *argBuildContext) (expr string, stmts []string, err error)
 }
 
 // serviceRefBuilder handles service reference arguments
 type serviceRefBuilder struct{}
 
-func (b *serviceRefBuilder) build(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
-	dep := ctx.services[arg.Service.ID]
+func (b *serviceRefBuilder) build(ctx *argBuildContext) (string, []string, error) {
+	dep := ctx.genCtx.services[ctx.argument.Service.ID]
 	if dep == nil {
-		return "", nil, fmt.Errorf("unknown service %q", arg.Service.ID)
+		return "", nil, fmt.Errorf("unknown service %q", ctx.argument.Service.ID)
 	}
 	call := fmt.Sprintf("c.%s()", dep.privateGetterName)
-	depVar := ctx.nameGen.varIdent("dep", dep.id)
-	if returnsErr {
+	depVar := ctx.genCtx.nameGen.varIdent("dep", dep.id)
+	if ctx.returnsErr {
 		stmts := []string{
 			fmt.Sprintf("%s, err := %s", depVar, call),
-			serviceArgError(svc.id, argIndex),
+			serviceArgError(ctx.service.id, ctx.argIndex),
 		}
 		return depVar, stmts, nil
 	}
@@ -38,26 +49,26 @@ func (b *serviceRefBuilder) build(ctx *genContext, svc *serviceDef, arg *ir.Argu
 // innerBuilder handles @.inner decorator arguments
 type innerBuilder struct{}
 
-func (b *innerBuilder) build(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
-	if innerVar == "" {
+func (b *innerBuilder) build(ctx *argBuildContext) (string, []string, error) {
+	if ctx.innerVar == "" {
 		return "", nil, fmt.Errorf("@.inner used outside decorator")
 	}
-	return innerVar, nil, nil
+	return ctx.innerVar, nil, nil
 }
 
 // paramRefBuilder handles parameter reference arguments
 type paramRefBuilder struct{}
 
-func (b *paramRefBuilder) build(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
-	method := ctx.paramGetters[arg.Parameter.Name]
+func (b *paramRefBuilder) build(ctx *argBuildContext) (string, []string, error) {
+	method := ctx.genCtx.paramGetters[ctx.argument.Parameter.Name]
 	if method == "" {
-		return "", nil, fmt.Errorf("unknown parameter %q", arg.Parameter.Name)
+		return "", nil, fmt.Errorf("unknown parameter %q", ctx.argument.Parameter.Name)
 	}
-	paramVar := ctx.nameGen.varIdent("param", arg.Parameter.Name)
+	paramVar := ctx.genCtx.nameGen.varIdent("param", ctx.argument.Parameter.Name)
 	stmts := []string{
-		serviceParamNilCheck(svc.id, argIndex, arg.Parameter.Name),
-		fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, arg.Parameter.Name),
-		serviceParamError(svc.id, argIndex, arg.Parameter.Name),
+		serviceParamNilCheck(ctx.service.id, ctx.argIndex, ctx.argument.Parameter.Name),
+		fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, ctx.argument.Parameter.Name),
+		serviceParamError(ctx.service.id, ctx.argIndex, ctx.argument.Parameter.Name),
 	}
 	return paramVar, stmts, nil
 }
@@ -65,38 +76,38 @@ func (b *paramRefBuilder) build(ctx *genContext, svc *serviceDef, arg *ir.Argume
 // taggedBuilder handles tagged service collection arguments
 type taggedBuilder struct{}
 
-func (b *taggedBuilder) build(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
-	values := taggedServices(ctx, arg.Tag.Name)
+func (b *taggedBuilder) build(ctx *argBuildContext) (string, []string, error) {
+	values := taggedServices(ctx.genCtx, ctx.argument.Tag.Name)
 	items := make([]string, 0, len(values))
 	stmts := []string{}
 	for _, dep := range values {
 		call := fmt.Sprintf("c.%s()", dep.privateGetterName)
-		varName := ctx.nameGen.varIdent("tag", dep.id)
-		if returnsErr {
+		varName := ctx.genCtx.nameGen.varIdent("tag", dep.id)
+		if ctx.returnsErr {
 			stmts = append(stmts, fmt.Sprintf("%s, err := %s", varName, call))
-			stmts = append(stmts, serviceTagError(svc.id, argIndex, arg.Tag.Name))
+			stmts = append(stmts, serviceTagError(ctx.service.id, ctx.argIndex, ctx.argument.Tag.Name))
 			items = append(items, varName)
 		} else {
 			stmts = append(stmts, fmt.Sprintf("%s, _ := %s", varName, call))
 			items = append(items, varName)
 		}
 	}
-	sliceExpr := "[]" + ctx.imports.typeString(tagElementType(ctx, arg.Tag.Name)) + "{" + strings.Join(items, ", ") + "}"
+	sliceExpr := "[]" + ctx.genCtx.imports.typeString(tagElementType(ctx.genCtx, ctx.argument.Tag.Name)) + "{" + strings.Join(items, ", ") + "}"
 	return sliceExpr, stmts, nil
 }
 
 // literalBuilder handles literal value arguments
 type literalBuilder struct{}
 
-func (b *literalBuilder) build(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
-	if typeutil.IsDuration(paramType) {
-		nanos, err := durationLiteralValue(arg.Literal)
+func (b *literalBuilder) build(ctx *argBuildContext) (string, []string, error) {
+	if typeutil.IsDuration(ctx.paramType) {
+		nanos, err := durationLiteralValue(ctx.argument.Literal)
 		if err != nil {
 			return "", nil, err
 		}
 		return fmt.Sprintf("%d", nanos), nil, nil
 	}
-	lit, err := literalValueExpr(arg.Literal)
+	lit, err := literalValueExpr(ctx.argument.Literal)
 	if err != nil {
 		return "", nil, err
 	}
