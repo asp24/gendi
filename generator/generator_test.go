@@ -4,17 +4,15 @@ import (
 	"strings"
 	"testing"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/asp24/gendi"
 )
 
 func TestRequiresPublicService(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewA",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
 				},
 			},
 		},
@@ -28,15 +26,15 @@ func TestRequiresPublicService(t *testing.T) {
 
 func TestReachabilityAndPublicGetters(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewA",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
 				},
 			},
 			"b": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewB",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewB",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "a"},
 					},
@@ -45,7 +43,7 @@ func TestReachabilityAndPublicGetters(t *testing.T) {
 			},
 			"unused": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewC",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewC",
 				},
 			},
 		},
@@ -80,13 +78,13 @@ func TestParameterProviderCodegen(t *testing.T) {
 		Parameters: map[string]di.Parameter{
 			"log_prefix": {
 				Type:  "string",
-				Value: mustLiteralNode("!!str", "[app] "),
+				Value: di.NewStringLiteral("[app] "),
 			},
 		},
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"logger": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewLogger",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
 						{Kind: di.ArgParam, Value: "log_prefix"},
 					},
@@ -115,13 +113,13 @@ func TestDurationParameterCodegen(t *testing.T) {
 		Parameters: map[string]di.Parameter{
 			"timeout": {
 				Type:  "time.Duration",
-				Value: mustLiteralNode("!!str", "1s"),
+				Value: di.NewStringLiteral("1s"),
 			},
 		},
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"timer": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewTimer",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
 					Args: []di.Argument{
 						{Kind: di.ArgParam, Value: "timeout"},
 					},
@@ -144,12 +142,12 @@ func TestDurationParameterCodegen(t *testing.T) {
 
 func TestNullLiteralArgument(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"b": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewB",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewB",
 					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: mustLiteralNode("!!null", "null")},
+						{Kind: di.ArgLiteral, Literal: di.NewNullLiteral()},
 					},
 				},
 				Public: true,
@@ -169,10 +167,10 @@ func TestNullLiteralArgument(t *testing.T) {
 
 func TestServiceAliasCodegen(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"logger": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewLogger",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
 						{Kind: di.ArgParam, Value: "log_prefix"},
 					},
@@ -187,7 +185,7 @@ func TestServiceAliasCodegen(t *testing.T) {
 		Parameters: map[string]di.Parameter{
 			"log_prefix": {
 				Type:  "string",
-				Value: mustLiteralNode("!!str", "[app] "),
+				Value: di.NewStringLiteral("[app] "),
 			},
 		},
 	}
@@ -211,16 +209,16 @@ func TestServiceAliasCodegen(t *testing.T) {
 
 func TestDecoratorPrivateGetterElidedWhenUnused(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"svc": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceBase",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
 				},
 				Public: true,
 			},
 			"svc.decoratorA": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceDecoratorA",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -230,7 +228,7 @@ func TestDecoratorPrivateGetterElidedWhenUnused(t *testing.T) {
 			},
 			"svc.decoratorB": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceDecoratorB",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorB",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -257,15 +255,15 @@ func TestDecoratorPrivateGetterElidedWhenUnused(t *testing.T) {
 
 func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"svc": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceBase",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
 				},
 			},
 			"svc.decoratorA": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceDecoratorA",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -275,7 +273,7 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 			},
 			"consumer": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewConsumer",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewConsumer",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "svc.decoratorA"},
 					},
@@ -301,11 +299,11 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 
 func TestServiceTypeAssignableOverride(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"svc": {
-				Type: "github.com/asp24/gendi/internal/generator/testdata/app.Service",
+				Type: "github.com/asp24/gendi/generator/testdata/app.Service",
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceBaseConcrete",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBaseConcrete",
 				},
 				Public: true,
 			},
@@ -320,17 +318,17 @@ func TestServiceTypeAssignableOverride(t *testing.T) {
 
 func TestDecoratorAssignableToDeclaredBaseType(t *testing.T) {
 	cfg := &di.Config{
-		Services: map[string]*di.Service{
+		Services: map[string]di.Service{
 			"svc": {
-				Type: "github.com/asp24/gendi/internal/generator/testdata/app.Service",
+				Type: "github.com/asp24/gendi/generator/testdata/app.Service",
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceBaseConcrete",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBaseConcrete",
 				},
 				Public: true,
 			},
 			"svc.decorator": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/internal/generator/testdata/app.NewServiceDecoratorAConcrete",
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorAConcrete",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -345,8 +343,4 @@ func TestDecoratorAssignableToDeclaredBaseType(t *testing.T) {
 	if _, err := gen.Generate(); err != nil {
 		t.Fatalf("generate failed: %v", err)
 	}
-}
-
-func mustLiteralNode(tag, value string) yaml.Node {
-	return yaml.Node{Kind: yaml.ScalarNode, Tag: tag, Value: value}
 }

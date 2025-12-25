@@ -45,12 +45,9 @@ func (c *Container) buildProviderStripe() (*app.PaymentProvider, error) {
 
 func (c *Container) buildRepo() (*app.Repo, error) {
 	var zero *app.Repo
-	if c.params == nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: parameters provider is nil", "repo", 0, "dsn")
-	}
 	param_dsn, err := c.params.GetString("dsn")
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "repo", 0, "dsn", err)
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "repo", '\x00', "dsn", err)
 	}
 	return app.NewRepo(param_dsn), nil
 }
@@ -59,19 +56,19 @@ func (c *Container) buildService() (*app.Service, error) {
 	var zero *app.Service
 	dep_repo, err := c.getRepo()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "service", 0, err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "service", '\x00', err)
 	}
 	dep_logger, err := c.getLogger()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "service", 1, err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "service", '\x01', err)
 	}
 	tag_provider_stripe, err := c.getProviderStripe()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "service", 2, "payment.provider", err)
+		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "service", '\x02', "payment.provider", err)
 	}
 	tag_provider_paypal, err := c.getProviderPaypal()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "service", 2, "payment.provider", err)
+		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "service", '\x02', "payment.provider", err)
 	}
 	res, err := app.NewService(dep_repo, dep_logger, []*app.PaymentProvider{tag_provider_stripe, tag_provider_paypal})
 	if err != nil {
@@ -84,7 +81,7 @@ func (c *Container) buildServiceDecoratorDecorator(inner *app.Service) (*app.Ser
 	var zero *app.Service
 	dep_logger, err := c.getLogger()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator", 1, err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator", '\x01', err)
 	}
 	return app.DecorateService(inner, dep_logger), nil
 }

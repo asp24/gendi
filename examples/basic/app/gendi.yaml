@@ -1,0 +1,68 @@
+tags:
+  payment.provider:
+    element_type: "*github.com/asp24/gendi/examples/basic/app.PaymentProvider"
+    sort_by: priority
+
+services:
+  logger:
+    constructor:
+      func: "$this.NewLogger"
+      args:
+        - "[app] "
+    shared: true
+  timer:
+    constructor:
+      func: "$this.NewTimer"
+      args: ["1s"]
+    public: true
+  repo:
+    constructor:
+      func: "$this.NewRepo"
+      args:
+        - "%dsn%"
+    shared: true
+  provider.stripe:
+    constructor:
+      func: "$this.NewStripeProvider"
+    shared: true
+    tags:
+      - name: payment.provider
+        attributes:
+          priority: 100
+  provider.paypal:
+    constructor:
+      func: "$this.NewPaypalProvider"
+    shared: true
+    tags:
+      - name: payment.provider
+        attributes:
+          priority: 10
+  service:
+    constructor:
+      func: "$this.NewService"
+      args:
+        - "@repo"
+        - "@logger"
+        - "!tagged:payment.provider"
+    shared: true
+    public: true
+  service.decorator:
+    constructor:
+      func: "$this.DecorateService"
+      args:
+        - "@.inner"
+        - "@logger"
+    decorates: service
+    decoration_priority: 20
+  factory:
+    constructor:
+      func: "$this.NewFactory"
+      args:
+        - "@logger"
+    shared: true
+  processor:
+    constructor:
+      method: "@factory.NewProcessor"
+      args:
+        - "@repo"
+    shared: false

@@ -2,27 +2,38 @@ package generator
 
 import (
 	"fmt"
+	"go/types"
 	"sort"
 	"strings"
-
-	"go/types"
 )
 
-type importManager struct {
-	aliases      map[string]string
-	used         map[string]bool
+type ImportManager struct {
+	aliases       map[string]string
+	used          map[string]bool
 	outputPkgPath string
 }
 
-func newImportManager(outputPkgPath string) *importManager {
-	return &importManager{
-		aliases:      map[string]string{},
-		used:         map[string]bool{},
+func NewImportManager(outputPkgPath string, reservedAliases ...string) *ImportManager {
+	m := &ImportManager{
+		aliases:       map[string]string{},
+		used:          map[string]bool{},
 		outputPkgPath: outputPkgPath,
+	}
+	m.ReserveAliases(reservedAliases...)
+	return m
+}
+
+// ReserveAliases marks aliases as used so they cannot be selected.
+func (m *ImportManager) ReserveAliases(aliases ...string) {
+	for _, alias := range aliases {
+		if alias == "" {
+			continue
+		}
+		m.used[alias] = true
 	}
 }
 
-func (m *importManager) qualifier(pkg *types.Package) string {
+func (m *ImportManager) qualifier(pkg *types.Package) string {
 	if pkg.Path() == m.outputPkgPath {
 		return ""
 	}
@@ -48,20 +59,15 @@ func (m *importManager) qualifier(pkg *types.Package) string {
 	return alias
 }
 
-func (m *importManager) aliasInUse(alias string) bool {
-	for _, v := range m.aliases {
-		if v == alias {
-			return true
-		}
-	}
-	return false
+func (m *ImportManager) aliasInUse(alias string) bool {
+	return m.used[alias]
 }
 
-func (m *importManager) typeString(t types.Type) string {
+func (m *ImportManager) typeString(t types.Type) string {
 	return types.TypeString(t, m.qualifier)
 }
 
-func (m *importManager) funcName(fn *types.Func) string {
+func (m *ImportManager) funcName(fn *types.Func) string {
 	pkg := fn.Pkg()
 	if pkg == nil {
 		return fn.Name()
@@ -73,7 +79,7 @@ func (m *importManager) funcName(fn *types.Func) string {
 	return alias + "." + fn.Name()
 }
 
-func (m *importManager) renderImports(extra []string) string {
+func (m *ImportManager) renderImports(extra []string) string {
 	imports := []string{}
 	for path, alias := range m.aliases {
 		if alias == "" {
@@ -91,4 +97,3 @@ func (m *importManager) renderImports(extra []string) string {
 	}
 	return "import (\n" + strings.Join(imports, "") + ")\n\n"
 }
-

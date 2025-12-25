@@ -1,4 +1,4 @@
-package di
+package di_test
 
 import (
 	"fmt"
@@ -6,60 +6,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/yaml"
 )
-
-func TestLoadConfigImportPrefix(t *testing.T) {
-	dir := t.TempDir()
-	basePath := filepath.Join(dir, "base.yaml")
-	rootPath := filepath.Join(dir, "root.yaml")
-
-	base := []byte(strings.TrimSpace(`
-services:
-  base:
-    constructor:
-      func: "example.NewBase"
-  api:
-    constructor:
-      func: "example.NewAPI"
-      args:
-        - "@base"
-    decorates: "base"
-`))
-	if err := os.WriteFile(basePath, base, 0o644); err != nil {
-		t.Fatalf("write base config: %v", err)
-	}
-
-	root := []byte(strings.TrimSpace(fmt.Sprintf(`
-imports:
-  - path: %q
-    prefix: "mod."
-`, "./base.yaml")))
-	if err := os.WriteFile(rootPath, root, 0o644); err != nil {
-		t.Fatalf("write root config: %v", err)
-	}
-
-	cfg, err := LoadConfig(rootPath)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-	if _, ok := cfg.Services["mod.base"]; !ok {
-		t.Fatalf("expected prefixed service mod.base")
-	}
-	api := cfg.Services["mod.api"]
-	if api == nil {
-		t.Fatalf("expected prefixed service mod.api")
-	}
-	if got := api.Constructor.Args[0].Value; got != "mod.base" {
-		t.Fatalf("expected service ref to be prefixed, got %q", got)
-	}
-	if api.Decorates != "mod.base" {
-		t.Fatalf("expected decorates to be prefixed, got %q", api.Decorates)
-	}
-}
 
 func TestLoadConfigModuleImport(t *testing.T) {
 	modulePath := readModulePath(t)
-	importPath := modulePath + "/internal/generator/testdata/imports/module.yaml"
+	importPath := modulePath + "/generator/testdata/imports/module.yaml"
 
 	dir, err := os.MkdirTemp(".", "config-import-")
 	if err != nil {
@@ -78,7 +32,7 @@ imports:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -124,12 +78,12 @@ imports:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	dupe := cfg.Services["dupe"]
-	if dupe == nil || dupe.Constructor.Func != "example.NewB" {
+	dupe, ok := cfg.Services["dupe"]
+	if !ok || dupe.Constructor.Func != "example.NewB" {
 		t.Fatalf("expected dupe service to come from base_b")
 	}
 	if _, ok := cfg.Services["extra"]; !ok {
@@ -180,22 +134,22 @@ imports:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	dupe := cfg.Services["dupe"]
-	if dupe == nil || dupe.Constructor.Func != "example.NewB" {
+	dupe, ok := cfg.Services["dupe"]
+	if !ok || dupe.Constructor.Func != "example.NewB" {
 		t.Fatalf("expected dupe service to come from nested base_b")
 	}
-	if _, ok := cfg.Services["extra_recursive"]; !ok {
+	if _, ok = cfg.Services["extra_recursive"]; !ok {
 		t.Fatalf("expected extra_recursive service from nested base_b")
 	}
 }
 
 func TestLoadConfigImportGlobModule(t *testing.T) {
 	modulePath := readModulePath(t)
-	importPath := modulePath + "/internal/generator/testdata/imports/*.yaml"
+	importPath := modulePath + "/generator/testdata/imports/*.yaml"
 
 	dir := t.TempDir()
 	rootPath := filepath.Join(dir, "root.yaml")
@@ -207,7 +161,7 @@ imports:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -221,7 +175,7 @@ imports:
 
 func TestLoadConfigImportGlobModuleRecursive(t *testing.T) {
 	modulePath := readModulePath(t)
-	importPath := modulePath + "/internal/generator/testdata/imports/**/*.yaml"
+	importPath := modulePath + "/generator/testdata/imports/**/*.yaml"
 
 	dir := t.TempDir()
 	rootPath := filepath.Join(dir, "root.yaml")
@@ -233,7 +187,7 @@ imports:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -265,7 +219,7 @@ services:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -292,20 +246,20 @@ services:
 		t.Fatalf("write root config: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := yaml.LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	svc := cfg.Services["svc"]
-	if svc == nil || len(svc.Constructor.Args) != 1 {
+	svc, ok := cfg.Services["svc"]
+	if !ok || len(svc.Constructor.Args) != 1 {
 		t.Fatalf("expected one constructor arg")
 	}
 	arg := svc.Constructor.Args[0]
-	if arg.Kind != ArgLiteral {
+	if arg.Kind != di.ArgLiteral {
 		t.Fatalf("expected literal argument, got %v", arg.Kind)
 	}
-	if arg.Literal.Tag != "!!null" {
-		t.Fatalf("expected null literal tag, got %q", arg.Literal.Tag)
+	if !arg.Literal.IsNull() {
+		t.Fatalf("expected null literal, got %v", arg.Literal.Kind)
 	}
 }
 

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/asp24/gendi"
-	"github.com/asp24/gendi/internal/generator"
+	"github.com/asp24/gendi/generator"
+	"github.com/asp24/gendi/yaml"
 )
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 		exitf("--config, --out, and --pkg are required")
 	}
 
-	cfg, err := di.LoadConfig(*configPath)
+	cfg, err := yaml.LoadConfig(*configPath)
 	if err != nil {
 		exitf("load config: %v", err)
 	}
