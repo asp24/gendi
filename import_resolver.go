@@ -15,12 +15,14 @@ import (
 // ImportResolver resolves import paths to actual file paths.
 // It handles absolute paths, relative paths, glob patterns, and Go module imports.
 type ImportResolver struct {
-	moduleLocator *gomod.Locator
+	composite *pathResolverComposite
 }
 
 // NewImportResolver creates a new import resolver.
 func NewImportResolver() *ImportResolver {
-	return &ImportResolver{}
+	return &ImportResolver{
+		composite: newPathResolverComposite(),
+	}
 }
 
 // Resolve resolves an import path to a list of file paths.
@@ -29,43 +31,16 @@ func (r *ImportResolver) Resolve(baseDir, importPath string) ([]string, error) {
 	if importPath == "" {
 		return nil, fmt.Errorf("import path is empty")
 	}
-	if r.hasGlob(importPath) {
-		return r.resolveGlob(baseDir, importPath)
-	}
-	if filepath.IsAbs(importPath) {
-		path, err := r.ensureFile(importPath)
-		if err != nil {
-			return nil, err
-		}
-		return []string{path}, nil
-	}
-	localPath := filepath.Join(baseDir, importPath)
-	if r.fileExists(localPath) {
-		path, err := filepath.Abs(localPath)
-		if err != nil {
-			return nil, err
-		}
-		return []string{path}, nil
-	}
-	if r.isExplicitRelative(importPath) {
-		return nil, fmt.Errorf("import not found at %s", localPath)
-	}
-	if !gomod.LooksLikeModulePath(importPath) {
-		return nil, fmt.Errorf("import not found at %s", localPath)
-	}
-	path, err := r.resolveModuleImport(baseDir, importPath)
-	if err != nil {
-		return nil, err
-	}
-	return []string{path}, nil
-}
 
-func (r *ImportResolver) hasGlob(path string) bool {
-	return strings.ContainsAny(path, "*?[")
-}
+	// Create file system abstraction
+	fs := fileSystem{
+		fileExists:        r.fileExists,
+		findModule:        r.findModule,
+		findDefaultConfig: r.findDefaultConfig,
+		globFiles:         r.globFiles,
+	}
 
-func (r *ImportResolver) isExplicitRelative(path string) bool {
-	return strings.HasPrefix(path, "./") || strings.HasPrefix(path, "../")
+	return r.composite.Resolve(baseDir, importPath, fs)
 }
 
 func (r *ImportResolver) fileExists(path string) bool {
@@ -74,58 +49,6 @@ func (r *ImportResolver) fileExists(path string) bool {
 		return false
 	}
 	return !info.IsDir()
-}
-
-func (r *ImportResolver) ensureFile(path string) (string, error) {
-	if r.fileExists(path) {
-		return filepath.Abs(path)
-	}
-	return "", fmt.Errorf("import not found at %s", path)
-}
-
-func (r *ImportResolver) resolveGlob(baseDir, importPath string) ([]string, error) {
-	if filepath.IsAbs(importPath) {
-		return r.globFiles(importPath)
-	}
-	if r.isExplicitRelative(importPath) || !gomod.LooksLikeModulePath(importPath) {
-		pattern := filepath.Join(baseDir, importPath)
-		return r.globFiles(pattern)
-	}
-	return r.resolveModuleImportGlob(baseDir, importPath)
-}
-
-func (r *ImportResolver) resolveModuleImport(baseDir, importPath string) (string, error) {
-	moduleDir, modulePath, remainder, err := r.findModule(baseDir, importPath)
-	if err != nil {
-		return "", err
-	}
-	if remainder == "" {
-		if path, ok := r.findDefaultConfig(moduleDir); ok {
-			return path, nil
-		}
-		return "", fmt.Errorf("module %s has no gendi.yaml", modulePath)
-	}
-	full := filepath.Join(moduleDir, filepath.FromSlash(remainder))
-	if r.fileExists(full) {
-		return filepath.Abs(full)
-	}
-	return "", fmt.Errorf("module %s does not contain %s", modulePath, remainder)
-}
-
-func (r *ImportResolver) resolveModuleImportGlob(baseDir, importPath string) ([]string, error) {
-	moduleDir, modulePath, remainder, err := r.findModule(baseDir, importPath)
-	if err != nil {
-		return nil, err
-	}
-	if remainder == "" {
-		path, ok := r.findDefaultConfig(moduleDir)
-		if !ok {
-			return nil, fmt.Errorf("module %s has no gendi.yaml", modulePath)
-		}
-		return []string{path}, nil
-	}
-	pattern := filepath.Join(moduleDir, filepath.FromSlash(remainder))
-	return r.globFiles(pattern)
 }
 
 // findModule locates a Go module by iterating through import path segments.
@@ -138,7 +61,8 @@ func (r *ImportResolver) findModule(baseDir, importPath string) (string, string,
 	parts := strings.Split(importPath, "/")
 	for i := len(parts); i >= 1; i-- {
 		candidate := strings.Join(parts[:i], "/")
-		if r.hasGlob(candidate) {
+		// Skip if candidate contains glob characters
+		if strings.ContainsAny(candidate, "*?[") {
 			continue
 		}
 		moduleDir, err := locator.FindModuleDir(candidate)
