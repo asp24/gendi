@@ -8,7 +8,6 @@ import (
 
 // ResolverLocal handles local/relative file paths.
 type ResolverLocal struct {
-	fs fileSystem
 }
 
 func (r *ResolverLocal) CanResolve(_ string) bool {
@@ -19,7 +18,7 @@ func (r *ResolverLocal) CanResolve(_ string) bool {
 
 func (r *ResolverLocal) Resolve(baseDir, importPath string) ([]string, error) {
 	localPath := filepath.Join(baseDir, importPath)
-	if !r.fs.fileExists(localPath) {
+	if !fileExists(localPath) {
 		// If explicitly relative (./ or ../), fail immediately
 		isExplicitRelative := strings.HasPrefix(importPath, "./") || strings.HasPrefix(importPath, "../")
 		if isExplicitRelative {

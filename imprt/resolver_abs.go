@@ -7,7 +7,6 @@ import (
 
 // ResolverAbs handles absolute file paths.
 type ResolverAbs struct {
-	fs fileSystem
 }
 
 func (r *ResolverAbs) CanResolve(importPath string) bool {
@@ -15,7 +14,7 @@ func (r *ResolverAbs) CanResolve(importPath string) bool {
 }
 
 func (r *ResolverAbs) Resolve(_, importPath string) ([]string, error) {
-	if !r.fs.fileExists(importPath) {
+	if !fileExists(importPath) {
 		return nil, fmt.Errorf("import not found at %s", importPath)
 	}
 	path, err := filepath.Abs(importPath)

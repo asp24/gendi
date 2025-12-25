@@ -12,9 +12,7 @@ import (
 	"github.com/asp24/gendi/gomod"
 )
 
-type fileSystem struct{}
-
-func (r *fileSystem) fileExists(path string) bool {
+func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil {
 		return false
@@ -27,7 +25,7 @@ func (r *fileSystem) fileExists(path string) bool {
 //   - moduleDir: absolute path to the module directory
 //   - modulePath: the import path of the found module
 //   - remainder: the path segment after the module path
-func (r *fileSystem) findModule(baseDir, importPath string) (string, string, string, error) {
+func findModule(baseDir, importPath string) (string, string, string, error) {
 	locator := gomod.NewLocator(baseDir)
 	parts := strings.Split(importPath, "/")
 	for i := len(parts); i >= 1; i-- {
@@ -47,7 +45,7 @@ func (r *fileSystem) findModule(baseDir, importPath string) (string, string, str
 	return "", "", "", fmt.Errorf("module %s not found", importPath)
 }
 
-func (r *fileSystem) pathToAbs(path string) string {
+func pathToAbs(path string) string {
 	abs, err := filepath.Abs(path)
 	if err == nil {
 		return abs
@@ -56,26 +54,27 @@ func (r *fileSystem) pathToAbs(path string) string {
 	return path
 }
 
-func (r *fileSystem) findDefaultConfig(moduleDir string) (string, bool) {
+func findDefaultConfig(moduleDir string) (string, bool) {
 	path := filepath.Join(moduleDir, "gendi.yaml")
-	if r.fileExists(path) {
-		return r.pathToAbs(path), true
+	if fileExists(path) {
+		return pathToAbs(path), true
 	}
+
 	path = filepath.Join(moduleDir, "gendi.yml")
-	if r.fileExists(path) {
-		return r.pathToAbs(path), true
+	if fileExists(path) {
+		return pathToAbs(path), true
 	}
 	return "", false
 }
 
-func (r *fileSystem) globFiles(pattern string) ([]string, error) {
+func globFiles(pattern string) ([]string, error) {
 	matches, err := doublestar.FilepathGlob(pattern)
 	if err != nil {
 		return nil, err
 	}
 	files := make([]string, 0, len(matches))
 	for _, match := range matches {
-		if r.fileExists(match) {
+		if fileExists(match) {
 			abs, err := filepath.Abs(match)
 			if err != nil {
 				return nil, err

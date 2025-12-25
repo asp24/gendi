@@ -18,12 +18,11 @@ func NewPathResolverComposite(resolvers ...Resolver) *ResolverComposite {
 
 // NewResolverCompositeDefault creates a composite with the standard resolver chain.
 func NewResolverCompositeDefault() *ResolverComposite {
-	fs := fileSystem{}
 	return NewPathResolverComposite(
-		&ResolverGlob{fs: fs},   // Try glob patterns first
-		&ResolverAbs{fs: fs},    // Then absolute paths
-		&ResolverLocal{fs: fs},  // Then local paths
-		&ResolverModule{fs: fs}, // Finally module imports
+		&ResolverGlob{},   // Try glob patterns first
+		&ResolverAbs{},    // Then absolute paths
+		&ResolverLocal{},  // Then local paths
+		&ResolverModule{}, // Finally module imports
 	)
 }
 
