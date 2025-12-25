@@ -2,11 +2,8 @@ package yaml
 
 import (
 	"fmt"
-	"strings"
 
 	"gopkg.in/yaml.v3"
-
-	di "github.com/asp24/gendi"
 )
 
 // RawConfig is the YAML-specific representation of a config file.
@@ -79,10 +76,7 @@ func (s *RawService) UnmarshalYAML(node *yaml.Node) error {
 		if err := node.Decode(&ref); err != nil {
 			return err
 		}
-		if !strings.HasPrefix(ref, "@") || len(ref) == 1 {
-			return fmt.Errorf("service alias must start with @")
-		}
-		*s = RawService{Alias: ref[1:]}
+		*s = RawService{Alias: ref}
 		return nil
 	case yaml.MappingNode:
 		type alias RawService
@@ -128,38 +122,16 @@ func (c *RawConstructor) UnmarshalYAML(node *yaml.Node) error {
 }
 
 type RawArgument struct {
-	kind    di.ArgumentKind
-	value   string
-	literal yaml.Node
+	Value *string
+	Node  *yaml.Node
 }
 
 func (a *RawArgument) UnmarshalYAML(node *yaml.Node) error {
-	if node.Kind != yaml.ScalarNode {
-		return fmt.Errorf("argument must be a scalar")
+	if node.Kind == yaml.ScalarNode && node.Tag == "!!str" {
+		val := node.Value
+		a.Value = &val
+		return nil
 	}
-	if node.Tag == "!!str" {
-		s := node.Value
-		switch {
-		case s == "@.inner":
-			a.kind = di.ArgInner
-			a.value = s
-			return nil
-		case len(s) > 1 && s[0] == '@':
-			a.kind = di.ArgServiceRef
-			a.value = s[1:]
-			return nil
-		case len(s) > 2 && s[0] == '%' && s[len(s)-1] == '%':
-			a.kind = di.ArgParam
-			a.value = s[1 : len(s)-1]
-			return nil
-		case len(s) > len("!tagged:") && s[:len("!tagged:")] == "!tagged:":
-			a.kind = di.ArgTagged
-			a.value = s[len("!tagged:"):]
-			return nil
-		}
-	}
-
-	a.kind = di.ArgLiteral
-	a.literal = *node
+	a.Node = node
 	return nil
 }

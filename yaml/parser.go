@@ -63,7 +63,14 @@ func (p *Parser) convertService(raw *RawService) (*di.Service, error) {
 		Public:             raw.Public,
 		Decorates:          raw.Decorates,
 		DecorationPriority: raw.DecorationPriority,
-		Alias:              raw.Alias,
+	}
+
+	if raw.Alias != "" {
+		if IsServiceAlias(raw.Alias) {
+			svc.Alias = ParseServiceAlias(raw.Alias)
+		} else {
+			svc.Alias = raw.Alias
+		}
 	}
 
 	// Convert tags
@@ -96,20 +103,32 @@ func (p *Parser) convertService(raw *RawService) (*di.Service, error) {
 }
 
 func (p *Parser) convertArgument(raw *RawArgument) (di.Argument, error) {
-	arg := di.Argument{
-		Kind:  raw.kind,
-		Value: raw.value,
+	if raw.Value != nil {
+		kind, val := ParseArgumentString(*raw.Value)
+		if kind != di.ArgLiteral {
+			return di.Argument{
+				Kind:  kind,
+				Value: val,
+			}, nil
+		}
+		return di.Argument{
+			Kind:    di.ArgLiteral,
+			Literal: di.NewStringLiteral(*raw.Value),
+		}, nil
 	}
 
-	if raw.kind == di.ArgLiteral {
-		lit, err := p.convertLiteral(&raw.literal)
+	if raw.Node != nil {
+		lit, err := p.convertLiteral(raw.Node)
 		if err != nil {
 			return di.Argument{}, err
 		}
-		arg.Literal = lit
+		return di.Argument{
+			Kind:    di.ArgLiteral,
+			Literal: lit,
+		}, nil
 	}
 
-	return arg, nil
+	return di.Argument{}, fmt.Errorf("argument must have a value")
 }
 
 func (p *Parser) convertLiteral(node *yaml.Node) (di.Literal, error) {
