@@ -16,24 +16,11 @@ type TypeLoader struct {
 }
 
 // NewTypeLoader creates a new TypeLoader with the given options.
+// Options must be finalized before calling this (via Options.Finalize()).
 func NewTypeLoader(opts Options) (*TypeLoader, error) {
-	modPath, modRoot := opts.ModulePath, opts.ModuleRoot
-	if modPath == "" || modRoot == "" {
-		modInfo, err := ResolveModuleInfo()
-		if err != nil {
-			return nil, err
-		}
-		modPath, modRoot = modInfo.Path, modInfo.Root
-	}
-
-	outputPath := opts.OutputPkgPath
-	if outputPath == "" {
-		outputPath = ComputeOutputPkgPath(modPath, modRoot, opts.Out)
-	}
-
 	return &TypeLoader{
-		cache:         NewPackageCache(modRoot),
-		outputPkgPath: outputPath,
+		cache:         NewPackageCache(opts.ModuleRoot),
+		outputPkgPath: opts.OutputPkgPath,
 	}, nil
 }
 

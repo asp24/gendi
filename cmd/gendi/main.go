@@ -37,14 +37,19 @@ func main() {
 		exitf("output path: %v", err)
 	}
 
-	gen := generator.New(cfg, generator.Options{
+	opts := generator.Options{
 		Out:       *outPath,
 		Package:   *pkgName,
 		Container: *container,
 		Strict:    *strict,
 		BuildTags: *buildTags,
 		Verbose:   *verbose,
-	}, nil)
+	}
+	if err := opts.Finalize(); err != nil {
+		exitf("finalize options: %v", err)
+	}
+
+	gen := generator.New(cfg, opts, nil)
 
 	code, err := gen.Generate()
 	if err != nil {
