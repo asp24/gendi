@@ -354,3 +354,270 @@ func TestDecoratorAssignableToDeclaredBaseType(t *testing.T) {
 		t.Fatalf("generate failed: %v", err)
 	}
 }
+
+func TestGenericFunctionConstructor(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"events": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/generics.NewChan[github.com/asp24/gendi/generator/testdata/generics.Event]",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(100)},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, testOptions(t))
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	// Check that the generic function is called with type arguments
+	if !strings.Contains(out, "NewChan[generics.Event]") {
+		t.Fatalf("expected generic function call with type arguments, got:\n%s", out)
+	}
+
+	// Check that the return type is correct (chan Event)
+	if !strings.Contains(out, "chan generics.Event") {
+		t.Fatalf("expected chan Event return type, got:\n%s", out)
+	}
+}
+
+func TestGenericPoolConstructor(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"message_pool": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/generics.NewPool[github.com/asp24/gendi/generator/testdata/generics.Message]",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, testOptions(t))
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	// Check that the generic function is called with type arguments
+	if !strings.Contains(out, "NewPool[generics.Message]") {
+		t.Fatalf("expected generic function call with type arguments, got:\n%s", out)
+	}
+
+	// Check that the return type is correct (*Pool[Message])
+	if !strings.Contains(out, "*generics.Pool[generics.Message]") {
+		t.Fatalf("expected *Pool[Message] return type, got:\n%s", out)
+	}
+}
+
+func TestGenericSliceTypeArg(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"event_slice": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/generics.NewSlice[[]github.com/asp24/gendi/generator/testdata/generics.Event]",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, testOptions(t))
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	// Check that the generic function is called with slice type argument
+	if !strings.Contains(out, "NewSlice[[]generics.Event]") {
+		t.Fatalf("expected generic function call with slice type argument, got:\n%s", out)
+	}
+}
+
+func TestGenericMapTypeArgs(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"event_map": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/generics.NewMap[string, github.com/asp24/gendi/generator/testdata/generics.Event]",
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, testOptions(t))
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	// Check that the generic function is called with map type arguments
+	if !strings.Contains(out, "NewMap[string, generics.Event]") {
+		t.Fatalf("expected generic function call with map type arguments, got:\n%s", out)
+	}
+
+	// Check that the return type is correct
+	if !strings.Contains(out, "map[string]generics.Event") {
+		t.Fatalf("expected map[string]Event return type, got:\n%s", out)
+	}
+}
+
+func TestGenericChanTypeArg(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"chan_of_chans": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/generics.NewChan[chan github.com/asp24/gendi/generator/testdata/generics.Event]",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(5)},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, testOptions(t))
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	// Check that the generic function is called with chan type argument
+	if !strings.Contains(out, "NewChan[chan generics.Event]") {
+		t.Fatalf("expected generic function call with chan type argument, got:\n%s", out)
+	}
+
+	// Check that the return type is correct (chan chan Event)
+	if !strings.Contains(out, "chan chan generics.Event") {
+		t.Fatalf("expected chan chan Event return type, got:\n%s", out)
+	}
+}
+
+func TestGenericFunctionWithoutTypeArgsError(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"events": {
+				Constructor: di.Constructor{
+					// Missing type arguments - should fail
+					Func: "github.com/asp24/gendi/generator/testdata/generics.NewChan",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(100)},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, testOptions(t))
+	_, err := gen.Generate()
+	if err == nil {
+		t.Fatal("expected error for generic function without type arguments")
+	}
+	if !strings.Contains(err.Error(), "generic function") || !strings.Contains(err.Error(), "requires") {
+		t.Fatalf("expected error about missing type arguments, got: %v", err)
+	}
+}
+
+func TestGenericTypeWithTypeArgs(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"pool": {
+				// Service with explicit generic type (pointer because NewPool returns *Pool[T])
+				Type: "*github.com/asp24/gendi/generator/testdata/generics.Pool[github.com/asp24/gendi/generator/testdata/generics.Message]",
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/generics.NewPool[github.com/asp24/gendi/generator/testdata/generics.Message]",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, testOptions(t))
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	// Check that the generic type is used correctly
+	if !strings.Contains(out, "*generics.Pool[generics.Message]") {
+		t.Fatalf("expected *Pool[Message] type, got:\n%s", out)
+	}
+}
+
+func TestGenericTypeWithoutTypeArgsError(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"pool": {
+				// Missing type arguments on generic type - should fail
+				Type: "github.com/asp24/gendi/generator/testdata/generics.Pool",
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/generics.NewPool[github.com/asp24/gendi/generator/testdata/generics.Message]",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, testOptions(t))
+	_, err := gen.Generate()
+	if err == nil {
+		t.Fatal("expected error for generic type without type arguments")
+	}
+	if !strings.Contains(err.Error(), "generic type") || !strings.Contains(err.Error(), "requires") {
+		t.Fatalf("expected error about missing type arguments, got: %v", err)
+	}
+}
+
+func TestNonGenericTypeWithTypeArgsError(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"event": {
+				// Non-generic type with type arguments - should fail
+				Type: "github.com/asp24/gendi/generator/testdata/generics.Event[string]",
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/generics.NewChan[github.com/asp24/gendi/generator/testdata/generics.Event]",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, testOptions(t))
+	_, err := gen.Generate()
+	if err == nil {
+		t.Fatal("expected error for non-generic type with type arguments")
+	}
+	if !strings.Contains(err.Error(), "not generic") {
+		t.Fatalf("expected error about type not being generic, got: %v", err)
+	}
+}

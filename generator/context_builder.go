@@ -130,6 +130,7 @@ func (b *ContextBuilder) convertService(irSvc *ir.Service) *serviceDef {
 func (b *ContextBuilder) convertConstructor(svcID string, irCons *ir.Constructor) constructorDef {
 	cons := constructorDef{
 		funcObj:      irCons.Func,
+		typeArgs:     irCons.TypeArgs,
 		params:       irCons.Params,
 		result:       irCons.ResultType,
 		returnsError: irCons.ReturnsError,

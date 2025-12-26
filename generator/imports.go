@@ -79,6 +79,22 @@ func (m *ImportManager) funcName(fn *types.Func) string {
 	return alias + "." + fn.Name()
 }
 
+// funcNameWithTypeArgs returns the function name with type arguments for generic functions.
+func (m *ImportManager) funcNameWithTypeArgs(fn *types.Func, typeArgs []types.Type) string {
+	name := m.funcName(fn)
+	if len(typeArgs) == 0 {
+		return name
+	}
+
+	// Build type arguments string
+	typeArgStrs := make([]string, len(typeArgs))
+	for i, t := range typeArgs {
+		typeArgStrs[i] = m.typeString(t)
+	}
+
+	return name + "[" + strings.Join(typeArgStrs, ", ") + "]"
+}
+
 func (m *ImportManager) renderImports(extra []string) string {
 	imports := []string{}
 	for path, alias := range m.aliases {

@@ -38,6 +38,7 @@ type constructorDef struct {
 	funcObj      *types.Func
 	methodObj    *types.Func
 	methodRecvID string
+	typeArgs     []types.Type // For generic functions
 	params       []types.Type
 	result       types.Type
 	returnsError bool

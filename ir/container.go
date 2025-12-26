@@ -113,6 +113,9 @@ type Constructor struct {
 	// For method constructors
 	Receiver *Service // The service whose method is called
 
+	// For generic constructors
+	TypeArgs []types.Type // Resolved type arguments for generic functions
+
 	// Signature info
 	Params       []types.Type
 	ResultType   types.Type
