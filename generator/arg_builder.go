@@ -70,6 +70,15 @@ func (b *paramRefBuilder) build(ctx *argBuildContext) (string, []string, error) 
 		fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, ctx.argument.Parameter.Name),
 		serviceParamError(ctx.service.id, ctx.argIndex, ctx.argument.Parameter.Name),
 	}
+
+	// Check if type conversion is needed (named type with basic underlying type)
+	paramType := ctx.argument.Parameter.Type
+	if named, ok := paramType.(*types.Named); ok {
+		// Named type - need to convert from underlying type
+		typeStr := ctx.genCtx.imports.typeString(named)
+		return fmt.Sprintf("%s(%s)", typeStr, paramVar), stmts, nil
+	}
+
 	return paramVar, stmts, nil
 }
 

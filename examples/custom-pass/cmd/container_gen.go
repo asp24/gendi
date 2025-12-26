@@ -5,25 +5,34 @@ import (
 	"fmt"
 	app "github.com/asp24/gendi/examples/custom-pass/internal/app"
 	"github.com/asp24/gendi/parameters"
+	stdlib "github.com/asp24/gendi/stdlib"
+	io "io"
 	slog "log/slog"
 	"sync"
 )
 
 var DefaultParameters = parameters.NewProviderMap(map[string]any{
-	"db_dsn": "postgres://localhost/myapp",
+	"db_dsn":                              "postgres://localhost/myapp",
+	"stdlib.http.idle_conn_timeout":       "90s",
+	"stdlib.http.max_idle_conns":          100,
+	"stdlib.http.max_idle_conns_per_host": 10,
+	"stdlib.http.timeout":                 "30s",
+	"stdlib.slog.level":                   0,
 })
 
 type Container struct {
-	mu                      sync.Mutex
-	params                  parameters.Provider
-	svc_logger              *slog.Logger
-	svc_product_handler     app.HTTPHandler
-	svc_product_handlerInit bool
-	svc_product_repo        *app.ProductRepoImpl
-	svc_server              *app.Server
-	svc_user_handler        app.HTTPHandler
-	svc_user_handlerInit    bool
-	svc_user_repo           *app.UserRepoImpl
+	mu                               sync.Mutex
+	params                           parameters.Provider
+	svc_product_handler              app.HTTPHandler
+	svc_product_handlerInit          bool
+	svc_product_repo                 *app.ProductRepoImpl
+	svc_server                       *app.Server
+	svc_stdlib_slog                  *slog.Logger
+	svc_stdlib_slog_handler_text     slog.Handler
+	svc_stdlib_slog_handler_textInit bool
+	svc_user_handler                 app.HTTPHandler
+	svc_user_handlerInit             bool
+	svc_user_repo                    *app.UserRepoImpl
 }
 
 func NewContainer(params parameters.Provider) *Container {
@@ -31,10 +40,6 @@ func NewContainer(params parameters.Provider) *Container {
 		params = DefaultParameters
 	}
 	return &Container{params: params}
-}
-
-func (c *Container) buildLogger() (*slog.Logger, error) {
-	return createSLog(), nil
 }
 
 func (c *Container) buildProductHandler() (app.HTTPHandler, error) {
@@ -94,6 +99,32 @@ func (c *Container) buildServerLogger() (*slog.Logger, error) {
 	return recv_server_logger.With("channel", "http"), nil
 }
 
+func (c *Container) buildStdlibSlog() (*slog.Logger, error) {
+	var zero *slog.Logger
+	dep_stdlib_slog_handler, err := c.getStdlibSlogHandler()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "stdlib.slog", '\x00', err)
+	}
+	return stdlib.NewSlogLogger(dep_stdlib_slog_handler), nil
+}
+
+func (c *Container) buildStdlibSlogHandlerText() (slog.Handler, error) {
+	var zero slog.Handler
+	dep_stdlib_slog_writer, err := c.getStdlibSlogWriter()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "stdlib.slog.handler.text", '\x00', err)
+	}
+	param_stdlib_slog_level, err := c.params.GetInt("stdlib.slog.level")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "stdlib.slog.handler.text", '\x01', "stdlib.slog.level", err)
+	}
+	return stdlib.NewSlogTextHandler(dep_stdlib_slog_writer, slog.Level(param_stdlib_slog_level)), nil
+}
+
+func (c *Container) buildStdlibStderr() (io.Writer, error) {
+	return stdlib.NewStderr(), nil
+}
+
 func (c *Container) buildUserHandler() (app.HTTPHandler, error) {
 	var zero app.HTTPHandler
 	dep_user_handler_logger, err := c.getUserHandlerLogger()
@@ -126,16 +157,7 @@ func (c *Container) buildUserRepo() (*app.UserRepoImpl, error) {
 }
 
 func (c *Container) getLogger() (*slog.Logger, error) {
-	var zero *slog.Logger
-	if c.svc_logger != nil {
-		return c.svc_logger, nil
-	}
-	res, err := c.buildLogger()
-	if err != nil {
-		return zero, err
-	}
-	c.svc_logger = res
-	return res, nil
+	return c.getStdlibSlog()
 }
 
 func (c *Container) getProductHandler() (app.HTTPHandler, error) {
@@ -190,6 +212,50 @@ func (c *Container) getServer() (*app.Server, error) {
 func (c *Container) getServerLogger() (*slog.Logger, error) {
 	var zero *slog.Logger
 	res, err := c.buildServerLogger()
+	if err != nil {
+		return zero, err
+	}
+	return res, nil
+}
+
+func (c *Container) getStdlibSlog() (*slog.Logger, error) {
+	var zero *slog.Logger
+	if c.svc_stdlib_slog != nil {
+		return c.svc_stdlib_slog, nil
+	}
+	res, err := c.buildStdlibSlog()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_stdlib_slog = res
+	return res, nil
+}
+
+func (c *Container) getStdlibSlogHandler() (slog.Handler, error) {
+	return c.getStdlibSlogHandlerText()
+}
+
+func (c *Container) getStdlibSlogHandlerText() (slog.Handler, error) {
+	var zero slog.Handler
+	if c.svc_stdlib_slog_handler_textInit {
+		return c.svc_stdlib_slog_handler_text, nil
+	}
+	res, err := c.buildStdlibSlogHandlerText()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_stdlib_slog_handler_text = res
+	c.svc_stdlib_slog_handler_textInit = true
+	return res, nil
+}
+
+func (c *Container) getStdlibSlogWriter() (io.Writer, error) {
+	return c.getStdlibStderr()
+}
+
+func (c *Container) getStdlibStderr() (io.Writer, error) {
+	var zero io.Writer
+	res, err := c.buildStdlibStderr()
 	if err != nil {
 		return zero, err
 	}

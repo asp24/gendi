@@ -1,4 +1,5 @@
 imports:
+  - github.com/asp24/gendi/stdlib/gendi.yaml
   - ./../internal/**/gendi.yaml
 
 parameters:
@@ -7,6 +8,4 @@ parameters:
     value: "postgres://localhost/myapp"
 
 services:
-  logger:
-    constructor:
-      func: "$this.createSLog"
+  logger: '@stdlib.slog'
