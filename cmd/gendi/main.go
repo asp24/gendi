@@ -5,87 +5,73 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
+	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/generator"
 	"github.com/asp24/gendi/yaml"
 )
 
-func main() {
-	var (
-		configPath = flag.String("config", "", "Root YAML configuration file")
-		outPath    = flag.String("out", "", "Output directory or file")
-		pkgName    = flag.String("pkg", "", "Go package name")
-		container  = flag.String("container", "Container", "Container struct name")
-		strict     = flag.Bool("strict", true, "Enable strict validation")
-		buildTags  = flag.String("build-tags", "", "Go build tags")
-		verbose    = flag.Bool("verbose", false, "Verbose logging")
-	)
-	flag.Parse()
-
-	if *configPath == "" || *outPath == "" || *pkgName == "" {
-		exitf("--config, --out, and --pkg are required")
+func WriteTargetFile(path string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create output dir: %w", err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("write file: %w", err)
 	}
 
-	cfg, err := yaml.LoadConfig(*configPath)
+	return nil
+}
+
+func DoAllJob(flags *flag.FlagSet, diPasses ...di.Pass) error {
+	var gCfg GendiConfig
+	if err := BindFlagsToConfig(flag.CommandLine, &gCfg); err != nil {
+		return err
+	}
+
+	if err := flags.Parse(os.Args[1:]); err != nil {
+		return fmt.Errorf("parse flags: %w", err)
+	}
+
+	if err := gCfg.Finalize(); err != nil {
+		return fmt.Errorf("config finalize: %w", err)
+	}
+
+	cfg, err := yaml.LoadConfig(gCfg.ConfigPath)
 	if err != nil {
-		exitf("load config: %v", err)
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	// Apply compiler passes (none in CLI, but users can add via programmatic API)
-	// cfg, err = di.ApplyPasses(cfg, passes)
-
-	outFile, err := outputFile(*outPath)
+	cfg, err = di.ApplyPasses(cfg, diPasses)
 	if err != nil {
-		exitf("output path: %v", err)
+		return fmt.Errorf("apply passes: %w", err)
 	}
 
-	opts := generator.Options{
-		Out:       *outPath,
-		Package:   *pkgName,
-		Container: *container,
-		Strict:    *strict,
-		BuildTags: *buildTags,
-		Verbose:   *verbose,
-	}
-	if err := opts.Finalize(); err != nil {
-		exitf("finalize options: %v", err)
-	}
-
-	gen := generator.New(cfg, opts)
-
+	gen := generator.New(cfg, gCfg.GeneratorOptions)
 	code, err := gen.Generate()
 	if err != nil {
-		exitf("generate: %v", err)
+		return fmt.Errorf("generate: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(outFile), 0o755); err != nil {
-		exitf("create output dir: %v", err)
+	// After Finalize(), gCfg.GeneratorOptions.Out is the full output file path
+	if err := WriteTargetFile(gCfg.GeneratorOptions.Out, code); err != nil {
+		return fmt.Errorf("write target file: %w", err)
 	}
-	if err := os.WriteFile(outFile, code, 0o644); err != nil {
-		exitf("write output: %v", err)
-	}
-	if *verbose {
-		fmt.Fprintf(os.Stderr, "generated %s\n", outFile)
-	}
-}
 
-func outputFile(out string) (string, error) {
-	if strings.HasSuffix(out, ".go") {
-		return out, nil
+	if gCfg.GeneratorOptions.Verbose {
+		_, _ = fmt.Fprintf(os.Stderr, "generated %s\n", gCfg.GeneratorOptions.Out)
 	}
-	info, err := os.Stat(out)
-	if err == nil && info.IsDir() {
-		return filepath.Join(out, "container_gen.go"), nil
-	}
-	if err != nil && !os.IsNotExist(err) {
-		return "", err
-	}
-	// Treat as directory when it doesn't exist and doesn't end with .go.
-	return filepath.Join(out, "container_gen.go"), nil
+
+	return nil
 }
 
 func exitf(msg string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, msg+"\n", args...)
+	_, _ = fmt.Fprintf(os.Stderr, msg+"\n", args...)
 	os.Exit(1)
+}
+
+func main() {
+	if err := DoAllJob(flag.CommandLine); err != nil {
+		exitf("%v", err)
+	}
 }

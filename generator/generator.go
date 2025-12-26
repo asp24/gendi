@@ -1,64 +1,11 @@
 package generator
 
 import (
-	"errors"
 	"fmt"
 	"go/format"
 
 	di "github.com/asp24/gendi"
 )
-
-type Options struct {
-	// Output (required)
-	Out     string
-	Package string
-
-	// Optional - auto-resolved if empty
-	Container     string // Default: "Container"
-	ModulePath    string // Auto: from go.mod
-	ModuleRoot    string // Auto: from go.mod
-	OutputPkgPath string // Auto: computed from Out
-
-	// Optional
-	Strict    bool // Default: true
-	BuildTags string
-	Verbose   bool
-}
-
-// Finalize resolves all auto-configuration and validates required fields.
-// This consolidates all generator-specific "magic" in one place.
-// Call this before passing Options to New().
-func (o *Options) Finalize() error {
-	// 1. Validate required fields
-	if o.Out == "" {
-		return errors.New("Out is required")
-	}
-	if o.Package == "" {
-		return errors.New("Package is required")
-	}
-
-	// 2. Set defaults
-	if o.Container == "" {
-		o.Container = "Container"
-	}
-
-	// 3. Resolve module info if needed
-	if o.ModulePath == "" || o.ModuleRoot == "" {
-		modInfo, err := ResolveModuleInfo()
-		if err != nil {
-			return fmt.Errorf("resolve module info: %w", err)
-		}
-		o.ModulePath = modInfo.Path
-		o.ModuleRoot = modInfo.Root
-	}
-
-	// 4. Compute output path if needed
-	if o.OutputPkgPath == "" {
-		o.OutputPkgPath = ComputeOutputPkgPath(o.ModulePath, o.ModuleRoot, o.Out)
-	}
-
-	return nil
-}
 
 type Generator struct {
 	cfg     *di.Config
