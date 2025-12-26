@@ -7,52 +7,32 @@ import (
 	di "github.com/asp24/gendi"
 )
 
-type Options struct {
-	Out           string
-	Package       string
-	Container     string
-	Strict        bool
-	BuildTags     string
-	Verbose       bool
-	ModulePath    string
-	ModuleRoot    string
-	OutputPkgPath string
-}
-
 type Generator struct {
 	cfg     *di.Config
-	passes  []di.Pass
 	options Options
 }
 
-func New(cfg *di.Config, opts Options, passes []di.Pass) *Generator {
-	return &Generator{cfg: cfg, passes: passes, options: opts}
+func New(cfg *di.Config, opts Options) *Generator {
+	return &Generator{cfg: cfg, options: opts}
 }
 
+// Generate produces the container code.
+// Options must be finalized before calling New() (via Options.Finalize()).
+// Config should already have passes applied (via di.ApplyPasses()).
 func (g *Generator) Generate() ([]byte, error) {
-	if g.options.Strict {
-		// strict is default; keep here for clarity
-	}
-	if g.options.Container == "" {
-		g.options.Container = "Container"
-	}
-
-	for _, pass := range g.passes {
-		if err := pass.Process(g.cfg); err != nil {
-			return nil, fmt.Errorf("compiler pass %q failed: %w", pass.Name(), err)
-		}
-	}
-
+	// Build context
 	ctx, err := g.buildContext()
 	if err != nil {
 		return nil, err
 	}
 
+	// Render code
 	code, err := g.render(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	// Format
 	formatted, err := format.Source(code)
 	if err != nil {
 		return nil, fmt.Errorf("format generated code: %w", err)

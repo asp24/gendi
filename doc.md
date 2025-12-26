@@ -414,7 +414,11 @@ services:
 
 ## 6.6 Tags
 
-### 6.5.1 Tag Declaration
+### 6.6.1 Tag Declaration
+
+Tags can be declared explicitly or created implicitly when referenced by services.
+
+**Explicit declaration:**
 
 ```yaml
 tags:
@@ -423,19 +427,51 @@ tags:
     sort_by: priority
 ```
 
-### 6.5.2 Requiredness
+**Implicit creation (no declaration needed):**
 
-* If `!tagged:tag` is used, `element_type` is **mandatory**.
-* Tags used only as markers may omit declaration.
+```yaml
+services:
+  provider.stripe:
+    constructor:
+      func: "app.NewStripeProvider"
+    tags:
+      - name: payment.provider
+        priority: 100
+```
 
-### 6.5.3 Compatibility Validation
+### 6.6.2 Element Type Inference
+
+* `element_type` is **optional** in tag declarations.
+* When omitted, the element type is **inferred from constructor arguments** that use the tag via `!tagged:tag.name`.
+* The inferred type is the slice element type of the constructor parameter.
+* If multiple constructors use the same tag, all must have compatible element types.
+
+**Example:**
+
+```yaml
+# No tags section needed - element_type is inferred from NewService's parameter
+services:
+  provider.stripe:
+    constructor:
+      func: "app.NewStripeProvider"
+    tags:
+      - name: payment.provider
+
+  service:
+    constructor:
+      func: "app.NewService"
+      args:
+        - "!tagged:payment.provider"  # Parameter type []Provider infers element_type
+```
+
+### 6.6.3 Compatibility Validation
 
 For each service with a tag:
 
-* `ServiceType` must be assignable to `element_type`.
+* `ServiceType` must be assignable to `element_type` (whether declared or inferred).
 * Otherwise, generation fails.
 
-### 6.5.4 Tagged Injection
+### 6.6.4 Tagged Injection
 
 * Generates a value of type `[]element_type`.
 * Sorting:
@@ -484,16 +520,46 @@ Compiler passes allow:
 ```go
 type Pass interface {
     Name() string
-    Process(cfg *Config) error
+    Process(cfg *Config) (*Config, error)
 }
+
+// Apply passes before generation
+cfg, err := di.ApplyPasses(cfg, []di.Pass{
+    mypass.New(),
+})
 ```
+
+Passes mutate the config and return it for chaining.
 
 ### 8.3 Execution Order
 
 1. YAML loading + imports
-2. Compiler passes
-3. Validation
+2. Compiler passes (`di.ApplyPasses`)
+3. Generator options finalization
 4. Code generation
+
+### 8.4 Usage Example
+
+```go
+// Load config
+cfg, err := yaml.LoadConfig("gendi.yaml")
+
+// Apply passes (config layer)
+cfg, err = di.ApplyPasses(cfg, []di.Pass{
+    myCustomPass{},
+})
+
+// Configure generator
+opts := generator.Options{
+    Out:     "./internal/di",
+    Package: "di",
+}
+opts.Finalize()
+
+// Generate
+gen := generator.New(cfg, opts)
+code, err := gen.Generate()
+```
 
 ---
 
@@ -580,6 +646,6 @@ service "payments":
 
 1. `services.type` is optional
 2. Tagged injection produces `[]T` only
-3. `tags.element_type` is mandatory for tagged injection
+3. `tags.element_type` is optional (inferred from constructor arguments)
 4. Strict typing, no `any`
 5. Errors detected at generation time

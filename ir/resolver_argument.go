@@ -44,8 +44,30 @@ func (r *argumentResolver) resolve(ctx *buildContext, svcID string, idx int, arg
 	case di.ArgTagged:
 		tag, ok := ctx.tags[arg.Value]
 		if !ok {
-			return nil, fmt.Errorf("service %q arg[%d]: unknown tag %q", svcID, idx, arg.Value)
+			// Create tag on-demand - infer ElementType from parameter
+			tag = &Tag{
+				Name:     arg.Value,
+				Services: []*Service{},
+			}
+			ctx.tags[arg.Value] = tag
 		}
+
+		// Infer or validate ElementType from parameter type
+		sliceType, ok := paramType.Underlying().(*types.Slice)
+		if !ok {
+			return nil, fmt.Errorf("service %q arg[%d]: tagged injection requires slice type, got %s", svcID, idx, paramType)
+		}
+		elemType := sliceType.Elem()
+
+		if tag.ElementType == nil {
+			// Infer ElementType from parameter
+			tag.ElementType = elemType
+		} else if !types.Identical(tag.ElementType, elemType) {
+			// Validate consistency if ElementType was declared or inferred earlier
+			return nil, fmt.Errorf("service %q arg[%d]: tag %q element type mismatch: expected %s, got %s",
+				svcID, idx, arg.Value, tag.ElementType, elemType)
+		}
+
 		irArg.Kind = TaggedArg
 		irArg.Tag = tag
 

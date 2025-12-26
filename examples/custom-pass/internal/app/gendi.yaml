@@ -1,0 +1,45 @@
+services:
+  # This will be auto-tagged as "repository" by AutoTagPass
+  user.repo:
+    constructor:
+      func: "$this.NewUserRepository"
+      args:
+        - "%db_dsn%"
+
+  # This will be auto-tagged as "repository" by AutoTagPass
+  product.repo:
+    constructor:
+      func: "$this.NewProductRepository"
+      args:
+        - "%db_dsn%"
+
+  # This will be auto-tagged as "http.handler" by AutoTagPass
+  user.handler:
+    constructor:
+      func: "$this.NewUserHandler"
+      args:
+        - "@logger"
+        - "@user.repo"
+    tags:
+      - { name: "slog", channel: "user" }
+
+  # This will be auto-tagged as "http.handler" by AutoTagPass
+  product.handler:
+    constructor:
+      func: "$this.NewProductHandler"
+      args:
+        - "@logger"
+        - "@product.repo"
+    tags:
+      - { name: "slog", channel: "product" }
+
+  # Main HTTP server that uses all handlers
+  server:
+    constructor:
+      func: "$this.NewServer"
+      args:
+        - "@logger"
+        - "!tagged:http.handler"  # Gets all auto-tagged handlers
+    tags:
+      - { name: "slog", channel: "http" }
+    public: true

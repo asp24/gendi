@@ -1,6 +1,6 @@
+# element_type is inferred from constructor arguments
 tags:
   payment.provider:
-    element_type: "*github.com/asp24/gendi/examples/basic/app.PaymentProvider"
     sort_by: priority
 
 services:

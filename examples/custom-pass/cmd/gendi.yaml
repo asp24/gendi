@@ -1,0 +1,12 @@
+imports:
+  - ./../internal/**/gendi.yaml
+
+parameters:
+  db_dsn:
+    type: string
+    value: "postgres://localhost/myapp"
+
+services:
+  logger:
+    constructor:
+      func: "$this.createSLog"

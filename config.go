@@ -1,9 +1,26 @@
 package di
 
-// Pass is a compiler pass that can mutate config before validation and generation.
+import "fmt"
+
+// Pass is a compiler pass that transforms config before validation and generation.
+// Passes mutate the config and return it for chaining.
 type Pass interface {
 	Name() string
-	Process(cfg *Config) error
+	Process(cfg *Config) (*Config, error)
+}
+
+// ApplyPasses applies compiler passes sequentially to the config.
+// Each pass receives the result of the previous pass.
+func ApplyPasses(cfg *Config, passes []Pass) (*Config, error) {
+	result := cfg
+	for _, pass := range passes {
+		transformed, err := pass.Process(result)
+		if err != nil {
+			return nil, fmt.Errorf("pass %q failed: %w", pass.Name(), err)
+		}
+		result = transformed
+	}
+	return result, nil
 }
 
 // Config is the root configuration for the DI container.

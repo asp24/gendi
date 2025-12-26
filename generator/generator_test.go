@@ -7,6 +7,16 @@ import (
 	"github.com/asp24/gendi"
 )
 
+// testOptions creates finalized options for testing
+func testOptions(t *testing.T) Options {
+	t.Helper()
+	opts := Options{Out: ".", Package: "di"}
+	if err := opts.Finalize(); err != nil {
+		t.Fatalf("finalize options: %v", err)
+	}
+	return opts
+}
+
 func TestRequiresPublicService(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{
@@ -17,7 +27,7 @@ func TestRequiresPublicService(t *testing.T) {
 			},
 		},
 	}
-	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	gen := New(cfg, testOptions(t))
 	_, err := gen.Generate()
 	if err == nil || !strings.Contains(err.Error(), "at least one public service") {
 		t.Fatalf("expected public service error, got %v", err)
@@ -49,7 +59,7 @@ func TestReachabilityAndPublicGetters(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -94,7 +104,7 @@ func TestParameterProviderCodegen(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -129,7 +139,7 @@ func TestDurationParameterCodegen(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -155,7 +165,7 @@ func TestNullLiteralArgument(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -190,7 +200,7 @@ func TestServiceAliasCodegen(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -239,7 +249,7 @@ func TestDecoratorPrivateGetterElidedWhenUnused(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -283,7 +293,7 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -310,7 +320,7 @@ func TestServiceTypeAssignableOverride(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	gen := New(cfg, testOptions(t))
 	if _, err := gen.Generate(); err != nil {
 		t.Fatalf("generate failed: %v", err)
 	}
@@ -339,7 +349,7 @@ func TestDecoratorAssignableToDeclaredBaseType(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, Options{Out: ".", Package: "di"}, nil)
+	gen := New(cfg, testOptions(t))
 	if _, err := gen.Generate(); err != nil {
 		t.Fatalf("generate failed: %v", err)
 	}
