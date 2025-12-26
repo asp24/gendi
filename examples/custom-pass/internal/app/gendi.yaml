@@ -18,26 +18,28 @@ services:
     constructor:
       func: "$this.NewUserHandler"
       args:
+        - "@logger"
         - "@user.repo"
-        - "@logger"  # Added by AddDefaultServicesPass
     tags:
-      - { name: "slog", channel: "product" }
+      - { name: "slog", channel: "user" }
 
   # This will be auto-tagged as "http.handler" by AutoTagPass
   product.handler:
     constructor:
       func: "$this.NewProductHandler"
       args:
-        - "@product.repo"
         - "@logger"
+        - "@product.repo"
     tags:
       - { name: "slog", channel: "product" }
-    public: true
 
   # Main HTTP server that uses all handlers
   server:
     constructor:
       func: "$this.NewServer"
       args:
+        - "@logger"
         - "!tagged:http.handler"  # Gets all auto-tagged handlers
+    tags:
+      - { name: "slog", channel: "http" }
     public: true

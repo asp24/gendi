@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/asp24/gendi/cli"
+	"github.com/asp24/gendi/cmd"
 )
 
 func main() {
-	if err := cli.Run(flag.CommandLine, nil); err != nil {
+	if err := cmd.Run(flag.CommandLine, nil); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
