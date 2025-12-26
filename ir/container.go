@@ -117,6 +117,7 @@ type Constructor struct {
 	Params       []types.Type
 	ResultType   types.Type
 	ReturnsError bool
+	Variadic     bool // True if function/method has variadic parameters
 }
 
 // ConstructorKind indicates the type of constructor.

@@ -103,15 +103,40 @@ func (r *constructorResolver) resolveConstructor(ctx *buildContext, svc *Service
 	}
 
 	// Resolve arguments
-	if len(cons.Args) != len(irCons.Params) {
+	expectedMin := len(irCons.Params)
+	if irCons.Variadic {
+		expectedMin-- // Variadic parameter can accept 0 or more args
+	}
+
+	if !irCons.Variadic && len(cons.Args) != len(irCons.Params) {
 		return fmt.Errorf("service %q constructor args count mismatch: expected %d got %d",
 			svc.ID, len(irCons.Params), len(cons.Args))
+	}
+
+	if irCons.Variadic && len(cons.Args) < expectedMin {
+		return fmt.Errorf("service %q constructor requires at least %d args, got %d",
+			svc.ID, expectedMin, len(cons.Args))
 	}
 
 	argResolver := &argumentResolver{}
 	irCons.Args = make([]*Argument, len(cons.Args))
 	for i, arg := range cons.Args {
-		irArg, err := argResolver.resolve(ctx, svc.ID, i, arg, irCons.Params[i])
+		// For variadic functions, all args after the last non-variadic param
+		// use the variadic param's element type
+		paramIdx := i
+		if irCons.Variadic && i >= len(irCons.Params)-1 {
+			paramIdx = len(irCons.Params) - 1
+		}
+
+		paramType := irCons.Params[paramIdx]
+		// If this is a variadic parameter, get the slice element type
+		if irCons.Variadic && paramIdx == len(irCons.Params)-1 {
+			if sliceType, ok := paramType.(*types.Slice); ok {
+				paramType = sliceType.Elem()
+			}
+		}
+
+		irArg, err := argResolver.resolve(ctx, svc.ID, i, arg, paramType)
 		if err != nil {
 			return err
 		}
@@ -158,6 +183,7 @@ func (r *constructorResolver) resolveFuncConstructor(ctx *buildContext, id strin
 		Params:       signatureParams(sig),
 		ResultType:   resultType,
 		ReturnsError: returnsErr,
+		Variadic:     sig.Variadic(),
 	}, nil
 }
 
@@ -207,5 +233,6 @@ func (r *constructorResolver) resolveMethodConstructor(ctx *buildContext, id str
 		Params:       signatureParams(sig),
 		ResultType:   resultType,
 		ReturnsError: returnsErr,
+		Variadic:     sig.Variadic(),
 	}, nil
 }
