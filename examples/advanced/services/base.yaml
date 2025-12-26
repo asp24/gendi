@@ -15,9 +15,9 @@ parameters:
     type: string
     value: "ADV-"
 
+# element_type is inferred from constructor arguments
 tags:
   notifier:
-    element_type: "github.com/asp24/gendi/examples/advanced/app.Notifier"
     sort_by: priority
 
 services:

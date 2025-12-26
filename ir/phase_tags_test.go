@@ -1,0 +1,118 @@
+package ir
+
+import (
+	"go/types"
+	"testing"
+
+	di "github.com/asp24/gendi"
+)
+
+func TestTagPhaseOptionalElementType(t *testing.T) {
+	tests := []struct {
+		name        string
+		tags        map[string]di.Tag
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "tag with element_type",
+			tags: map[string]di.Tag{
+				"test.tag": {
+					ElementType: "string", // Simple type for testing
+					SortBy:      "priority",
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "tag without element_type (marker tag)",
+			tags: map[string]di.Tag{
+				"marker.tag": {
+					SortBy: "priority",
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "empty tags map",
+			tags: map[string]di.Tag{},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := newBuildContext(&di.Config{Tags: tt.tags}, &mockResolver{})
+
+			p := &tagPhase{}
+			err := p.build(ctx)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestServicePhaseCreatesTagsOnDemand(t *testing.T) {
+	cfg := &di.Config{
+		Tags: map[string]di.Tag{}, // No declared tags
+		Services: map[string]di.Service{
+			"test.service": {
+				Type: "string",
+				Tags: []di.ServiceTag{
+					{Name: "undeclared.tag"},
+				},
+			},
+		},
+	}
+
+	ctx := newBuildContext(cfg, &mockResolver{})
+
+	// Build tags first (empty)
+	if err := (&tagPhase{}).build(ctx); err != nil {
+		t.Fatalf("tagPhase failed: %v", err)
+	}
+
+	// Build services - should create tag on demand
+	if err := (&servicePhase{}).build(ctx); err != nil {
+		t.Fatalf("servicePhase failed: %v", err)
+	}
+
+	// Check that tag was created
+	tag, ok := ctx.tags["undeclared.tag"]
+	if !ok {
+		t.Fatal("expected tag 'undeclared.tag' to be created on demand")
+	}
+
+	if tag.Name != "undeclared.tag" {
+		t.Errorf("expected tag name 'undeclared.tag', got '%s'", tag.Name)
+	}
+
+	// ElementType should be nil (will be inferred later from constructor)
+	if tag.ElementType != nil {
+		t.Errorf("expected nil ElementType for on-demand tag, got %v", tag.ElementType)
+	}
+}
+
+// mockResolver is a simple resolver for testing
+type mockResolver struct{}
+
+func (m *mockResolver) LookupType(typeStr string) (types.Type, error) {
+	// Return a basic type for testing
+	return types.Typ[types.String], nil
+}
+
+func (m *mockResolver) LookupFunc(pkgPath, name string) (*types.Func, error) {
+	return nil, nil
+}
+
+func (m *mockResolver) LookupMethod(recv types.Type, name string) (*types.Func, error) {
+	return nil, nil
+}

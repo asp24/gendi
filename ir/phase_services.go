@@ -39,11 +39,16 @@ func (p *servicePhase) build(ctx *buildContext) error {
 			Tags:     []*ServiceTag{},
 		}
 
-		// Build service tags
+		// Build service tags (create tags on-demand if not declared)
 		for _, st := range svc.Tags {
 			tag, ok := ctx.tags[st.Name]
 			if !ok {
-				return fmt.Errorf("service %q references unknown tag %q", id, st.Name)
+				// Create tag on-demand - ElementType will be inferred later
+				tag = &Tag{
+					Name:     st.Name,
+					Services: []*Service{},
+				}
+				ctx.tags[st.Name] = tag
 			}
 			irSvc.Tags = append(irSvc.Tags, &ServiceTag{
 				Tag:        tag,
