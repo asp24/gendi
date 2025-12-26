@@ -32,6 +32,9 @@ func main() {
 		exitf("load config: %v", err)
 	}
 
+	// Apply compiler passes (none in CLI, but users can add via programmatic API)
+	// cfg, err = di.ApplyPasses(cfg, passes)
+
 	outFile, err := outputFile(*outPath)
 	if err != nil {
 		exitf("output path: %v", err)
@@ -49,7 +52,7 @@ func main() {
 		exitf("finalize options: %v", err)
 	}
 
-	gen := generator.New(cfg, opts, nil)
+	gen := generator.New(cfg, opts)
 
 	code, err := gen.Generate()
 	if err != nil {

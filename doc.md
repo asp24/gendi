@@ -520,16 +520,46 @@ Compiler passes allow:
 ```go
 type Pass interface {
     Name() string
-    Process(cfg *Config) error
+    Process(cfg *Config) (*Config, error)
 }
+
+// Apply passes before generation
+cfg, err := di.ApplyPasses(cfg, []di.Pass{
+    mypass.New(),
+})
 ```
+
+Passes mutate the config and return it for chaining.
 
 ### 8.3 Execution Order
 
 1. YAML loading + imports
-2. Compiler passes
-3. Validation
+2. Compiler passes (`di.ApplyPasses`)
+3. Generator options finalization
 4. Code generation
+
+### 8.4 Usage Example
+
+```go
+// Load config
+cfg, err := yaml.LoadConfig("gendi.yaml")
+
+// Apply passes (config layer)
+cfg, err = di.ApplyPasses(cfg, []di.Pass{
+    myCustomPass{},
+})
+
+// Configure generator
+opts := generator.Options{
+    Out:     "./internal/di",
+    Package: "di",
+}
+opts.Finalize()
+
+// Generate
+gen := generator.New(cfg, opts)
+code, err := gen.Generate()
+```
 
 ---
 

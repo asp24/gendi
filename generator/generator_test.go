@@ -27,7 +27,7 @@ func TestRequiresPublicService(t *testing.T) {
 			},
 		},
 	}
-	gen := New(cfg, testOptions(t), nil)
+	gen := New(cfg, testOptions(t))
 	_, err := gen.Generate()
 	if err == nil || !strings.Contains(err.Error(), "at least one public service") {
 		t.Fatalf("expected public service error, got %v", err)
@@ -59,7 +59,7 @@ func TestReachabilityAndPublicGetters(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, testOptions(t), nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -104,7 +104,7 @@ func TestParameterProviderCodegen(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, testOptions(t), nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -139,7 +139,7 @@ func TestDurationParameterCodegen(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, testOptions(t), nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -165,7 +165,7 @@ func TestNullLiteralArgument(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, testOptions(t), nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -200,7 +200,7 @@ func TestServiceAliasCodegen(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, testOptions(t), nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -249,7 +249,7 @@ func TestDecoratorPrivateGetterElidedWhenUnused(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, testOptions(t), nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -293,7 +293,7 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, testOptions(t), nil)
+	gen := New(cfg, testOptions(t))
 	code, err := gen.Generate()
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
@@ -320,7 +320,7 @@ func TestServiceTypeAssignableOverride(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, testOptions(t), nil)
+	gen := New(cfg, testOptions(t))
 	if _, err := gen.Generate(); err != nil {
 		t.Fatalf("generate failed: %v", err)
 	}
@@ -349,7 +349,7 @@ func TestDecoratorAssignableToDeclaredBaseType(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, testOptions(t), nil)
+	gen := New(cfg, testOptions(t))
 	if _, err := gen.Generate(); err != nil {
 		t.Fatalf("generate failed: %v", err)
 	}
