@@ -12,10 +12,12 @@
 - **Service decoration** - Decorator pattern with priority ordering
 - **Method constructors** - Use service methods as constructors
 - **Variadic functions** - Full support for variadic constructors
+- **Generic constructors** - Support for Go generics with type arguments
 - **Custom compiler passes** - Transform configuration before generation
 - **Parameter injection** - Type-safe parameter references with automatic conversion
 - **Circular dependency detection** - Catches circular references at generation time
 - **Public API generation** - Expose selected services via public getter methods
+- **Standard library factories** - Ready-to-use factories for common stdlib types
 
 ## Installation
 
@@ -435,6 +437,100 @@ Generated code:
 return logger.With("channel", "database"), nil
 ```
 
+### Generic Constructors
+
+Support for Go generics with type arguments:
+
+```yaml
+services:
+  events:
+    constructor:
+      func: "github.com/asp24/gendi/stdlib.NewChan[github.com/myapp/events.Event]"
+      args:
+        - 100  # buffer size
+    public: true
+```
+
+Generated code:
+```go
+func (c *Container) buildEvents() (chan events.Event, error) {
+    return stdlib.NewChan[events.Event](100), nil
+}
+```
+
+## Standard Library Factories
+
+The `stdlib` package provides ready-to-use factory functions for common Go stdlib types.
+
+### Installation
+
+Import the stdlib services in your configuration:
+
+```yaml
+imports:
+  - github.com/asp24/gendi/stdlib
+```
+
+### Available Factories
+
+| Package | Function | Description |
+|---------|----------|-------------|
+| `stdlib` | `NewChan[T](size int)` | Generic buffered channel |
+| `stdlib` | `NewHTTPClient(timeout)` | HTTP client with timeout |
+| `stdlib` | `NewHTTPClientWithTransport(timeout, transport)` | HTTP client with custom transport |
+| `stdlib` | `NewHTTPTransport(maxIdle, maxIdlePerHost, idleTimeout)` | HTTP transport with pooling |
+| `stdlib` | `NewSlogTextHandler(writer, level)` | Text log handler |
+| `stdlib` | `NewSlogJSONHandler(writer, level)` | JSON log handler |
+| `stdlib` | `NewSlogLogger(handler)` | Structured logger |
+| `stdlib` | `NewStdout()` | Standard output writer |
+| `stdlib` | `NewStderr()` | Standard error writer |
+
+### Pre-configured Services
+
+The stdlib gendi.yaml provides ready-to-use services:
+
+```yaml
+imports:
+  - github.com/asp24/gendi/stdlib
+
+services:
+  my_service:
+    constructor:
+      func: "github.com/myapp.NewService"
+      args:
+        - "@stdlib.http.client"  # Pre-configured HTTP client
+        - "@stdlib.logger"       # Pre-configured logger
+```
+
+**Available services:**
+- `stdlib.http.client` - HTTP client with 30s timeout
+- `stdlib.http.transport` - HTTP transport with connection pooling
+- `stdlib.http.client_with_transport` - HTTP client with custom transport
+- `stdlib.stdout`, `stdlib.stderr` - I/O writers
+- `stdlib.slog.handler.text`, `stdlib.slog.handler.json` - Log handlers
+- `stdlib.slog` - Structured logger (uses text handler by default)
+- `stdlib.logger` - Alias to `stdlib.slog`
+
+**Configurable parameters:**
+- `stdlib.http.timeout` (default: 30s)
+- `stdlib.http.max_idle_conns` (default: 100)
+- `stdlib.http.max_idle_conns_per_host` (default: 10)
+- `stdlib.http.idle_conn_timeout` (default: 90s)
+- `stdlib.slog.level` (default: Info)
+
+### Custom Channel Types
+
+For application-specific channel types, use the generic `NewChan`:
+
+```yaml
+services:
+  order_events:
+    constructor:
+      func: "github.com/asp24/gendi/stdlib.NewChan[github.com/myapp/orders.OrderEvent]"
+      args: [100]
+    public: true
+```
+
 ## Examples
 
 The repository includes three complete examples:
@@ -487,6 +583,7 @@ go run ./cmd
 - **`github.com/asp24/gendi/generator`** - Container code generator
 - **`github.com/asp24/gendi/cmd`** - Reusable CLI for custom generators
 - **`github.com/asp24/gendi/parameters`** - Runtime parameter provider
+- **`github.com/asp24/gendi/stdlib`** - Factory functions for stdlib types
 - **`github.com/asp24/gendi/ir`** - Intermediate representation
 
 ### Using as a Library

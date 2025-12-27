@@ -12,6 +12,9 @@ type TypeResolver interface {
 	LookupType(typeStr string) (types.Type, error)
 	LookupFunc(pkgPath, name string) (*types.Func, error)
 	LookupMethod(recv types.Type, name string) (*types.Func, error)
+	// InstantiateFunc instantiates a generic function with the given type arguments.
+	// Returns the instantiated signature. typeArgs are type strings to resolve.
+	InstantiateFunc(fn *types.Func, typeArgs []string) (*types.Signature, []types.Type, error)
 }
 
 // Builder constructs an IR Container from raw config.

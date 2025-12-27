@@ -1,0 +1,109 @@
+# Standard library factory services for gendi.
+#
+# Import this file in your gendi.yaml:
+#   imports:
+#     - "github.com/asp24/gendi/stdlib"
+#
+# Then reference services like @stdlib.http_client or use
+# the factories directly in your own service definitions.
+#
+# For custom channel types, define your own service:
+#   services:
+#     my_events:
+#       constructor:
+#         func: "github.com/asp24/gendi/stdlib.NewChan[github.com/myapp.Event]"
+#         args: [100]
+
+parameters:
+  # HTTP client settings
+  stdlib.http.timeout:
+    type: time.Duration
+    value: "30s"
+
+  stdlib.http.max_idle_conns:
+    type: int
+    value: 100
+
+  stdlib.http.max_idle_conns_per_host:
+    type: int
+    value: 10
+
+  stdlib.http.idle_conn_timeout:
+    type: time.Duration
+    value: "90s"
+
+  # Logging settings
+  stdlib.slog.level:
+    type: log/slog.Level
+    value: 0  # slog.LevelInfo
+
+services:
+  # ===================
+  # HTTP Services
+  # ===================
+
+  # Simple HTTP client with timeout
+  stdlib.http.client:
+    constructor:
+      func: "github.com/asp24/gendi/stdlib.NewHTTPClient"
+      args:
+        - "%stdlib.http.timeout%"
+
+  # HTTP transport with connection pooling
+  stdlib.http.transport:
+    constructor:
+      func: "github.com/asp24/gendi/stdlib.NewHTTPTransport"
+      args:
+        - "%stdlib.http.max_idle_conns%"
+        - "%stdlib.http.max_idle_conns_per_host%"
+        - "%stdlib.http.idle_conn_timeout%"
+
+  # HTTP client with custom transport
+  stdlib.http.client_with_transport:
+    constructor:
+      func: "github.com/asp24/gendi/stdlib.NewHTTPClientWithTransport"
+      args:
+        - "%stdlib.http.timeout%"
+        - "@stdlib.http.transport"
+
+  # Standard output writer
+  stdlib.stdout:
+    constructor:
+      func: "github.com/asp24/gendi/stdlib.NewStdout"
+    shared: false
+
+  # Standard error writer
+  stdlib.stderr:
+    constructor:
+      func: "github.com/asp24/gendi/stdlib.NewStderr"
+    shared: false
+
+  stdlib.slog.writer: '@stdlib.stderr'
+
+  # ===================
+  # Logging Services
+  # ===================
+
+  stdlib.slog.handler.text:
+    constructor:
+      func: "github.com/asp24/gendi/stdlib.NewSlogTextHandler"
+      args:
+        - "@stdlib.slog.writer"
+        - "%stdlib.slog.level%"
+
+  stdlib.slog.handler.json:
+    constructor:
+      func: "github.com/asp24/gendi/stdlib.NewSlogJSONHandler"
+      args:
+        - "@stdlib.slog.writer"
+        - "%stdlib.slog.level%"
+
+  stdlib.slog.handler: '@stdlib.slog.handler.text'
+
+  stdlib.slog:
+    constructor:
+      func: "github.com/asp24/gendi/stdlib.NewSlogLogger"
+      args:
+        - "@stdlib.slog.handler"
+
+  stdlib.logger: '@stdlib.slog'

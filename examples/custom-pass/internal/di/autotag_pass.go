@@ -17,6 +17,10 @@ func (p *AutoTagPass) Name() string {
 
 func (p *AutoTagPass) Process(cfg *di.Config) (*di.Config, error) {
 	for id, svc := range cfg.Services {
+		if strings.HasPrefix(id, "stdlib.") {
+			continue
+		}
+
 		// Auto-tag HTTP handlers
 		if strings.HasSuffix(id, "Handler") || strings.HasSuffix(id, ".handler") {
 			svc.Tags = append(svc.Tags, di.ServiceTag{

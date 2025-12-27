@@ -161,7 +161,7 @@ func (r *constructorResolver) resolveConstructor(ctx *buildContext, svc *Service
 
 // resolveFuncConstructor resolves a function constructor
 func (r *constructorResolver) resolveFuncConstructor(ctx *buildContext, id string, cons di.Constructor) (*Constructor, error) {
-	pkgPath, name, err := typeutil.SplitQualifiedName(cons.Func)
+	pkgPath, name, typeParamStrs, err := typeutil.SplitQualifiedNameWithTypeParams(cons.Func)
 	if err != nil {
 		return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
 	}
@@ -171,7 +171,26 @@ func (r *constructorResolver) resolveFuncConstructor(ctx *buildContext, id strin
 		return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
 	}
 
-	sig := fn.Type().(*types.Signature)
+	var sig *types.Signature
+	var typeArgs []types.Type
+
+	rawSig := fn.Type().(*types.Signature)
+
+	if len(typeParamStrs) > 0 {
+		// Generic function - instantiate with type arguments
+		sig, typeArgs, err = ctx.resolver.InstantiateFunc(fn, typeParamStrs)
+		if err != nil {
+			return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
+		}
+	} else {
+		// Check if function is generic but no type arguments provided
+		if tp := rawSig.TypeParams(); tp != nil && tp.Len() > 0 {
+			return nil, fmt.Errorf("service %q constructor.func: generic function %s requires %d type argument(s)",
+				id, name, tp.Len())
+		}
+		sig = rawSig
+	}
+
 	resultType, returnsErr, err := validateConstructorSignature(sig)
 	if err != nil {
 		return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
@@ -180,6 +199,7 @@ func (r *constructorResolver) resolveFuncConstructor(ctx *buildContext, id strin
 	return &Constructor{
 		Kind:         FuncConstructor,
 		Func:         fn,
+		TypeArgs:     typeArgs,
 		Params:       signatureParams(sig),
 		ResultType:   resultType,
 		ReturnsError: returnsErr,

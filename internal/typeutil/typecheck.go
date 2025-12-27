@@ -24,22 +24,22 @@ func IsDuration(t types.Type) bool {
 	return pkg != nil && pkg.Path() == "time"
 }
 
-// IsString returns true if t is the built-in string type.
+// IsString returns true if t's underlying type is the built-in string type.
 func IsString(t types.Type) bool {
-	return types.Identical(t, types.Typ[types.String])
+	return types.Identical(t.Underlying(), types.Typ[types.String])
 }
 
-// IsInt returns true if t is the built-in int type.
+// IsInt returns true if t's underlying type is the built-in int type.
 func IsInt(t types.Type) bool {
-	return types.Identical(t, types.Typ[types.Int])
+	return types.Identical(t.Underlying(), types.Typ[types.Int])
 }
 
-// IsBool returns true if t is the built-in bool type.
+// IsBool returns true if t's underlying type is the built-in bool type.
 func IsBool(t types.Type) bool {
-	return types.Identical(t, types.Typ[types.Bool])
+	return types.Identical(t.Underlying(), types.Typ[types.Bool])
 }
 
-// IsFloat64 returns true if t is the built-in float64 type.
+// IsFloat64 returns true if t's underlying type is the built-in float64 type.
 func IsFloat64(t types.Type) bool {
-	return types.Identical(t, types.Typ[types.Float64])
+	return types.Identical(t.Underlying(), types.Typ[types.Float64])
 }

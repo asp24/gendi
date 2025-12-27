@@ -116,3 +116,7 @@ func (m *mockResolver) LookupFunc(pkgPath, name string) (*types.Func, error) {
 func (m *mockResolver) LookupMethod(recv types.Type, name string) (*types.Func, error) {
 	return nil, nil
 }
+
+func (m *mockResolver) InstantiateFunc(fn *types.Func, typeArgs []string) (*types.Signature, []types.Type, error) {
+	return nil, nil, nil
+}

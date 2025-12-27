@@ -278,7 +278,8 @@ func constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsE
 
 	var call string
 	if svc.constructor.kind == "func" {
-		call = fmt.Sprintf("%s(%s)", ctx.imports.funcName(svc.constructor.funcObj), strings.Join(args, ", "))
+		funcName := ctx.imports.funcNameWithTypeArgs(svc.constructor.funcObj, svc.constructor.typeArgs)
+		call = fmt.Sprintf("%s(%s)", funcName, strings.Join(args, ", "))
 	} else {
 		recv := svc.constructor.methodRecvID
 		recvGetter := ctx.services[recv].privateGetterName
