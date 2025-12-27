@@ -21,15 +21,13 @@
 
 ## Installation
 
-```bash
-go install github.com/asp24/gendi/cmd/gendi@latest
-```
-
-Or use as a library:
+Add gendi as a tool dependency to your project:
 
 ```bash
-go get github.com/asp24/gendi
+go get -tool github.com/asp24/gendi/cmd/gendi
 ```
+
+This adds gendi to your `go.mod` and allows running it via `go tool gendi`.
 
 ## Quick Start
 
@@ -62,12 +60,12 @@ services:
 ### 2. Generate the container
 
 ```bash
-gendi --config=gendi.yaml --out=./di --pkg=di
+go tool gendi --config=gendi.yaml --out=./di --pkg=di
 ```
 
 Or use `go:generate`:
 ```go
-//go:generate gendi --config=gendi.yaml --out=./di --pkg=di
+//go:generate go tool gendi --config=gendi.yaml --out=./di --pkg=di
 ```
 
 ### 3. Use the generated container
@@ -230,7 +228,7 @@ parameters:
 ## CLI Usage
 
 ```bash
-gendi [flags]
+go tool gendi [flags]
 
 Flags:
   --config string      Root YAML configuration file (required)
@@ -245,13 +243,13 @@ Flags:
 
 ```bash
 # Generate to directory
-gendi --config=gendi.yaml --out=./di --pkg=di
+go tool gendi --config=gendi.yaml --out=./di --pkg=di
 
 # Generate specific file
-gendi --config=gendi.yaml --out=./di/container_gen.go --pkg=di
+go tool gendi --config=gendi.yaml --out=./di/container_gen.go --pkg=di
 
 # With build tags
-gendi --config=gendi.yaml --out=./di --pkg=di --build-tags=integration
+go tool gendi --config=gendi.yaml --out=./di --pkg=di --build-tags=integration
 ```
 
 ## Custom Compiler Passes
