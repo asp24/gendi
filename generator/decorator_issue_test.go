@@ -132,26 +132,26 @@ func TestDecoratorSharesStorageWithBase(t *testing.T) {
 	}
 	out := string(code)
 
-	// Verify that ONLY ONE storage field exists for both
-	if !strings.Contains(out, "svc_svc ") {
-		t.Fatalf("expected storage field for base, got:\n%s", out)
+	// Verify that storage is attached to the decorator (base is an alias)
+	if !strings.Contains(out, "svc_svc_decorator ") {
+		t.Fatalf("expected storage field for decorator, got:\n%s", out)
 	}
-	if strings.Contains(out, "svc_svc_decorator") {
-		t.Fatalf("unexpected storage field for decorator (should share with base)")
+	if strings.Contains(out, "svc_svc ") {
+		t.Fatalf("unexpected storage field for base alias")
 	}
 
-	// Verify that BOTH getters use the same field
-	// getSvc should use svc_svcInit
-	if !strings.Contains(out, "if c.svc_svcInit") {
-		t.Fatalf("expected getSvc to use shared field init flag")
+	// Verify that BOTH getters share the same storage
+	// getSvcDecorator should use svc_svc_decoratorInit
+	if !strings.Contains(out, "if c.svc_svc_decoratorInit") {
+		t.Fatalf("expected decorator getter to use shared field init flag")
 	}
-	// getSvcDecorator should delegate to getSvc
-	if !strings.Contains(out, "return c.getSvc()") {
-		t.Fatalf("expected getSvcDecorator to delegate to getSvc")
+	// getSvc should delegate to getSvcDecorator
+	if !strings.Contains(out, "return c.getSvcDecorator()") {
+		t.Fatalf("expected getSvc to delegate to getSvcDecorator")
 	}
-	// Only getSvc should check the flag directly (deduplication)
-	count := strings.Count(out, "if c.svc_svcInit")
+	// Only getSvcDecorator should check the flag directly (deduplication)
+	count := strings.Count(out, "if c.svc_svc_decoratorInit")
 	if count != 1 {
-		t.Fatalf("expected init flag check to appear exactly once (in root getter), found %d", count)
+		t.Fatalf("expected init flag check to appear exactly once (in decorator getter), found %d", count)
 	}
 }

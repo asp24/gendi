@@ -71,6 +71,17 @@ func (s *Service) IsAlias() bool {
 	return s.Alias != nil
 }
 
+func (s *Service) Clone() *Service {
+	result := *s
+	if s.Constructor != nil {
+		result.Constructor = s.Constructor.Clone()
+	}
+	result.Tags = slices.Clone(s.Tags)
+	result.Dependencies = slices.Clone(s.Dependencies)
+
+	return &result
+}
+
 // Constructor defines how a service is constructed.
 type Constructor struct {
 	Kind ConstructorKind
@@ -129,7 +140,6 @@ type Argument struct {
 	Parameter *Parameter   // For ParamRef
 	Tag       *Tag         // For Tagged
 	Literal   LiteralValue // For Literal
-	Inner     bool         // For Inner (decorator's inner service)
 }
 
 // ArgumentKind indicates the type of argument.

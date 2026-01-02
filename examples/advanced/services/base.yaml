@@ -36,7 +36,6 @@ services:
         - "%dsn%"
     shared: true
   mailer:
-    type: "github.com/asp24/gendi/examples/advanced/app.Mailer"
     constructor:
       func: "github.com/asp24/gendi/examples/advanced/app.NewMailerBasic"
       args:

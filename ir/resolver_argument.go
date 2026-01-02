@@ -25,7 +25,6 @@ func (r *argumentResolver) resolve(ctx *buildContext, svcID string, idx int, arg
 
 	case di.ArgInner:
 		irArg.Kind = InnerArg
-		irArg.Inner = true
 
 	case di.ArgParam:
 		param, ok := ctx.parameters[arg.Value]

@@ -45,19 +45,19 @@ func TestDecoratorResolverSingleDecorator(t *testing.T) {
 		t.Fatalf("expand failed: %v", err)
 	}
 
-	rawBase := findServiceByPrefix(t, ctx.services, "__decorator_base__svc")
+	rawBase := ctx.services["svc.decorator.inner"]
 	if rawBase == nil {
 		t.Fatalf("expected raw base service to be created")
-	}
-	if rawBase.Public || rawBase.Shared {
-		t.Fatalf("expected raw base to be non-public and non-shared")
 	}
 	if rawBase.Constructor == nil || rawBase.Constructor.Kind != FuncConstructor {
 		t.Fatalf("expected raw base to keep original constructor")
 	}
 
-	if base.Alias != nil {
-		t.Fatalf("expected base alias to be cleared")
+	if base.Alias != dec {
+		t.Fatalf("expected base to become alias to decorator")
+	}
+	if base.Constructor != nil {
+		t.Fatalf("expected base constructor to be cleared")
 	}
 	if base.Type != dec.Type {
 		t.Fatalf("expected base type to match decorator type")
@@ -66,24 +66,17 @@ func TestDecoratorResolverSingleDecorator(t *testing.T) {
 		t.Fatalf("expected base to become shared due to decorator")
 	}
 
-	if base.Constructor == nil || base.Constructor == dec.Constructor {
-		t.Fatalf("expected base to clone decorator constructor")
+	if dec.Alias != nil {
+		t.Fatalf("expected decorator to remain a concrete service")
 	}
-	if len(base.Constructor.Args) != 1 || base.Constructor.Args[0].Kind != ServiceRefArg {
+	if dec.Constructor == nil || len(dec.Constructor.Args) != 1 {
+		t.Fatalf("expected decorator constructor to be retained and rewritten")
+	}
+	if dec.Constructor.Args[0].Kind != ServiceRefArg {
 		t.Fatalf("expected inner arg to be rewritten to service ref")
 	}
-	if base.Constructor.Args[0].Service != rawBase {
+	if dec.Constructor.Args[0].Service != rawBase {
 		t.Fatalf("expected inner arg to reference raw base")
-	}
-
-	if dec.Alias != base {
-		t.Fatalf("expected decorator to become alias to base")
-	}
-	if dec.Constructor != nil {
-		t.Fatalf("expected decorator fields to be cleared after expansion")
-	}
-	if dec.Type != base.Type {
-		t.Fatalf("expected decorator type to match base after expansion")
 	}
 }
 
@@ -133,33 +126,38 @@ func TestDecoratorResolverChainCreatesInternalServices(t *testing.T) {
 		t.Fatalf("expand failed: %v", err)
 	}
 
-	rawBase := findServiceByPrefix(t, ctx.services, "__decorator_base__svc")
-	internalDecA := findServiceByPrefix(t, ctx.services, "__decorator_decorator__svc.decA")
-	if rawBase == nil || internalDecA == nil {
-		t.Fatalf("expected raw base and internal decorator services to be created")
-	}
-	if internalDecA.Shared {
-		t.Fatalf("expected internal decorator to be non-shared")
+	rawBase := ctx.services["svc.decA.inner"]
+	if rawBase == nil {
+		t.Fatalf("expected raw base service to be created")
 	}
 
-	if base.Constructor == nil || len(base.Constructor.Args) != 1 {
-		t.Fatalf("expected base constructor to be replaced by outer decorator")
+	if base.Alias != decB {
+		t.Fatalf("expected base to become alias to outer decorator")
 	}
-	if base.Constructor.Args[0].Kind != ServiceRefArg || base.Constructor.Args[0].Service != internalDecA {
-		t.Fatalf("expected outer decorator to reference internal decorator")
+	if base.Constructor != nil {
+		t.Fatalf("expected base constructor to be cleared")
 	}
-	if internalDecA.Constructor == nil || len(internalDecA.Constructor.Args) != 1 {
-		t.Fatalf("expected internal decorator to keep constructor")
-	}
-	if internalDecA.Constructor.Args[0].Kind != ServiceRefArg || internalDecA.Constructor.Args[0].Service != rawBase {
-		t.Fatalf("expected internal decorator to reference raw base")
-	}
-
 	if !base.Shared {
 		t.Fatalf("expected base to become shared due to decorator chain")
 	}
-	if decA.Alias != base || decB.Alias != base {
-		t.Fatalf("expected decorators to become aliases to base")
+
+	if decA.Alias != nil || decB.Alias != nil {
+		t.Fatalf("expected decorators to remain concrete services")
+	}
+	if decA.Shared {
+		t.Fatalf("expected inner decorator to remain non-shared")
+	}
+	if decB.Constructor == nil || len(decB.Constructor.Args) != 1 {
+		t.Fatalf("expected outer decorator to keep constructor")
+	}
+	if decB.Constructor.Args[0].Kind != ServiceRefArg || decB.Constructor.Args[0].Service != decA {
+		t.Fatalf("expected outer decorator to reference inner decorator")
+	}
+	if decA.Constructor == nil || len(decA.Constructor.Args) != 1 {
+		t.Fatalf("expected inner decorator to keep constructor")
+	}
+	if decA.Constructor.Args[0].Kind != ServiceRefArg || decA.Constructor.Args[0].Service != rawBase {
+		t.Fatalf("expected inner decorator to reference raw base")
 	}
 }
 

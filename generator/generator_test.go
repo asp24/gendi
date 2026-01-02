@@ -310,7 +310,7 @@ func TestServiceAliasCodegen(t *testing.T) {
 	}
 }
 
-func TestDecoratorPrivateGetterElidedWhenUnused(t *testing.T) {
+func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{
 			"svc": {
@@ -348,11 +348,17 @@ func TestDecoratorPrivateGetterElidedWhenUnused(t *testing.T) {
 		t.Fatalf("generate failed: %v", err)
 	}
 	out := string(code)
-	if strings.Contains(out, "getSvcDecoratorA") || strings.Contains(out, "getSvcDecoratorB") {
-		t.Fatalf("unexpected private getters for decorators")
+	if !strings.Contains(out, "getSvcDecoratorB") {
+		t.Fatalf("expected private getter for outer decorator")
 	}
-	if strings.Contains(out, "svc_svc_decoratorA") || strings.Contains(out, "svc_svc_decoratorB") {
-		t.Fatalf("unexpected fields for decorators")
+	if !strings.Contains(out, "getSvcDecoratorA") {
+		t.Fatalf("expected private getter for inner decorator")
+	}
+	if !strings.Contains(out, "getSvcDecoratorAInner") {
+		t.Fatalf("expected private getter for raw base")
+	}
+	if !strings.Contains(out, "svc_svc_decoratorA ") || !strings.Contains(out, "svc_svc_decoratorB ") {
+		t.Fatalf("expected storage fields for decorators")
 	}
 }
 
@@ -395,7 +401,7 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 	if !strings.Contains(out, "getSvcDecoratorA") {
 		t.Fatalf("expected private getter for referenced decorator")
 	}
-	if !strings.Contains(out, "svc_svc") {
+	if !strings.Contains(out, "svc_svc_decoratorA ") {
 		t.Fatalf("expected shared field for referenced decorator")
 	}
 }

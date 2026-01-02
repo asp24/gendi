@@ -14,14 +14,15 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 })
 
 type Container struct {
-	mu                  sync.Mutex
-	params              parameters.Provider
-	svc_logger          *app.Logger
-	svc_provider_paypal *app.PaymentProvider
-	svc_provider_stripe *app.PaymentProvider
-	svc_repo            *app.Repo
-	svc_service         *app.Service
-	svc_timer           *app.Timer
+	mu                          sync.Mutex
+	params                      parameters.Provider
+	svc_logger                  *app.Logger
+	svc_provider_paypal         *app.PaymentProvider
+	svc_provider_stripe         *app.PaymentProvider
+	svc_repo                    *app.Repo
+	svc_service_decorator       *app.Service
+	svc_service_decorator_inner *app.Service
+	svc_timer                   *app.Timer
 }
 
 func NewContainer(params parameters.Provider) *Container {
@@ -29,27 +30,6 @@ func NewContainer(params parameters.Provider) *Container {
 		params = DefaultParameters
 	}
 	return &Container{params: params}
-}
-
-func (c *Container) buildDecoratorBaseService() (*app.Service, error) {
-	var zero *app.Service
-	arg0_repo, err := c.getRepo()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "__decorator_base__service", '\x00', err)
-	}
-	arg1_logger, err := c.getLogger()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "__decorator_base__service", '\x01', err)
-	}
-	arg2_tagged_payment_provider, err := c.getTaggedWithPaymentProvider()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "__decorator_base__service", '\x02', "payment.provider", err)
-	}
-	res, err := app.NewService(arg0_repo, arg1_logger, arg2_tagged_payment_provider)
-	if err != nil {
-		return zero, fmt.Errorf("service %q constructor: %w", "__decorator_base__service", err)
-	}
-	return res, nil
 }
 
 func (c *Container) buildLogger() (*app.Logger, error) {
@@ -73,30 +53,42 @@ func (c *Container) buildRepo() (*app.Repo, error) {
 	return app.NewRepo(param0_dsn), nil
 }
 
-func (c *Container) buildService() (*app.Service, error) {
+func (c *Container) buildServiceDecorator() (*app.Service, error) {
 	var zero *app.Service
-	arg0___decorator_base__service, err := c.getDecoratorBaseService()
+	arg0_service_decorator_inner, err := c.getServiceDecoratorInner()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "service", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator", '\x00', err)
 	}
 	arg1_logger, err := c.getLogger()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "service", '\x01', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator", '\x01', err)
 	}
-	return app.DecorateService(arg0___decorator_base__service, arg1_logger), nil
+	return app.DecorateService(arg0_service_decorator_inner, arg1_logger), nil
+}
+
+func (c *Container) buildServiceDecoratorInner() (*app.Service, error) {
+	var zero *app.Service
+	arg0_repo, err := c.getRepo()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator.inner", '\x00', err)
+	}
+	arg1_logger, err := c.getLogger()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator.inner", '\x01', err)
+	}
+	arg2_tagged_payment_provider, err := c.getTaggedWithPaymentProvider()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "service.decorator.inner", '\x02', "payment.provider", err)
+	}
+	res, err := app.NewService(arg0_repo, arg1_logger, arg2_tagged_payment_provider)
+	if err != nil {
+		return zero, fmt.Errorf("service %q constructor: %w", "service.decorator.inner", err)
+	}
+	return res, nil
 }
 
 func (c *Container) buildTimer() (*app.Timer, error) {
 	return app.NewTimer(1000000000), nil
-}
-
-func (c *Container) getDecoratorBaseService() (*app.Service, error) {
-	var zero *app.Service
-	res, err := c.buildDecoratorBaseService()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
 }
 
 func (c *Container) getLogger() (*app.Logger, error) {
@@ -152,15 +144,32 @@ func (c *Container) getRepo() (*app.Repo, error) {
 }
 
 func (c *Container) getService() (*app.Service, error) {
+	return c.getServiceDecorator()
+}
+
+func (c *Container) getServiceDecorator() (*app.Service, error) {
 	var zero *app.Service
-	if c.svc_service != nil {
-		return c.svc_service, nil
+	if c.svc_service_decorator != nil {
+		return c.svc_service_decorator, nil
 	}
-	res, err := c.buildService()
+	res, err := c.buildServiceDecorator()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_service = res
+	c.svc_service_decorator = res
+	return res, nil
+}
+
+func (c *Container) getServiceDecoratorInner() (*app.Service, error) {
+	var zero *app.Service
+	if c.svc_service_decorator_inner != nil {
+		return c.svc_service_decorator_inner, nil
+	}
+	res, err := c.buildServiceDecoratorInner()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_service_decorator_inner = res
 	return res, nil
 }
 
@@ -196,6 +205,12 @@ func (c *Container) GetService() (*app.Service, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.getService()
+}
+
+func (c *Container) GetServiceDecoratorInner() (*app.Service, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.getServiceDecoratorInner()
 }
 
 func (c *Container) GetTimer() (*app.Timer, error) {

@@ -9,27 +9,34 @@ import (
 type decoratorResolver struct{}
 
 type decoratorResolverState struct {
-	decoratesByID    map[string]string
-	decoratorsByBase map[string][]*Service
-	priorityByID     map[string]int
+	decoratorToInner    map[string]string
+	serviceToDecorators map[string][]*Service
 }
 
-// resolve links decorators and expands them into plain services and aliases.
-func (r *decoratorResolver) resolve(ctx *buildContext) error {
-	state, err := r.buildState(ctx)
-	if err != nil {
-		return err
+func (ds *decoratorResolverState) popNext() (innerID string, decoratorID string, ok bool) {
+	for serviceID, decorators := range ds.serviceToDecorators {
+		decoratorID = decorators[0].ID
+		delete(ds.decoratorToInner, decoratorID)
+
+		decorators = decorators[1:]
+		ds.serviceToDecorators[serviceID] = decorators
+		if len(decorators) == 0 {
+			delete(ds.serviceToDecorators, serviceID)
+		}
+
+		return serviceID, decoratorID, true
 	}
-	return r.expandDecorators(ctx, state)
+
+	return "", "", false
 }
 
 func (r *decoratorResolver) buildState(ctx *buildContext) (*decoratorResolverState, error) {
 	state := &decoratorResolverState{
-		decoratesByID:    make(map[string]string),
-		decoratorsByBase: make(map[string][]*Service),
-		priorityByID:     make(map[string]int),
+		decoratorToInner:    make(map[string]string),
+		serviceToDecorators: make(map[string][]*Service),
 	}
 
+	idToPriorityMap := make(map[string]int)
 	for _, svc := range ctx.services {
 		cfg := ctx.cfg.Services[svc.ID]
 		if cfg.Decorates == "" {
@@ -40,104 +47,99 @@ func (r *decoratorResolver) buildState(ctx *buildContext) (*decoratorResolverSta
 		if !ok {
 			return nil, fmt.Errorf("decorator %q decorates unknown service %q", svc.ID, cfg.Decorates)
 		}
+		if baseCfg := ctx.cfg.Services[base.ID]; baseCfg.Decorates != "" {
+			return nil, fmt.Errorf("decorator %q cannot be decorated", base.ID)
+		}
 
-		state.decoratesByID[svc.ID] = base.ID
-		state.decoratorsByBase[base.ID] = append(state.decoratorsByBase[base.ID], svc)
-		state.priorityByID[svc.ID] = cfg.DecorationPriority
+		state.decoratorToInner[svc.ID] = base.ID
+		state.serviceToDecorators[base.ID] = append(state.serviceToDecorators[base.ID], svc)
+		idToPriorityMap[svc.ID] = cfg.DecorationPriority
 	}
 
-	for baseID, decs := range state.decoratorsByBase {
+	for baseID, decs := range state.serviceToDecorators {
 		if len(decs) > 1 {
 			sort.Slice(decs, func(i, j int) bool {
-				return state.priorityByID[decs[i].ID] < state.priorityByID[decs[j].ID]
+				return idToPriorityMap[decs[i].ID] < idToPriorityMap[decs[j].ID]
 			})
-			state.decoratorsByBase[baseID] = decs
+			state.serviceToDecorators[baseID] = decs
 		}
 	}
 
 	return state, nil
 }
 
-// expandDecorators rewrites decorator syntax into plain services and aliases.
-func (r *decoratorResolver) expandDecorators(ctx *buildContext, state *decoratorResolverState) error {
-	if err := r.detectDecoratorCycles(state.decoratesByID); err != nil {
+// resolve links decorators and expands them into plain services and aliases.
+func (r *decoratorResolver) resolve(ctx *buildContext) error {
+	state, err := r.buildState(ctx)
+	if err != nil {
 		return err
 	}
 
-	usedIDs := make(map[string]bool, len(ctx.services))
-	for id := range ctx.services {
-		usedIDs[id] = true
+	if err := r.detectDecoratorCycles(state.decoratorToInner); err != nil {
+		return err
 	}
 
-	rawBaseByResolved := make(map[string]*Service)
+	for {
+		innerID, decoratorID, ok := state.popNext()
 
-	for _, baseID := range ctx.order {
-		base := ctx.services[baseID]
-		decorators := state.decoratorsByBase[baseID]
-		if base == nil || len(decorators) == 0 {
+		if !ok {
+			break
+		}
+
+		if err := r.expandOne(ctx, innerID, decoratorID); err != nil {
+			return err
+		}
+	}
+
+	r.rebuildOrder(ctx)
+
+	return r.validateInnerArgs(ctx.services)
+}
+
+func (r *decoratorResolver) rewriteInnerArgs(cons *Constructor, innerSvc *Service) {
+	for _, arg := range cons.Args {
+		if arg.Kind != InnerArg {
 			continue
 		}
-		if _, ok := state.decoratesByID[base.ID]; ok {
-			return fmt.Errorf("decorator %q cannot be decorated", base.ID)
-		}
-		decorators = append([]*Service(nil), decorators...)
 
-		resolvedBase := r.resolveAliasTarget(base)
-		rawBase := rawBaseByResolved[resolvedBase.ID]
-		if rawBase == nil {
-			rawBaseID := uniqueInternalID(usedIDs, "base", resolvedBase.ID)
-			rawBase = cloneService(resolvedBase, rawBaseID)
-			rawBase.Public = false
-			rawBase.Shared = false
-			rawBase.Tags = nil
-			rawBase.Alias = nil
-			ctx.services[rawBaseID] = rawBase
-			rawBaseByResolved[resolvedBase.ID] = rawBase
-		}
+		arg.Kind = ServiceRefArg
+		arg.Service = innerSvc
+	}
+}
 
-		prev := rawBase
-		for i, dec := range decorators {
-			isOutermost := i == len(decorators)-1
-			if isOutermost {
-				base.Constructor = dec.Constructor.Clone()
-				base.Type = dec.Type
-				base.Alias = nil
-				r.rewriteInnerArgs(base.Constructor, prev)
-				break
-			}
+func (r *decoratorResolver) expandOne(ctx *buildContext, innerID, decoratorID string) error {
+	innerService := ctx.services[innerID]
 
-			internalID := uniqueInternalID(usedIDs, "decorator", dec.ID)
-			internal := cloneService(dec, internalID)
-			internal.Public = false
-			internal.Shared = false
-			internal.Tags = nil
-			internal.Alias = nil
-			r.rewriteInnerArgs(internal.Constructor, prev)
+	var aliasService *Service
 
-			ctx.services[internalID] = internal
-			prev = internal
-		}
+	if innerService.IsAlias() {
+		aliasService = innerService
+		innerService = innerService.Alias
+		aliasService.Alias = nil
+	} else {
+		aliasService = innerService
 
-		chainShared := base.Shared
-		for _, dec := range decorators {
-			if dec.Shared {
-				chainShared = true
-				break
-			}
-		}
-		base.Shared = chainShared
+		innerService = innerService.Clone()
+		innerService.ID = decoratorID + ".inner"
 
-		for _, dec := range decorators {
-			dec.Alias = base
-			dec.Constructor = nil
-			dec.Type = base.Type
-		}
+		aliasService.Constructor = nil
+		aliasService.Tags = nil
+		aliasService.Dependencies = nil
 	}
 
-	if err := r.validateInnerArgs(ctx.services); err != nil {
-		return err
-	}
-	r.rebuildOrder(ctx)
+	decoratorService := ctx.services[decoratorID]
+	chainShared := aliasService.Shared || innerService.Shared || decoratorService.Shared
+	decoratorService.Shared = chainShared
+	r.rewriteInnerArgs(decoratorService.Constructor, innerService)
+
+	aliasService.ID = innerID
+	aliasService.Type = decoratorService.Type
+	aliasService.Alias = decoratorService
+	aliasService.Shared = chainShared
+
+	ctx.services[innerService.ID] = innerService
+	ctx.services[aliasService.ID] = aliasService
+
 	return nil
 }
 
@@ -153,27 +155,6 @@ func (r *decoratorResolver) validateInnerArgs(services map[string]*Service) erro
 		}
 	}
 	return nil
-}
-
-func (r *decoratorResolver) rewriteInnerArgs(cons *Constructor, innerSvc *Service) {
-	if cons == nil || innerSvc == nil {
-		return
-	}
-	for _, arg := range cons.Args {
-		if arg.Kind != InnerArg {
-			continue
-		}
-		arg.Kind = ServiceRefArg
-		arg.Service = innerSvc
-		arg.Inner = false
-	}
-}
-
-func (r *decoratorResolver) resolveAliasTarget(svc *Service) *Service {
-	for svc != nil && svc.Alias != nil {
-		svc = svc.Alias
-	}
-	return svc
 }
 
 func (r *decoratorResolver) detectDecoratorCycles(decoratesByID map[string]string) error {
@@ -218,38 +199,6 @@ func (r *decoratorResolver) rebuildOrder(ctx *buildContext) {
 		ctx.order = append(ctx.order, id)
 	}
 	sort.Strings(ctx.order)
-}
-
-func uniqueInternalID(used map[string]bool, prefix, id string) string {
-	base := fmt.Sprintf("__decorator_%s__%s", prefix, id)
-	if !used[base] {
-		used[base] = true
-		return base
-	}
-	for i := 2; ; i++ {
-		candidate := fmt.Sprintf("%s_%d", base, i)
-		if !used[candidate] {
-			used[candidate] = true
-			return candidate
-		}
-	}
-}
-
-func cloneService(src *Service, id string) *Service {
-	if src == nil {
-		return nil
-	}
-	clone := *src
-	clone.ID = id
-	clone.Tags = nil
-	clone.Alias = nil
-	clone.Dependencies = nil
-	clone.CanError = false
-	clone.BuildCanError = false
-	if src.Constructor != nil {
-		clone.Constructor = src.Constructor.Clone()
-	}
-	return &clone
 }
 
 func joinIDs(ids []string) string {

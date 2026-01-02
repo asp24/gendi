@@ -8,69 +8,75 @@ import (
 )
 
 type Container struct {
-	mu                   sync.Mutex
-	svc_payment_provider *app.PaymentProviderCommissionDecorator
+	mu                                   sync.Mutex
+	svc_payment_provider_dummy           *app.PaymentProviderDummy
+	svc_payment_provider_with_comission  *app.PaymentProviderCommissionDecorator
+	svc_payment_provider_with_comission2 *app.PaymentProviderCommissionDecorator
 }
 
-func (c *Container) buildDecoratorBasePaymentProviderDummy() (*app.PaymentProviderDummy, error) {
+func (c *Container) buildPaymentProviderDummy() (*app.PaymentProviderDummy, error) {
 	return app.NewPaymentProviderDummy(), nil
 }
 
-func (c *Container) buildDecoratorDecoratorPaymentProviderWithComission() (*app.PaymentProviderCommissionDecorator, error) {
+func (c *Container) buildPaymentProviderWithComission() (*app.PaymentProviderCommissionDecorator, error) {
 	var zero *app.PaymentProviderCommissionDecorator
-	arg0___decorator_base__payment_provider_dummy, err := c.getDecoratorBasePaymentProviderDummy()
+	arg0_payment_provider_dummy, err := c.getPaymentProviderDummy()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "__decorator_decorator__payment.provider_with_comission", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "payment.provider_with_comission", '\x00', err)
 	}
-	return app.NewPaymentProviderCommissionDecorator(arg0___decorator_base__payment_provider_dummy, 1), nil
+	return app.NewPaymentProviderCommissionDecorator(arg0_payment_provider_dummy, 1), nil
 }
 
-func (c *Container) buildPaymentProvider() (*app.PaymentProviderCommissionDecorator, error) {
+func (c *Container) buildPaymentProviderWithComission2() (*app.PaymentProviderCommissionDecorator, error) {
 	var zero *app.PaymentProviderCommissionDecorator
-	arg0___decorator_decorator__payment_provider_with_comission, err := c.getDecoratorDecoratorPaymentProviderWithComission()
+	arg0_payment_provider_with_comission, err := c.getPaymentProviderWithComission()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "payment.provider", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "payment.provider_with_comission2", '\x00', err)
 	}
-	return app.NewPaymentProviderCommissionDecorator(arg0___decorator_decorator__payment_provider_with_comission, 2), nil
-}
-
-func (c *Container) getDecoratorBasePaymentProviderDummy() (*app.PaymentProviderDummy, error) {
-	var zero *app.PaymentProviderDummy
-	res, err := c.buildDecoratorBasePaymentProviderDummy()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
-}
-
-func (c *Container) getDecoratorDecoratorPaymentProviderWithComission() (*app.PaymentProviderCommissionDecorator, error) {
-	var zero *app.PaymentProviderCommissionDecorator
-	res, err := c.buildDecoratorDecoratorPaymentProviderWithComission()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return app.NewPaymentProviderCommissionDecorator(arg0_payment_provider_with_comission, 2), nil
 }
 
 func (c *Container) getPaymentProvider() (*app.PaymentProviderCommissionDecorator, error) {
-	var zero *app.PaymentProviderCommissionDecorator
-	if c.svc_payment_provider != nil {
-		return c.svc_payment_provider, nil
+	return c.getPaymentProviderWithComission2()
+}
+
+func (c *Container) getPaymentProviderDummy() (*app.PaymentProviderDummy, error) {
+	var zero *app.PaymentProviderDummy
+	if c.svc_payment_provider_dummy != nil {
+		return c.svc_payment_provider_dummy, nil
 	}
-	res, err := c.buildPaymentProvider()
+	res, err := c.buildPaymentProviderDummy()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_payment_provider = res
+	c.svc_payment_provider_dummy = res
 	return res, nil
 }
 
 func (c *Container) getPaymentProviderWithComission() (*app.PaymentProviderCommissionDecorator, error) {
-	return c.getPaymentProvider()
+	var zero *app.PaymentProviderCommissionDecorator
+	if c.svc_payment_provider_with_comission != nil {
+		return c.svc_payment_provider_with_comission, nil
+	}
+	res, err := c.buildPaymentProviderWithComission()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_payment_provider_with_comission = res
+	return res, nil
 }
 
 func (c *Container) getPaymentProviderWithComission2() (*app.PaymentProviderCommissionDecorator, error) {
-	return c.getPaymentProvider()
+	var zero *app.PaymentProviderCommissionDecorator
+	if c.svc_payment_provider_with_comission2 != nil {
+		return c.svc_payment_provider_with_comission2, nil
+	}
+	res, err := c.buildPaymentProviderWithComission2()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_payment_provider_with_comission2 = res
+	return res, nil
 }
 
 func (c *Container) getTaggedWithJob() ([]app.Job, error) {

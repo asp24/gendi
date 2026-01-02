@@ -17,14 +17,17 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 })
 
 type Container struct {
-	mu                     sync.Mutex
-	params                 parameters.Provider
-	svc_db                 *app.DB
-	svc_factory            *app.Factory
-	svc_handler            *app.Handler
-	svc_logger             *app.Logger
-	svc_mailer             *app.MailerPrefixDecorator
-	svc_notifier_aggregate *app.AggregateNotifier
+	mu                         sync.Mutex
+	params                     parameters.Provider
+	svc_db                     *app.DB
+	svc_factory                *app.Factory
+	svc_handler                *app.Handler
+	svc_logger                 *app.Logger
+	svc_mailer_prefix          *app.MailerPrefixDecorator
+	svc_mailer_retry           *app.MailerRetryDecorator
+	svc_mailer_retry_inner     app.Mailer
+	svc_mailer_retry_innerInit bool
+	svc_notifier_aggregate     *app.AggregateNotifier
 }
 
 func NewContainer(params parameters.Provider) *Container {
@@ -32,28 +35,6 @@ func NewContainer(params parameters.Provider) *Container {
 		params = DefaultParameters
 	}
 	return &Container{params: params}
-}
-
-func (c *Container) buildDecoratorBaseMailer() (app.Mailer, error) {
-	var zero app.Mailer
-	param0_mail_host, err := c.params.GetString("mail_host")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "__decorator_base__mailer", '\x00', "mail_host", err)
-	}
-	return app.NewMailerBasic(param0_mail_host), nil
-}
-
-func (c *Container) buildDecoratorDecoratorMailerRetry() (*app.MailerRetryDecorator, error) {
-	var zero *app.MailerRetryDecorator
-	arg0___decorator_base__mailer, err := c.getDecoratorBaseMailer()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "__decorator_decorator__mailer.retry", '\x00', err)
-	}
-	param1_mail_retries, err := c.params.GetInt("mail_retries")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "__decorator_decorator__mailer.retry", '\x01', "mail_retries", err)
-	}
-	return app.NewMailerRetryDecorator(arg0___decorator_base__mailer, param1_mail_retries), nil
 }
 
 func (c *Container) buildDb() (*app.DB, error) {
@@ -104,17 +85,39 @@ func (c *Container) buildLogger() (*app.Logger, error) {
 	return app.NewLogger(param0_log_prefix), nil
 }
 
-func (c *Container) buildMailer() (*app.MailerPrefixDecorator, error) {
+func (c *Container) buildMailerPrefix() (*app.MailerPrefixDecorator, error) {
 	var zero *app.MailerPrefixDecorator
-	arg0___decorator_decorator__mailer_retry, err := c.getDecoratorDecoratorMailerRetry()
+	arg0_mailer_retry, err := c.getMailerRetry()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "mailer", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "mailer.prefix", '\x00', err)
 	}
 	param1_mail_prefix, err := c.params.GetString("mail_prefix")
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer", '\x01', "mail_prefix", err)
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.prefix", '\x01', "mail_prefix", err)
 	}
-	return app.NewMailerPrefixDecorator(arg0___decorator_decorator__mailer_retry, param1_mail_prefix), nil
+	return app.NewMailerPrefixDecorator(arg0_mailer_retry, param1_mail_prefix), nil
+}
+
+func (c *Container) buildMailerRetry() (*app.MailerRetryDecorator, error) {
+	var zero *app.MailerRetryDecorator
+	arg0_mailer_retry_inner, err := c.getMailerRetryInner()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "mailer.retry", '\x00', err)
+	}
+	param1_mail_retries, err := c.params.GetInt("mail_retries")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.retry", '\x01', "mail_retries", err)
+	}
+	return app.NewMailerRetryDecorator(arg0_mailer_retry_inner, param1_mail_retries), nil
+}
+
+func (c *Container) buildMailerRetryInner() (app.Mailer, error) {
+	var zero app.Mailer
+	param0_mail_host, err := c.params.GetString("mail_host")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.retry.inner", '\x00', "mail_host", err)
+	}
+	return app.NewMailerBasic(param0_mail_host), nil
 }
 
 func (c *Container) buildNotifierAggregate() (*app.AggregateNotifier, error) {
@@ -137,24 +140,6 @@ func (c *Container) buildNotifierEmail() (*app.EmailNotifier, error) {
 
 func (c *Container) buildNotifierSms() (app.SMSNotifier, error) {
 	return app.NewSMSNotifier(), nil
-}
-
-func (c *Container) getDecoratorBaseMailer() (app.Mailer, error) {
-	var zero app.Mailer
-	res, err := c.buildDecoratorBaseMailer()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
-}
-
-func (c *Container) getDecoratorDecoratorMailerRetry() (*app.MailerRetryDecorator, error) {
-	var zero *app.MailerRetryDecorator
-	res, err := c.buildDecoratorDecoratorMailerRetry()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
 }
 
 func (c *Container) getDb() (*app.DB, error) {
@@ -210,15 +195,46 @@ func (c *Container) getLogger() (*app.Logger, error) {
 }
 
 func (c *Container) getMailer() (*app.MailerPrefixDecorator, error) {
+	return c.getMailerPrefix()
+}
+
+func (c *Container) getMailerPrefix() (*app.MailerPrefixDecorator, error) {
 	var zero *app.MailerPrefixDecorator
-	if c.svc_mailer != nil {
-		return c.svc_mailer, nil
+	if c.svc_mailer_prefix != nil {
+		return c.svc_mailer_prefix, nil
 	}
-	res, err := c.buildMailer()
+	res, err := c.buildMailerPrefix()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_mailer = res
+	c.svc_mailer_prefix = res
+	return res, nil
+}
+
+func (c *Container) getMailerRetry() (*app.MailerRetryDecorator, error) {
+	var zero *app.MailerRetryDecorator
+	if c.svc_mailer_retry != nil {
+		return c.svc_mailer_retry, nil
+	}
+	res, err := c.buildMailerRetry()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_mailer_retry = res
+	return res, nil
+}
+
+func (c *Container) getMailerRetryInner() (app.Mailer, error) {
+	var zero app.Mailer
+	if c.svc_mailer_retry_innerInit {
+		return c.svc_mailer_retry_inner, nil
+	}
+	res, err := c.buildMailerRetryInner()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_mailer_retry_inner = res
+	c.svc_mailer_retry_innerInit = true
 	return res, nil
 }
 
