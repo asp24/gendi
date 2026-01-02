@@ -121,15 +121,15 @@ func (b *ContextBuilder) convertService(irSvc *ir.Service) *serviceDef {
 	}
 
 	if irSvc.Constructor != nil {
-		svcDef.constructor = b.convertConstructor(irSvc.ID, irSvc.Constructor)
+		svcDef.constructor = b.convertConstructor(irSvc.Constructor)
 	}
 
 	return svcDef
 }
 
-func (b *ContextBuilder) convertConstructor(svcID string, irCons *ir.Constructor) constructorDef {
-	cons := constructorDef{
-		funcObj:      irCons.Func,
+func (b *ContextBuilder) convertConstructor(irCons *ir.Constructor) constructorDef {
+	result := constructorDef{
+		argDefs:      irCons.Args,
 		typeArgs:     irCons.TypeArgs,
 		params:       irCons.Params,
 		result:       irCons.ResultType,
@@ -137,18 +137,17 @@ func (b *ContextBuilder) convertConstructor(svcID string, irCons *ir.Constructor
 	}
 
 	if irCons.Kind == ir.FuncConstructor {
-		cons.kind = "func"
-		cons.funcObj = irCons.Func
-	} else {
-		cons.kind = "method"
-		cons.methodObj = irCons.Func
-		if irCons.Receiver != nil {
-			cons.methodRecvID = irCons.Receiver.ID
-		}
+		result.kind = "func"
+		result.funcObj = irCons.Func
+
+		return result
 	}
 
-	// Get arg definitions from original config
-	cons.argDefs = irCons.Args
+	result.kind = "method"
+	result.methodObj = irCons.Func
+	if irCons.Receiver != nil {
+		result.methodRecvID = irCons.Receiver.ID
+	}
 
-	return cons
+	return result
 }
