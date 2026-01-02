@@ -45,16 +45,6 @@ func (b *serviceRefBuilder) build(ctx *argBuildContext) (string, []string, error
 	return depVar, stmts, nil
 }
 
-// innerBuilder handles @.inner decorator arguments
-type innerBuilder struct{}
-
-func (b *innerBuilder) build(ctx *argBuildContext) (string, []string, error) {
-	if ctx.innerVar == "" {
-		return "", nil, fmt.Errorf("@.inner used outside decorator")
-	}
-	return ctx.innerVar, nil, nil
-}
-
 // paramRefBuilder handles parameter reference arguments
 type paramRefBuilder struct{}
 
@@ -167,7 +157,6 @@ func (b *literalBuilder) build(ctx *argBuildContext) (string, []string, error) {
 // This registry pattern allows adding new argument types without modifying lookup logic.
 var argumentBuilderRegistry = map[ir.ArgumentKind]argumentBuilder{
 	ir.ServiceRefArg: &serviceRefBuilder{},
-	ir.InnerArg:      &innerBuilder{},
 	ir.ParamRefArg:   &paramRefBuilder{},
 	ir.TaggedArg:     &taggedBuilder{},
 	ir.LiteralArg:    &literalBuilder{},

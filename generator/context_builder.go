@@ -62,60 +62,6 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 		svcDef := b.convertService(irSvc)
 		services[id] = svcDef
 	}
-
-	decoratorsByBase := make(map[string][]*serviceDef)
-	for baseID, decs := range container.DecoratorsByBase() {
-		items := make([]*serviceDef, len(decs))
-		for i, dec := range decs {
-			items[i] = services[dec.ID]
-		}
-		decoratorsByBase[baseID] = items
-		if svc := services[baseID]; svc != nil && svc.aliasTarget != "" {
-			svc.shared = true
-		}
-	}
-
-	// Identify decoration roots
-	isDecorationRoot := make(map[string]bool)
-	for baseID := range decoratorsByBase {
-		isDecorationRoot[baseID] = true
-	}
-
-	// Compute rootID for each service
-	var getRoot func(string) string
-	getRoot = func(id string) string {
-		svc := services[id]
-		if svc == nil {
-			return id
-		}
-		if svc.rootID != "" {
-			return svc.rootID
-		}
-		if svc.decorates != "" {
-			svc.rootID = getRoot(svc.decorates)
-			return svc.rootID
-		}
-		if svc.aliasTarget != "" && !isDecorationRoot[id] {
-			svc.rootID = getRoot(svc.aliasTarget)
-			return svc.rootID
-		}
-		svc.rootID = id
-		return id
-	}
-	for id := range services {
-		getRoot(id)
-	}
-
-	// Update shared status: root is shared if any service in its chain is shared
-	for _, svc := range services {
-		if svc.shared {
-			if root := services[svc.rootID]; root != nil {
-				root.shared = true
-			}
-		}
-	}
-
-	baseByDecorator := container.BaseByDecorator()
 	paramGetters := container.ParamGetters()
 
 	nameGen := newNameGenerator()
@@ -123,8 +69,6 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 	ctx := &genContext{
 		services:          services,
 		orderedServiceIDs: container.ServiceOrder,
-		decoratorsByBase:  decoratorsByBase,
-		baseByDecorator:   baseByDecorator,
 		tags:              container.Tags,
 		loader:            b.loader,
 		imports:           imports,
@@ -139,14 +83,12 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 
 func (b *ContextBuilder) convertService(irSvc *ir.Service) *serviceDef {
 	svcDef := &serviceDef{
-		id:                 irSvc.ID,
-		typeName:           irSvc.Type,
-		public:             irSvc.Public,
-		shared:             irSvc.Shared,
-		canError:           irSvc.CanError,
-		decorationPriority: irSvc.Priority,
-		isDecorator:        irSvc.IsDecorator(),
-		tags:               irSvc.Tags,
+		id:       irSvc.ID,
+		typeName: irSvc.Type,
+		public:   irSvc.Public,
+		shared:   irSvc.Shared,
+		canError: irSvc.CanError,
+		tags:     irSvc.Tags,
 	}
 
 	if cfg, ok := b.cfg.Services[irSvc.ID]; ok && cfg.Type != "" {
@@ -157,10 +99,6 @@ func (b *ContextBuilder) convertService(irSvc *ir.Service) *serviceDef {
 
 	if irSvc.IsAlias() {
 		svcDef.aliasTarget = irSvc.Alias.ID
-	}
-
-	if irSvc.IsDecorator() {
-		svcDef.decorates = irSvc.Decorates.ID
 	}
 
 	if irSvc.Constructor != nil {

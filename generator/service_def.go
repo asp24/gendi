@@ -7,21 +7,17 @@ import (
 )
 
 type serviceDef struct {
-	id                 string
-	rootID             string // Ultimate base service ID for decoration/alias chain
-	typeName           types.Type
-	declaredType       types.Type
-	constructor        constructorDef
-	getterName         string
-	privateGetterName  string
-	public             bool
-	shared             bool
-	canError           bool
-	decorates          string
-	decorationPriority int
-	isDecorator        bool
-	aliasTarget        string
-	tags               []*ir.ServiceTag
+	id                string
+	typeName          types.Type
+	declaredType      types.Type
+	constructor       constructorDef
+	getterName        string
+	privateGetterName string
+	public            bool
+	shared            bool
+	canError          bool
+	aliasTarget       string
+	tags              []*ir.ServiceTag
 }
 
 // IsAlias returns true if this service is an alias to another service.
@@ -46,17 +42,9 @@ type constructorDef struct {
 	argDefs      []*ir.Argument
 }
 
-func getterType(svc *serviceDef, services map[string]*serviceDef, decoratorsByBase map[string][]*serviceDef) types.Type {
-	rootID := svc.rootID
-	if rootID == "" {
-		rootID = svc.id
-	}
-
-	if decs := decoratorsByBase[rootID]; len(decs) > 0 {
-		return decs[len(decs)-1].typeName
-	}
-	if rootSvc := services[rootID]; rootSvc != nil {
-		return rootSvc.typeName
+func getterType(svc *serviceDef) types.Type {
+	if svc == nil {
+		return types.Typ[types.Invalid]
 	}
 	return svc.typeName
 }

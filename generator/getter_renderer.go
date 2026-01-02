@@ -12,12 +12,8 @@ type privateGetterRenderer interface {
 }
 
 // selectPrivateGetterRenderer chooses the appropriate renderer based on service properties.
-func selectPrivateGetterRenderer(svc *serviceDef, resType types.Type, decoratorsByBase map[string][]*serviceDef) privateGetterRenderer {
-	if svc.id != svc.rootID {
-		return &delegateGetterRenderer{}
-	}
-	isDecorated := len(decoratorsByBase[svc.rootID]) > 0
-	if svc.aliasTarget != "" && !isDecorated {
+func selectPrivateGetterRenderer(svc *serviceDef, resType types.Type) privateGetterRenderer {
+	if svc.aliasTarget != "" {
 		return &aliasGetterRenderer{}
 	}
 	if !svc.shared {
@@ -29,31 +25,12 @@ func selectPrivateGetterRenderer(svc *serviceDef, resType types.Type, decorators
 	return &sharedValueGetterRenderer{}
 }
 
-// delegateGetterRenderer renders a getter that delegates to the root service getter.
-type delegateGetterRenderer struct{}
-
-func (r *delegateGetterRenderer) render(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
-	getter := svc.privateGetterName
-	resType := getterType(svc, ctx.services, ctx.decoratorsByBase)
-	getterTypeStr := ctx.imports.typeString(resType)
-
-	rootSvc := ctx.services[svc.rootID]
-	if rootSvc == nil {
-		return fmt.Errorf("unknown root service %q for %q", svc.rootID, svc.id)
-	}
-
-	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, getterTypeStr)
-	fmt.Fprintf(b, "\treturn c.%s()\n", rootSvc.privateGetterName)
-	b.WriteString("}\n\n")
-	return nil
-}
-
 // aliasGetterRenderer renders a getter that delegates to an alias target.
 type aliasGetterRenderer struct{}
 
 func (r *aliasGetterRenderer) render(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
-	resType := getterType(svc, ctx.services, ctx.decoratorsByBase)
+	resType := getterType(svc)
 	getterTypeStr := ctx.imports.typeString(resType)
 
 	target := ctx.services[svc.aliasTarget]
@@ -73,9 +50,9 @@ type sharedPtrGetterRenderer struct{}
 
 func (r *sharedPtrGetterRenderer) render(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
-	resType := getterType(svc, ctx.services, ctx.decoratorsByBase)
+	resType := getterType(svc)
 	getterTypeStr := ctx.imports.typeString(resType)
-	fieldName := ctx.nameGen.fieldIdent(svc.rootID)
+	fieldName := ctx.nameGen.fieldIdent(svc.id)
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, getterTypeStr)
 	fmt.Fprintf(b, "\tvar zero %s\n", getterTypeStr)
@@ -95,9 +72,9 @@ type sharedValueGetterRenderer struct{}
 
 func (r *sharedValueGetterRenderer) render(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
-	resType := getterType(svc, ctx.services, ctx.decoratorsByBase)
+	resType := getterType(svc)
 	getterTypeStr := ctx.imports.typeString(resType)
-	fieldName := ctx.nameGen.fieldIdent(svc.rootID)
+	fieldName := ctx.nameGen.fieldIdent(svc.id)
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, getterTypeStr)
 	fmt.Fprintf(b, "\tvar zero %s\n", getterTypeStr)
@@ -120,7 +97,7 @@ type nonSharedGetterRenderer struct{}
 
 func (r *nonSharedGetterRenderer) render(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
-	resType := getterType(svc, ctx.services, ctx.decoratorsByBase)
+	resType := getterType(svc)
 	getterTypeStr := ctx.imports.typeString(resType)
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, getterTypeStr)

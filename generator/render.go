@@ -110,27 +110,19 @@ func (g *Generator) renderContainerStruct(b *bytes.Buffer, ctx *genContext, reac
 		fmt.Fprintf(b, "\tparams parameters.Provider\n")
 	}
 
-	renderedRoots := make(map[string]bool)
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
 		if !reachable[id] {
 			continue
 		}
-		rootID := svc.rootID
-		if renderedRoots[rootID] {
+		if svc.aliasTarget != "" || !svc.shared {
 			continue
 		}
-		rootSvc := ctx.services[rootID]
-		if rootSvc == nil || !rootSvc.shared {
-			continue
-		}
-
-		renderedRoots[rootID] = true
-		getterType := getterType(rootSvc, ctx.services, ctx.decoratorsByBase)
-		isPtr := isNilablePointer(getterType)
-		fmt.Fprintf(b, "\t%s %s\n", ctx.nameGen.fieldIdent(rootID), ctx.imports.typeString(getterType))
+		resType := getterType(svc)
+		isPtr := isNilablePointer(resType)
+		fmt.Fprintf(b, "\t%s %s\n", ctx.nameGen.fieldIdent(svc.id), ctx.imports.typeString(resType))
 		if !isPtr {
-			fmt.Fprintf(b, "\t%sInit bool\n", ctx.nameGen.fieldIdent(rootID))
+			fmt.Fprintf(b, "\t%sInit bool\n", ctx.nameGen.fieldIdent(svc.id))
 		}
 	}
 	b.WriteString("}\n\n")
@@ -153,27 +145,8 @@ func (g *Generator) renderBuildFunctions(b *bytes.Buffer, ctx *genContext, reach
 		if !reachable[id] || svc.aliasTarget != "" {
 			continue
 		}
-		if svc.isDecorator {
-			if err := renderDecoratorBuild(b, ctx, svc); err != nil {
-				return err
-			}
-		} else {
-			if err := renderBuild(b, ctx, svc); err != nil {
-				return err
-			}
-		}
-	}
-
-	// Render decorator chain functions
-	for _, id := range ctx.orderedServiceIDs {
-		svc := ctx.services[id]
-		if !reachable[id] || svc.aliasTarget != "" {
-			continue
-		}
-		if svc.isDecorator {
-			if err := renderDecoratorChain(b, ctx, svc); err != nil {
-				return err
-			}
+		if err := renderBuild(b, ctx, svc); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -186,9 +159,6 @@ func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, reac
 			continue
 		}
 		svc := ctx.services[id]
-		if svc.isDecorator && !decoratorNeedsPrivateGetter(ctx, svc) {
-			continue
-		}
 		if err := renderPrivateGetter(b, ctx, svc); err != nil {
 			return err
 		}
@@ -257,62 +227,15 @@ func renderBuild(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	return renderer.render(b, ctx, svc)
 }
 
-func renderDecoratorBuild(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
-	renderer := selectBuildRenderer(svc)
-	return renderer.render(b, ctx, svc)
-}
-
-func renderDecoratorChain(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
-	baseID := svc.decorates
-	decs := ctx.decoratorsByBase[baseID]
-	if len(decs) == 0 {
-		return nil
-	}
-	chainName := ctx.nameGen.chainBuildName(svc)
-	retType := ctx.imports.typeString(svc.typeName)
-	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, chainName, retType)
-	fmt.Fprintf(b, "\tvar zero %s\n", retType)
-
-	baseSvc := ctx.services[baseID]
-	for baseSvc.aliasTarget != "" {
-		if target, ok := ctx.services[baseSvc.aliasTarget]; ok {
-			baseSvc = target
-		} else {
-			return fmt.Errorf("unknown alias target %q", baseSvc.aliasTarget)
-		}
-	}
-	baseBuild := ctx.nameGen.buildName(baseSvc)
-	innerVar := "inner0"
-	fmt.Fprintf(b, "\t%s, err := c.%s()\n", innerVar, baseBuild)
-	fmt.Fprintf(b, "\t%s\n", serviceBaseError(svc.id, baseID))
-
-	for i, d := range decs {
-		nextVar := fmt.Sprintf("inner%d", i+1)
-		call := fmt.Sprintf("c.%s(%s)", ctx.nameGen.decoratorBuildName(d), innerVar)
-		fmt.Fprintf(b, "\t%s, err := %s\n", nextVar, call)
-		fmt.Fprintf(b, "\t%s\n", serviceDecoratorError(svc.id, d.id))
-		if d.id == svc.id {
-			fmt.Fprintf(b, "\treturn %s, nil\n", nextVar)
-			b.WriteString("}\n\n")
-			return nil
-		}
-		innerVar = nextVar
-	}
-
-	fmt.Fprintf(b, "\treturn %s, nil\n", innerVar)
-	b.WriteString("}\n\n")
-	return nil
-}
-
 func renderPrivateGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
-	resType := getterType(svc, ctx.services, ctx.decoratorsByBase)
-	renderer := selectPrivateGetterRenderer(svc, resType, ctx.decoratorsByBase)
+	resType := getterType(svc)
+	renderer := selectPrivateGetterRenderer(svc, resType)
 	return renderer.render(b, ctx, svc)
 }
 
 func renderGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.getterName
-	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, ctx.imports.typeString(getterType(svc, ctx.services, ctx.decoratorsByBase)))
+	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, ctx.imports.typeString(getterType(svc)))
 	fmt.Fprintf(b, "\tc.mu.Lock()\n")
 	fmt.Fprintf(b, "\tdefer c.mu.Unlock()\n")
 	fmt.Fprintf(b, "\treturn c.%s()\n", svc.privateGetterName)
@@ -466,13 +389,7 @@ func tagElementType(ctx *genContext, tag string) types.Type {
 }
 
 func getterBuildExpr(ctx *genContext, svc *serviceDef) string {
-	rootID := svc.rootID
-	if decs := ctx.decoratorsByBase[rootID]; len(decs) > 0 {
-		outer := decs[len(decs)-1]
-		return "c." + ctx.nameGen.chainBuildName(outer) + "()"
-	}
-	rootSvc := ctx.services[rootID]
-	return "c." + ctx.nameGen.buildName(rootSvc) + "()"
+	return "c." + ctx.nameGen.buildName(svc) + "()"
 }
 
 func literalExpr(lit di.Literal) (string, error) {
@@ -514,16 +431,6 @@ func buildNeedsErrorHandling(svc *serviceDef) bool {
 		}
 	}
 	return false
-}
-
-func serviceDeclaredType(ctx *genContext, svc *serviceDef) types.Type {
-	if svc == nil {
-		return types.Typ[types.Invalid]
-	}
-	if svc.declaredType == nil {
-		return svc.typeName
-	}
-	return svc.declaredType
 }
 
 func reachableServices(ctx *genContext) map[string]bool {
@@ -574,61 +481,13 @@ func reachableServices(ctx *genContext) map[string]bool {
 			switch arg.Kind {
 			case ir.ServiceRefArg:
 				add(arg.Service.ID)
-			case ir.InnerArg:
-				add(svc.decorates)
 			case ir.TaggedArg:
 				for _, tagSvc := range arg.Tag.Services {
 					add(tagSvc.ID)
 				}
 			}
 		}
-
-		if svc.decorates != "" {
-			add(svc.decorates)
-		}
-		if decs := ctx.decoratorsByBase[id]; len(decs) > 0 {
-			for _, d := range decs {
-				add(d.id)
-			}
-		}
 	}
 
 	return reachable
-}
-
-func decoratorNeedsPrivateGetter(ctx *genContext, svc *serviceDef) bool {
-	if !svc.isDecorator || svc.public {
-		return true
-	}
-	for _, t := range svc.tags {
-		if t.Tag.Public {
-			return true
-		}
-	}
-	for _, other := range ctx.services {
-		if other == nil {
-			continue
-		}
-		if other.aliasTarget == svc.id {
-			return true
-		}
-		if other.constructor.kind == "method" && other.constructor.methodRecvID == svc.id {
-			return true
-		}
-		for _, arg := range other.constructor.argDefs {
-			switch arg.Kind {
-			case ir.ServiceRefArg:
-				if arg.Service.ID == svc.id {
-					return true
-				}
-			case ir.TaggedArg:
-				for _, t := range svc.tags {
-					if t.Tag.Name == arg.Tag.Name {
-						return true
-					}
-				}
-			}
-		}
-	}
-	return false
 }

@@ -23,11 +23,11 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 type Container struct {
 	mu                               sync.Mutex
 	params                           parameters.Provider
-	svc_stdlib_slog                  *slog.Logger
 	svc_product_handler              app.HTTPHandler
 	svc_product_handlerInit          bool
 	svc_product_repo                 *app.ProductRepoImpl
 	svc_server                       *app.Server
+	svc_stdlib_slog                  *slog.Logger
 	svc_stdlib_slog_handler_text     slog.Handler
 	svc_stdlib_slog_handler_textInit bool
 	svc_user_handler                 app.HTTPHandler

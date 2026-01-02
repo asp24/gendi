@@ -17,9 +17,6 @@ func (v *validator) validate(ctx *buildContext) error {
 	if err := v.detectCycles(ctx); err != nil {
 		return err
 	}
-	if err := v.detectDecoratorCycles(ctx); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -87,27 +84,5 @@ func (v *validator) detectCycles(ctx *buildContext) error {
 		ctx.services,
 		func(svc *Service) []*Service { return svc.Dependencies },
 		"circular dependency",
-	)
-}
-
-// detectDecoratorCycles detects circular decorator chains using DFS
-func (v *validator) detectDecoratorCycles(ctx *buildContext) error {
-	// Only check services that are decorators
-	decorators := make(map[string]*Service)
-	for id, svc := range ctx.services {
-		if svc.Decorates != nil {
-			decorators[id] = svc
-		}
-	}
-
-	return v.detectCyclesDFS(
-		decorators,
-		func(svc *Service) []*Service {
-			if svc.Decorates == nil {
-				return nil
-			}
-			return []*Service{svc.Decorates}
-		},
-		"circular decorator chain",
 	)
 }

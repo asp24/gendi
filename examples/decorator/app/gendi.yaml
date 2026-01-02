@@ -14,10 +14,22 @@ services:
 
   payment.provider_with_comission:
     decorates: payment.provider
+    decoration_priority: 10
     constructor:
       func: "$this.NewPaymentProviderCommissionDecorator"
       args:
         - "@.inner"
         - 1
+    tags:
+      - { name: "job" }
+
+  payment.provider_with_comission2:
+    decorates: payment.provider
+    decoration_priority: 20
+    constructor:
+      func: "$this.NewPaymentProviderCommissionDecorator"
+      args:
+        - "@.inner"
+        - 2
     tags:
       - { name: "job" }

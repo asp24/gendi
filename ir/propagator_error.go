@@ -29,21 +29,10 @@ func (p *errorPropagator) propagate(ctx *buildContext) {
 		}
 	}
 
-	// Phase 2: Compute CanError from BuildCanError and decorators
-	// Process in reverse order (decorators before base services)
-	for i := len(order) - 1; i >= 0; i-- {
-		svc := ctx.services[order[i]]
-
-		// CanError starts as BuildCanError
+	// Phase 2: CanError mirrors BuildCanError after dependency propagation.
+	for _, id := range order {
+		svc := ctx.services[id]
 		svc.CanError = svc.BuildCanError
-
-		// Include decorator build errors
-		for _, dec := range svc.Decorators {
-			if dec.BuildCanError {
-				svc.CanError = true
-				break
-			}
-		}
 	}
 }
 

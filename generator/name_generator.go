@@ -162,13 +162,3 @@ func (ng *nameGenerator) sanitizeIdent(id string) string {
 func (ng *nameGenerator) buildName(svc *serviceDef) string {
 	return "build" + ng.toCamel(svc.id)
 }
-
-// decoratorBuildName returns the decorator build function name
-func (ng *nameGenerator) decoratorBuildName(svc *serviceDef) string {
-	return "build" + ng.toCamel(svc.id) + "Decorator"
-}
-
-// chainBuildName returns the decorator chain build function name
-func (ng *nameGenerator) chainBuildName(svc *serviceDef) string {
-	return "buildDecorated" + ng.toCamel(svc.id)
-}

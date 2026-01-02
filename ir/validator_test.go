@@ -3,8 +3,6 @@ package ir
 import (
 	"strings"
 	"testing"
-
-	di "github.com/asp24/gendi"
 )
 
 func TestDetectDecoratorCycles(t *testing.T) {
@@ -76,13 +74,8 @@ func TestDetectDecoratorCycles(t *testing.T) {
 				tt.services["dec"].Decorates = tt.services["dec"]
 			}
 
-			ctx := &buildContext{
-				cfg:      &di.Config{},
-				services: tt.services,
-			}
-
-			v := &validator{}
-			err := v.detectDecoratorCycles(ctx)
+			expander := &decoratorExpander{}
+			err := expander.detectDecoratorCycles(tt.services)
 
 			if tt.expectError {
 				if err == nil {
@@ -96,32 +89,5 @@ func TestDetectDecoratorCycles(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestValidateIncludesDecoratorCycleCheck(t *testing.T) {
-	// Test that the main validate() function calls decorator cycle detection
-	decA := &Service{ID: "decA"}
-	decB := &Service{ID: "decB"}
-	decA.Decorates = decB
-	decB.Decorates = decA
-
-	ctx := &buildContext{
-		cfg: &di.Config{},
-		services: map[string]*Service{
-			"decA":   decA,
-			"decB":   decB,
-			"public": {ID: "public", Public: true}, // Need at least one public service
-		},
-	}
-
-	v := &validator{}
-	err := v.validate(ctx)
-
-	if err == nil {
-		t.Error("expected validation to catch circular decorator chain")
-	}
-	if !strings.Contains(err.Error(), "circular decorator chain") {
-		t.Errorf("expected circular decorator chain error, got: %v", err)
 	}
 }

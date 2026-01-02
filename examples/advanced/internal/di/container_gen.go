@@ -34,6 +34,28 @@ func NewContainer(params parameters.Provider) *Container {
 	return &Container{params: params}
 }
 
+func (c *Container) buildDecoratorBaseMailer() (app.Mailer, error) {
+	var zero app.Mailer
+	param0_mail_host, err := c.params.GetString("mail_host")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "__decorator_base__mailer", '\x00', "mail_host", err)
+	}
+	return app.NewMailerBasic(param0_mail_host), nil
+}
+
+func (c *Container) buildDecoratorDecoratorMailerRetry() (*app.MailerRetryDecorator, error) {
+	var zero *app.MailerRetryDecorator
+	arg0___decorator_base__mailer, err := c.getDecoratorBaseMailer()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__decorator_decorator__mailer.retry", '\x00', err)
+	}
+	param1_mail_retries, err := c.params.GetInt("mail_retries")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "__decorator_decorator__mailer.retry", '\x01', "mail_retries", err)
+	}
+	return app.NewMailerRetryDecorator(arg0___decorator_base__mailer, param1_mail_retries), nil
+}
+
 func (c *Container) buildDb() (*app.DB, error) {
 	var zero *app.DB
 	param0_dsn, err := c.params.GetString("dsn")
@@ -82,31 +104,17 @@ func (c *Container) buildLogger() (*app.Logger, error) {
 	return app.NewLogger(param0_log_prefix), nil
 }
 
-func (c *Container) buildMailer() (app.Mailer, error) {
-	var zero app.Mailer
-	param0_mail_host, err := c.params.GetString("mail_host")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer", '\x00', "mail_host", err)
-	}
-	return app.NewMailerBasic(param0_mail_host), nil
-}
-
-func (c *Container) buildMailerPrefixDecorator(inner app.Mailer) (*app.MailerPrefixDecorator, error) {
+func (c *Container) buildMailer() (*app.MailerPrefixDecorator, error) {
 	var zero *app.MailerPrefixDecorator
+	arg0___decorator_decorator__mailer_retry, err := c.getDecoratorDecoratorMailerRetry()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "mailer", '\x00', err)
+	}
 	param1_mail_prefix, err := c.params.GetString("mail_prefix")
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.prefix", '\x01', "mail_prefix", err)
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer", '\x01', "mail_prefix", err)
 	}
-	return app.NewMailerPrefixDecorator(inner, param1_mail_prefix), nil
-}
-
-func (c *Container) buildMailerRetryDecorator(inner app.Mailer) (*app.MailerRetryDecorator, error) {
-	var zero *app.MailerRetryDecorator
-	param1_mail_retries, err := c.params.GetInt("mail_retries")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.retry", '\x01', "mail_retries", err)
-	}
-	return app.NewMailerRetryDecorator(inner, param1_mail_retries), nil
+	return app.NewMailerPrefixDecorator(arg0___decorator_decorator__mailer_retry, param1_mail_prefix), nil
 }
 
 func (c *Container) buildNotifierAggregate() (*app.AggregateNotifier, error) {
@@ -131,34 +139,22 @@ func (c *Container) buildNotifierSms() (app.SMSNotifier, error) {
 	return app.NewSMSNotifier(), nil
 }
 
-func (c *Container) buildDecoratedMailerPrefix() (*app.MailerPrefixDecorator, error) {
-	var zero *app.MailerPrefixDecorator
-	inner0, err := c.buildMailer()
+func (c *Container) getDecoratorBaseMailer() (app.Mailer, error) {
+	var zero app.Mailer
+	res, err := c.buildDecoratorBaseMailer()
 	if err != nil {
-		return zero, fmt.Errorf("service %q base %q: %w", "mailer.prefix", "mailer", err)
+		return zero, err
 	}
-	inner1, err := c.buildMailerRetryDecorator(inner0)
-	if err != nil {
-		return zero, fmt.Errorf("service %q decorator %q: %w", "mailer.prefix", "mailer.retry", err)
-	}
-	inner2, err := c.buildMailerPrefixDecorator(inner1)
-	if err != nil {
-		return zero, fmt.Errorf("service %q decorator %q: %w", "mailer.prefix", "mailer.prefix", err)
-	}
-	return inner2, nil
+	return res, nil
 }
 
-func (c *Container) buildDecoratedMailerRetry() (*app.MailerRetryDecorator, error) {
+func (c *Container) getDecoratorDecoratorMailerRetry() (*app.MailerRetryDecorator, error) {
 	var zero *app.MailerRetryDecorator
-	inner0, err := c.buildMailer()
+	res, err := c.buildDecoratorDecoratorMailerRetry()
 	if err != nil {
-		return zero, fmt.Errorf("service %q base %q: %w", "mailer.retry", "mailer", err)
+		return zero, err
 	}
-	inner1, err := c.buildMailerRetryDecorator(inner0)
-	if err != nil {
-		return zero, fmt.Errorf("service %q decorator %q: %w", "mailer.retry", "mailer.retry", err)
-	}
-	return inner1, nil
+	return res, nil
 }
 
 func (c *Container) getDb() (*app.DB, error) {
@@ -218,7 +214,7 @@ func (c *Container) getMailer() (*app.MailerPrefixDecorator, error) {
 	if c.svc_mailer != nil {
 		return c.svc_mailer, nil
 	}
-	res, err := c.buildDecoratedMailerPrefix()
+	res, err := c.buildMailer()
 	if err != nil {
 		return zero, err
 	}

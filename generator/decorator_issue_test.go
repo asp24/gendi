@@ -44,12 +44,11 @@ func TestDecoratorOnAlias(t *testing.T) {
 	}
 	out := string(code)
 
-	// Verify that the decorator chain for the alias correctly builds the underlying service
-	if !strings.Contains(out, "buildSvc()") {
+	// Verify that both base and decorator constructors are used in generated code
+	if !strings.Contains(out, "NewServiceBase(") {
 		t.Fatalf("expected generated code to build underlying service for decorated alias")
 	}
-	// And verify the decorator is applied
-	if !strings.Contains(out, "buildSvcDecoratorDecorator") {
+	if !strings.Contains(out, "NewServiceDecoratorA(") {
 		t.Fatalf("expected generated code to build decorator")
 	}
 }

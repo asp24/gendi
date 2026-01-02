@@ -17,30 +17,6 @@ type Container struct {
 	ServiceOrder []string // Topologically sorted service IDs
 }
 
-// DecoratorsByBase returns decorators keyed by base service ID.
-func (c *Container) DecoratorsByBase() map[string][]*Service {
-	decorators := make(map[string][]*Service)
-	for id, svc := range c.Services {
-		if len(svc.Decorators) == 0 {
-			continue
-		}
-		decorators[id] = append([]*Service(nil), svc.Decorators...)
-	}
-	return decorators
-}
-
-// BaseByDecorator returns base service IDs keyed by decorator service ID.
-func (c *Container) BaseByDecorator() map[string]string {
-	bases := make(map[string]string)
-	for _, svc := range c.Services {
-		if svc.Decorates == nil {
-			continue
-		}
-		bases[svc.ID] = svc.Decorates.ID
-	}
-	return bases
-}
-
 // ParamGetters returns parameter getter methods needed by the container.
 func (c *Container) ParamGetters() map[string]string {
 	getters := make(map[string]string)

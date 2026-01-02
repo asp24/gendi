@@ -38,10 +38,6 @@ func (r *dependencyResolver) resolve(ctx *buildContext) error {
 				if arg.Service != nil {
 					deps[arg.Service.ID] = arg.Service
 				}
-			case InnerArg:
-				if svc.Decorates != nil {
-					deps[svc.Decorates.ID] = svc.Decorates
-				}
 			case TaggedArg:
 				if arg.Tag != nil {
 					for _, tagged := range arg.Tag.Services {

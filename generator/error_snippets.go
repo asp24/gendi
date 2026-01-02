@@ -158,17 +158,3 @@ func serviceReceiverError(serviceID, receiverID string) string {
 		WithContext("receiver %q", receiverID).
 		Build()
 }
-
-func serviceBaseError(serviceID, baseID string) string {
-	return NewErrorSnippet(serviceID).
-		WithContext("base %q", baseID).
-		Multiline().
-		Build()
-}
-
-func serviceDecoratorError(serviceID, decoratorID string) string {
-	return NewErrorSnippet(serviceID).
-		WithContext("decorator %q", decoratorID).
-		Multiline().
-		Build()
-}
