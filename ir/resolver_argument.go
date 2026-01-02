@@ -62,9 +62,9 @@ func (r *argumentResolver) resolve(ctx *buildContext, svcID string, idx int, arg
 		if tag.ElementType == nil {
 			// Infer ElementType from parameter
 			tag.ElementType = elemType
-		} else if !types.Identical(tag.ElementType, elemType) {
+		} else if !types.AssignableTo(tag.ElementType, elemType) {
 			// Validate consistency if ElementType was declared or inferred earlier
-			return nil, fmt.Errorf("service %q arg[%d]: tag %q element type mismatch: expected %s, got %s",
+			return nil, fmt.Errorf("service %q arg[%d]: tag %q element type mismatch: %s is not assignable to %s",
 				svcID, idx, arg.Value, tag.ElementType, elemType)
 		}
 

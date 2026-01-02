@@ -30,7 +30,12 @@ func (v *validator) validatePublicServices(ctx *buildContext) error {
 			return nil
 		}
 	}
-	return errors.New("at least one public service is required")
+	for _, tag := range ctx.tags {
+		if tag.Public {
+			return nil
+		}
+	}
+	return errors.New("at least one public service or tag is required")
 }
 
 // detectCyclesDFS performs DFS-based cycle detection on a service graph.

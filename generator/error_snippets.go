@@ -146,15 +146,6 @@ func serviceParamError(serviceID string, argIndex int, paramName string) string 
 		Build()
 }
 
-func serviceParamNilCheck(serviceID string, argIndex int, paramName string) string {
-	return NewErrorSnippet(serviceID).
-		WithContext("arg[%d]", argIndex).
-		WithContext("param %q", paramName).
-		WithContext("parameters provider is nil").
-		CustomCondition("c.params == nil").
-		Build()
-}
-
 func serviceTagError(serviceID string, argIndex int, tagName string) string {
 	return NewErrorSnippet(serviceID).
 		WithContext("arg[%d]", argIndex).

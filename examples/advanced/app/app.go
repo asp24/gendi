@@ -25,43 +25,23 @@ func NewDB(dsn string) (*DB, error) {
 }
 
 type Handler struct {
-	DB     *DB
-	Mailer Mailer
-	Logger *Logger
+	logger   *Logger
+	db       *DB
+	notifier Notifier
 }
 
-func NewHandler(db *DB, mailer Mailer, logger *Logger) *Handler {
-	return &Handler{DB: db, Mailer: mailer, Logger: logger}
+func NewHandler(logger *Logger, db *DB, notifier Notifier) *Handler {
+	return &Handler{db: db, notifier: notifier, logger: logger}
 }
 
 type Factory struct {
-	Logger *Logger
+	logger *Logger
 }
 
 func NewFactory(logger *Logger) *Factory {
-	return &Factory{Logger: logger}
+	return &Factory{logger: logger}
 }
 
-func (f *Factory) NewHandler(db *DB, mailer Mailer) *Handler {
-	return &Handler{DB: db, Mailer: mailer, Logger: f.Logger}
+func (f *Factory) NewHandler(db *DB, notifier Notifier) *Handler {
+	return NewHandler(f.logger, db, notifier)
 }
-
-type Notifier interface {
-	Notify() error
-}
-
-type EmailNotifier struct {
-	Mailer Mailer
-}
-
-func NewEmailNotifier(mailer Mailer) *EmailNotifier {
-	return &EmailNotifier{Mailer: mailer}
-}
-
-func (n *EmailNotifier) Notify() error { return nil }
-
-type SMSNotifier struct{}
-
-func NewSMSNotifier() SMSNotifier { return SMSNotifier{} }
-
-func (n SMSNotifier) Notify() error { return nil }

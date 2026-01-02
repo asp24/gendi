@@ -96,7 +96,7 @@ func (m *ImportManager) funcNameWithTypeArgs(fn *types.Func, typeArgs []types.Ty
 }
 
 func (m *ImportManager) renderImports(extra []string) string {
-	imports := []string{}
+	var imports []string
 	for path, alias := range m.aliases {
 		if alias == "" {
 			imports = append(imports, fmt.Sprintf("\t\"%s\"\n", path))

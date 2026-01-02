@@ -18,7 +18,9 @@ parameters:
 # element_type is inferred from constructor arguments
 tags:
   notifier:
+    public: true
     sort_by: priority
+    element_type: "github.com/asp24/gendi/examples/advanced/app.Notifier"
 
 services:
   logger:
@@ -67,9 +69,10 @@ services:
       method: "@factory.NewHandler"
       args:
         - "@db"
-        - "@mailer"
+        - "@notifier"
     shared: true
     public: true
+
   notifier.email:
     constructor:
       func: "github.com/asp24/gendi/examples/advanced/app.NewEmailNotifier"
@@ -86,3 +89,9 @@ services:
     tags:
       - name: notifier
         priority: 10
+  notifier.aggregate:
+    constructor:
+      func: "github.com/asp24/gendi/examples/advanced/app.NewAggregateNotifier"
+      args:
+        - "!tagged:notifier"
+  notifier: "@notifier.aggregate"

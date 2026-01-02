@@ -58,6 +58,7 @@ func (p *Parser) convertConfigWithDir(raw *RawConfig, configDir string) (*di.Con
 		cfg.Tags[name] = di.Tag{
 			ElementType: tag.ElementType,
 			SortBy:      tag.SortBy,
+			Public:      tag.Public,
 		}
 	}
 

@@ -167,10 +167,11 @@ Tags enable collecting multiple services that implement a common interface:
 
 ```yaml
 tags:
-  # Optional: Element type inferred from usage if omitted
+  # Optional: Element type inferred from usage if omitted (required when public)
   handler:
     element_type: "github.com/myapp.Handler"
     sort_by: "priority"  # Sort by tag attribute
+    public: true         # Generate public tag getter
 
 services:
   handler1:
@@ -192,6 +193,9 @@ services:
       func: "github.com/myapp.NewServer"
       args:
         - "!tagged:handler"  # Receives []Handler sorted by priority
+
+# Generated public tag getter:
+# func (c *Container) GetTaggedWithHandler() ([]Handler, error)
 ```
 
 ### Imports
