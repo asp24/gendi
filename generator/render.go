@@ -344,8 +344,8 @@ func renderTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.T
 }
 
 func constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsErr bool) ([]string, string, error) {
-	stmts := []string{}
-	args := []string{}
+	var stmts []string
+	var args []string
 	for i, arg := range svc.constructor.argDefs {
 		var paramType types.Type = types.Typ[types.Invalid]
 		if i < len(svc.constructor.params) {
@@ -517,7 +517,7 @@ func serviceDeclaredType(ctx *genContext, svc *serviceDef) types.Type {
 
 func reachableServices(ctx *genContext) map[string]bool {
 	reachable := map[string]bool{}
-	queue := []string{}
+	var queue []string
 	for id, svc := range ctx.services {
 		if svc.public {
 			reachable[id] = true
