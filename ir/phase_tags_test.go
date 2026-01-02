@@ -34,8 +34,28 @@ func TestTagPhaseOptionalElementType(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "empty tags map",
-			tags: map[string]di.Tag{},
+			name: "public tag without element_type",
+			tags: map[string]di.Tag{
+				"public.tag": {
+					Public: true,
+				},
+			},
+			expectError: true,
+			errorMsg:    "public requires element_type",
+		},
+		{
+			name: "public tag with element_type",
+			tags: map[string]di.Tag{
+				"public.tag": {
+					ElementType: "string",
+					Public:      true,
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:        "empty tags map",
+			tags:        map[string]di.Tag{},
 			expectError: false,
 		},
 	}

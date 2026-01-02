@@ -17,13 +17,14 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 })
 
 type Container struct {
-	mu          sync.Mutex
-	params      parameters.Provider
-	svc_db      *app.DB
-	svc_factory *app.Factory
-	svc_handler *app.Handler
-	svc_logger  *app.Logger
-	svc_mailer  *app.MailerPrefixDecorator
+	mu                     sync.Mutex
+	params                 parameters.Provider
+	svc_db                 *app.DB
+	svc_factory            *app.Factory
+	svc_handler            *app.Handler
+	svc_logger             *app.Logger
+	svc_mailer             *app.MailerPrefixDecorator
+	svc_notifier_aggregate *app.AggregateNotifier
 }
 
 func NewContainer(params parameters.Provider) *Container {
@@ -61,7 +62,7 @@ func (c *Container) buildHandler() (*app.Handler, error) {
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "handler", '\x00', err)
 	}
-	dep_mailer, err := c.getMailer()
+	dep_notifier, err := c.getNotifier()
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "handler", '\x01', err)
 	}
@@ -69,7 +70,7 @@ func (c *Container) buildHandler() (*app.Handler, error) {
 	if err != nil {
 		return zero, fmt.Errorf("service %q receiver %q: %w", "handler", "factory", err)
 	}
-	return recv_handler.NewHandler(dep_db, dep_mailer), nil
+	return recv_handler.NewHandler(dep_db, dep_notifier), nil
 }
 
 func (c *Container) buildLogger() (*app.Logger, error) {
@@ -106,6 +107,32 @@ func (c *Container) buildMailerRetryDecorator(inner app.Mailer) (*app.MailerRetr
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.retry", '\x01', "mail_retries", err)
 	}
 	return app.NewMailerRetryDecorator(inner, param_mail_retries), nil
+}
+
+func (c *Container) buildNotifierAggregate() (*app.AggregateNotifier, error) {
+	var zero *app.AggregateNotifier
+	tag_notifier_email, err := c.getNotifierEmail()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "notifier.aggregate", '\x00', "notifier", err)
+	}
+	tag_notifier_sms, err := c.getNotifierSms()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "notifier.aggregate", '\x00', "notifier", err)
+	}
+	return app.NewAggregateNotifier([]app.Notifier{tag_notifier_email, tag_notifier_sms}), nil
+}
+
+func (c *Container) buildNotifierEmail() (*app.EmailNotifier, error) {
+	var zero *app.EmailNotifier
+	dep_mailer, err := c.getMailer()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "notifier.email", '\x00', err)
+	}
+	return app.NewEmailNotifier(dep_mailer), nil
+}
+
+func (c *Container) buildNotifierSms() (app.SMSNotifier, error) {
+	return app.NewSMSNotifier(), nil
 }
 
 func (c *Container) buildDecoratedMailerPrefix() (*app.MailerPrefixDecorator, error) {
@@ -203,8 +230,60 @@ func (c *Container) getMailer() (*app.MailerPrefixDecorator, error) {
 	return res, nil
 }
 
+func (c *Container) getNotifier() (*app.AggregateNotifier, error) {
+	return c.getNotifierAggregate()
+}
+
+func (c *Container) getNotifierAggregate() (*app.AggregateNotifier, error) {
+	var zero *app.AggregateNotifier
+	if c.svc_notifier_aggregate != nil {
+		return c.svc_notifier_aggregate, nil
+	}
+	res, err := c.buildNotifierAggregate()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_notifier_aggregate = res
+	return res, nil
+}
+
+func (c *Container) getNotifierEmail() (*app.EmailNotifier, error) {
+	var zero *app.EmailNotifier
+	res, err := c.buildNotifierEmail()
+	if err != nil {
+		return zero, err
+	}
+	return res, nil
+}
+
+func (c *Container) getNotifierSms() (app.SMSNotifier, error) {
+	var zero app.SMSNotifier
+	res, err := c.buildNotifierSms()
+	if err != nil {
+		return zero, err
+	}
+	return res, nil
+}
+
 func (c *Container) GetHandler() (*app.Handler, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.getHandler()
+}
+
+func (c *Container) GetTaggedWithNotifier() ([]app.Notifier, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	items := make([]app.Notifier, 0, 2)
+	tagged_notifier_email, err := c.getNotifierEmail()
+	if err != nil {
+		return nil, err
+	}
+	items = append(items, tagged_notifier_email)
+	tagged_notifier_sms, err := c.getNotifierSms()
+	if err != nil {
+		return nil, err
+	}
+	items = append(items, tagged_notifier_sms)
+	return items, nil
 }

@@ -67,6 +67,7 @@ type Parameter struct {
 type Tag struct {
 	ElementType string
 	SortBy      string
+	Public      bool
 }
 
 // ServiceTag defines a tag assigned to a service.

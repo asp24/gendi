@@ -425,6 +425,7 @@ tags:
   payment.provider:
     element_type: "example.com/app/payments.Provider"
     sort_by: priority
+    public: true
 ```
 
 **Implicit creation (no declaration needed):**
@@ -439,9 +440,12 @@ services:
         priority: 100
 ```
 
+Only explicitly declared tags can be public.
+
 ### 6.6.2 Element Type Inference
 
 * `element_type` is **optional** in tag declarations.
+* When `public: true`, `element_type` is required.
 * When omitted, the element type is **inferred from constructor arguments** that use the tag via `!tagged:tag.name`.
 * The inferred type is the slice element type of the constructor parameter.
 * If multiple constructors use the same tag, all must have compatible element types.
@@ -478,6 +482,27 @@ For each service with a tag:
 
   * by `priority` attribute if enabled,
   * descending order (`100` before `10`).
+
+---
+
+### 6.6.5 Public Tag Getters
+
+Declared tags can expose a public getter when `public: true` is set:
+
+```yaml
+tags:
+  payment.provider:
+    element_type: "example.com/app/payments.Provider"
+    public: true
+```
+
+Generated signature:
+
+```go
+func (c *Container) GetTaggedWithPaymentProvider() ([]payments.Provider, error)
+```
+
+The getter returns all tagged services in the same order as tagged injection.
 
 ---
 
@@ -646,6 +671,6 @@ service "payments":
 
 1. `services.type` is optional
 2. Tagged injection produces `[]T` only
-3. `tags.element_type` is optional (inferred from constructor arguments)
+3. `tags.element_type` is optional (required when `public: true`)
 4. Strict typing, no `any`
 5. Errors detected at generation time

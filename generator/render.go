@@ -44,7 +44,7 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 }
 
 func (g *Generator) assignNames(ctx *genContext) {
-	ctx.nameGen.assignGetterNames(ctx.orderedServiceIDs, ctx.services)
+	ctx.nameGen.assignGetterNames(ctx.orderedServiceIDs, ctx.services, ctx.tags)
 	for id := range ctx.services {
 		if ctx.services[id].public {
 			ctx.services[id].getterName = ctx.nameGen.publicGetterName(id)
@@ -173,6 +173,22 @@ func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, reac
 			return err
 		}
 	}
+
+	// Render public tag getters
+	tagNames := make([]string, 0, len(ctx.tags))
+	for name := range ctx.tags {
+		tagNames = append(tagNames, name)
+	}
+	sort.Strings(tagNames)
+	for _, name := range tagNames {
+		tag := ctx.tags[name]
+		if tag == nil || !tag.Public {
+			continue
+		}
+		if err := renderTagGetter(b, ctx, name, tag); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -256,6 +272,30 @@ func renderGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	fmt.Fprintf(b, "\tc.mu.Lock()\n")
 	fmt.Fprintf(b, "\tdefer c.mu.Unlock()\n")
 	fmt.Fprintf(b, "\treturn c.%s()\n", svc.privateGetterName)
+	b.WriteString("}\n\n")
+	return nil
+}
+
+func renderTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
+	if tag.ElementType == nil {
+		return fmt.Errorf("tag %q element type is required for public getter", tagName)
+	}
+	getter := ctx.nameGen.publicTagGetterName(tagName)
+	elemType := ctx.imports.typeString(tag.ElementType)
+	sliceType := "[]" + elemType
+	items := taggedServices(ctx, tagName)
+
+	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, sliceType)
+	fmt.Fprintf(b, "\tc.mu.Lock()\n")
+	fmt.Fprintf(b, "\tdefer c.mu.Unlock()\n")
+	fmt.Fprintf(b, "\titems := make(%s, 0, %d)\n", sliceType, len(items))
+	for _, svc := range items {
+		varName := ctx.nameGen.varIdent("tagged", svc.id)
+		fmt.Fprintf(b, "\t%s, err := c.%s()\n", varName, svc.privateGetterName)
+		fmt.Fprintf(b, "\tif err != nil {\n\t\treturn nil, err\n\t}\n")
+		fmt.Fprintf(b, "\titems = append(items, %s)\n", varName)
+	}
+	fmt.Fprintf(b, "\treturn items, nil\n")
 	b.WriteString("}\n\n")
 	return nil
 }
@@ -439,6 +479,18 @@ func reachableServices(ctx *genContext) map[string]bool {
 		if svc.public {
 			reachable[id] = true
 			queue = append(queue, id)
+		}
+	}
+	for _, tag := range ctx.tags {
+		if !tag.Public {
+			continue
+		}
+		for _, svc := range tag.Services {
+			if svc == nil || reachable[svc.ID] {
+				continue
+			}
+			reachable[svc.ID] = true
+			queue = append(queue, svc.ID)
 		}
 	}
 

@@ -137,11 +137,11 @@ type Argument struct {
 	Type types.Type // Expected parameter type
 
 	// Value based on kind
-	Service   *Service      // For ServiceRef
-	Parameter *Parameter    // For ParamRef
-	Tag       *Tag          // For Tagged
-	Literal   LiteralValue  // For Literal
-	Inner     bool          // For Inner (decorator's inner service)
+	Service   *Service     // For ServiceRef
+	Parameter *Parameter   // For ParamRef
+	Tag       *Tag         // For Tagged
+	Literal   LiteralValue // For Literal
+	Inner     bool         // For Inner (decorator's inner service)
 }
 
 // ArgumentKind indicates the type of argument.
@@ -185,6 +185,7 @@ type Tag struct {
 	Name        string
 	ElementType types.Type
 	SortBy      string
+	Public      bool
 	Services    []*Service // Services with this tag (sorted by priority)
 }
 

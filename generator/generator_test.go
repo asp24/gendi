@@ -29,7 +29,7 @@ func TestRequiresPublicService(t *testing.T) {
 	}
 	gen := New(cfg, testOptions(t))
 	_, err := gen.Generate()
-	if err == nil || !strings.Contains(err.Error(), "at least one public service") {
+	if err == nil || !strings.Contains(err.Error(), "at least one public service or tag") {
 		t.Fatalf("expected public service error, got %v", err)
 	}
 }
@@ -80,6 +80,44 @@ func TestReachabilityAndPublicGetters(t *testing.T) {
 	}
 	if strings.Contains(out, "svc_unused") {
 		t.Fatalf("unexpected field for unreachable service")
+	}
+}
+
+func TestPublicTagGetter(t *testing.T) {
+	cfg := &di.Config{
+		Tags: map[string]di.Tag{
+			"svc.tag": {
+				ElementType: "github.com/asp24/gendi/generator/testdata/app.Service",
+				Public:      true,
+			},
+		},
+		Services: map[string]di.Service{
+			"base": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+				},
+				Tags: []di.ServiceTag{
+					{Name: "svc.tag"},
+				},
+			},
+		},
+	}
+
+	gen := New(cfg, testOptions(t))
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	if !strings.Contains(out, "GetTaggedWithSvcTag") {
+		t.Fatalf("expected public tag getter to be generated")
+	}
+	if !strings.Contains(out, "[]app.Service") {
+		t.Fatalf("expected tag getter to use declared element type")
+	}
+	if !strings.Contains(out, "getBase") {
+		t.Fatalf("expected tagged service to be reachable")
 	}
 }
 

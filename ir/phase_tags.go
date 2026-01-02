@@ -8,9 +8,13 @@ type tagPhase struct{}
 // build converts config tags to IR tags
 func (p *tagPhase) build(ctx *buildContext) error {
 	for name, tag := range ctx.cfg.Tags {
+		if tag.Public && tag.ElementType == "" {
+			return fmt.Errorf("tag %q public requires element_type", name)
+		}
 		irTag := &Tag{
 			Name:     name,
 			SortBy:   tag.SortBy,
+			Public:   tag.Public,
 			Services: []*Service{},
 		}
 
