@@ -8,6 +8,7 @@ import (
 
 type serviceDef struct {
 	id                 string
+	rootID             string // Ultimate base service ID for decoration/alias chain
 	typeName           types.Type
 	declaredType       types.Type
 	constructor        constructorDef
@@ -46,16 +47,16 @@ type constructorDef struct {
 }
 
 func getterType(svc *serviceDef, services map[string]*serviceDef, decoratorsByBase map[string][]*serviceDef) types.Type {
-	if svc.aliasTarget != "" {
-		if target := services[svc.aliasTarget]; target != nil {
-			return getterType(target, services, decoratorsByBase)
-		}
+	rootID := svc.rootID
+	if rootID == "" {
+		rootID = svc.id
 	}
-	if svc.decorates != "" {
-		return svc.typeName
-	}
-	if decs := decoratorsByBase[svc.id]; len(decs) > 0 {
+
+	if decs := decoratorsByBase[rootID]; len(decs) > 0 {
 		return decs[len(decs)-1].typeName
+	}
+	if rootSvc := services[rootID]; rootSvc != nil {
+		return rootSvc.typeName
 	}
 	return svc.typeName
 }

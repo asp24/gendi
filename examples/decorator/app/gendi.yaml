@@ -1,0 +1,23 @@
+tags:
+  job:
+    public: true
+    element_type: "github.com/asp24/gendi/examples/decorator/app.Job"
+
+services:
+  payment.provider_dummy:
+    constructor:
+      func: "$this.NewPaymentProviderDummy"
+
+  payment.provider:
+    alias: "payment.provider_dummy"
+    public: true
+
+  payment.provider_with_comission:
+    decorates: payment.provider
+    constructor:
+      func: "$this.NewPaymentProviderCommissionDecorator"
+      args:
+        - "@.inner"
+        - 1
+    tags:
+      - { name: "job" }

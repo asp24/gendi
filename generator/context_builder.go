@@ -70,6 +70,49 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 			items[i] = services[dec.ID]
 		}
 		decoratorsByBase[baseID] = items
+		if svc := services[baseID]; svc != nil && svc.aliasTarget != "" {
+			svc.shared = true
+		}
+	}
+
+	// Identify decoration roots
+	isDecorationRoot := make(map[string]bool)
+	for baseID := range decoratorsByBase {
+		isDecorationRoot[baseID] = true
+	}
+
+	// Compute rootID for each service
+	var getRoot func(string) string
+	getRoot = func(id string) string {
+		svc := services[id]
+		if svc == nil {
+			return id
+		}
+		if svc.rootID != "" {
+			return svc.rootID
+		}
+		if svc.decorates != "" {
+			svc.rootID = getRoot(svc.decorates)
+			return svc.rootID
+		}
+		if svc.aliasTarget != "" && !isDecorationRoot[id] {
+			svc.rootID = getRoot(svc.aliasTarget)
+			return svc.rootID
+		}
+		svc.rootID = id
+		return id
+	}
+	for id := range services {
+		getRoot(id)
+	}
+
+	// Update shared status: root is shared if any service in its chain is shared
+	for _, svc := range services {
+		if svc.shared {
+			if root := services[svc.rootID]; root != nil {
+				root.shared = true
+			}
+		}
 	}
 
 	baseByDecorator := container.BaseByDecorator()

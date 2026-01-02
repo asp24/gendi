@@ -110,22 +110,27 @@ func (g *Generator) renderContainerStruct(b *bytes.Buffer, ctx *genContext, reac
 		fmt.Fprintf(b, "\tparams parameters.Provider\n")
 	}
 
+	renderedRoots := make(map[string]bool)
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
 		if !reachable[id] {
 			continue
 		}
-		if svc.isDecorator && !decoratorNeedsPrivateGetter(ctx, svc) {
+		rootID := svc.rootID
+		if renderedRoots[rootID] {
 			continue
 		}
-		if !svc.shared {
+		rootSvc := ctx.services[rootID]
+		if rootSvc == nil || !rootSvc.shared {
 			continue
 		}
-		getterType := getterType(svc, ctx.services, ctx.decoratorsByBase)
+
+		renderedRoots[rootID] = true
+		getterType := getterType(rootSvc, ctx.services, ctx.decoratorsByBase)
 		isPtr := isNilablePointer(getterType)
-		fmt.Fprintf(b, "\t%s %s\n", ctx.nameGen.fieldIdent(id), ctx.imports.typeString(getterType))
+		fmt.Fprintf(b, "\t%s %s\n", ctx.nameGen.fieldIdent(rootID), ctx.imports.typeString(getterType))
 		if !isPtr {
-			fmt.Fprintf(b, "\t%sInit bool\n", ctx.nameGen.fieldIdent(id))
+			fmt.Fprintf(b, "\t%sInit bool\n", ctx.nameGen.fieldIdent(rootID))
 		}
 	}
 	b.WriteString("}\n\n")
@@ -269,6 +274,13 @@ func renderDecoratorChain(b *bytes.Buffer, ctx *genContext, svc *serviceDef) err
 	fmt.Fprintf(b, "\tvar zero %s\n", retType)
 
 	baseSvc := ctx.services[baseID]
+	for baseSvc.aliasTarget != "" {
+		if target, ok := ctx.services[baseSvc.aliasTarget]; ok {
+			baseSvc = target
+		} else {
+			return fmt.Errorf("unknown alias target %q", baseSvc.aliasTarget)
+		}
+	}
 	baseBuild := ctx.nameGen.buildName(baseSvc)
 	innerVar := "inner0"
 	fmt.Fprintf(b, "\t%s, err := c.%s()\n", innerVar, baseBuild)
@@ -294,7 +306,7 @@ func renderDecoratorChain(b *bytes.Buffer, ctx *genContext, svc *serviceDef) err
 
 func renderPrivateGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	resType := getterType(svc, ctx.services, ctx.decoratorsByBase)
-	renderer := selectPrivateGetterRenderer(svc, resType)
+	renderer := selectPrivateGetterRenderer(svc, resType, ctx.decoratorsByBase)
 	return renderer.render(b, ctx, svc)
 }
 
@@ -454,14 +466,13 @@ func tagElementType(ctx *genContext, tag string) types.Type {
 }
 
 func getterBuildExpr(ctx *genContext, svc *serviceDef) string {
-	if svc.isDecorator {
-		return "c." + ctx.nameGen.chainBuildName(svc) + "()"
-	}
-	if decs := ctx.decoratorsByBase[svc.id]; len(decs) > 0 {
+	rootID := svc.rootID
+	if decs := ctx.decoratorsByBase[rootID]; len(decs) > 0 {
 		outer := decs[len(decs)-1]
 		return "c." + ctx.nameGen.chainBuildName(outer) + "()"
 	}
-	return "c." + ctx.nameGen.buildName(svc) + "()"
+	rootSvc := ctx.services[rootID]
+	return "c." + ctx.nameGen.buildName(rootSvc) + "()"
 }
 
 func literalExpr(lit di.Literal) (string, error) {
@@ -588,6 +599,11 @@ func reachableServices(ctx *genContext) map[string]bool {
 func decoratorNeedsPrivateGetter(ctx *genContext, svc *serviceDef) bool {
 	if !svc.isDecorator || svc.public {
 		return true
+	}
+	for _, t := range svc.tags {
+		if t.Tag.Public {
+			return true
+		}
 	}
 	for _, other := range ctx.services {
 		if other == nil {

@@ -395,8 +395,8 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 	if !strings.Contains(out, "getSvcDecoratorA") {
 		t.Fatalf("expected private getter for referenced decorator")
 	}
-	if !strings.Contains(out, "svc_svc_decoratorA") {
-		t.Fatalf("expected field for referenced decorator")
+	if !strings.Contains(out, "svc_svc") {
+		t.Fatalf("expected shared field for referenced decorator")
 	}
 }
 
