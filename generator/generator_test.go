@@ -162,11 +162,17 @@ func TestTaggedInjectionConversion(t *testing.T) {
 	if !strings.Contains(out, "getTaggedWithTestTag") {
 		t.Fatalf("expected private tag getter to be used")
 	}
-	if !strings.Contains(out, "taggedConv0_test_tag := make([]interface{}, len(tagged0_test_tag))") {
+	if !strings.Contains(out, "var arg0_tagged_test_tag []interface{}") {
+		t.Fatalf("expected tagged conversion destination variable")
+	}
+	if !strings.Contains(out, "arg0_tagged_test_tag = make([]interface{}, len(tagged_test_tag))") {
 		t.Fatalf("expected tagged conversion slice allocation")
 	}
-	if !strings.Contains(out, "for tagIdx0_test_tag, tagItem0_test_tag := range tagged0_test_tag") {
+	if !strings.Contains(out, "for idx, item := range tagged_test_tag") {
 		t.Fatalf("expected tagged conversion loop")
+	}
+	if !strings.Contains(out, "arg0_tagged_test_tag[idx] = item") {
+		t.Fatalf("expected tagged conversion assignment")
 	}
 }
 

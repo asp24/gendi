@@ -44,15 +44,15 @@ func NewContainer(params parameters.Provider) *Container {
 
 func (c *Container) buildProductHandler() (app.HTTPHandler, error) {
 	var zero app.HTTPHandler
-	dep_product_handler_logger, err := c.getProductHandlerLogger()
+	arg0_product_handler_logger, err := c.getProductHandlerLogger()
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "product.handler", '\x00', err)
 	}
-	dep_product_repo, err := c.getProductRepo()
+	arg1_product_repo, err := c.getProductRepo()
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "product.handler", '\x01', err)
 	}
-	return app.NewProductHandler(dep_product_handler_logger, dep_product_repo), nil
+	return app.NewProductHandler(arg0_product_handler_logger, arg1_product_repo), nil
 }
 
 func (c *Container) buildProductHandlerLogger() (*slog.Logger, error) {
@@ -66,24 +66,24 @@ func (c *Container) buildProductHandlerLogger() (*slog.Logger, error) {
 
 func (c *Container) buildProductRepo() (*app.ProductRepoImpl, error) {
 	var zero *app.ProductRepoImpl
-	param_db_dsn, err := c.params.GetString("db_dsn")
+	param0_db_dsn, err := c.params.GetString("db_dsn")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "product.repo", '\x00', "db_dsn", err)
 	}
-	return app.NewProductRepository(param_db_dsn), nil
+	return app.NewProductRepository(param0_db_dsn), nil
 }
 
 func (c *Container) buildServer() (*app.Server, error) {
 	var zero *app.Server
-	dep_server_logger, err := c.getServerLogger()
+	arg0_server_logger, err := c.getServerLogger()
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "server", '\x00', err)
 	}
-	tagged1_http_handler, err := c.getTaggedWithHttpHandler()
+	arg1_tagged_http_handler, err := c.getTaggedWithHttpHandler()
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "server", '\x01', "http.handler", err)
 	}
-	return app.NewServer(dep_server_logger, tagged1_http_handler), nil
+	return app.NewServer(arg0_server_logger, arg1_tagged_http_handler), nil
 }
 
 func (c *Container) buildServerLogger() (*slog.Logger, error) {
@@ -97,24 +97,24 @@ func (c *Container) buildServerLogger() (*slog.Logger, error) {
 
 func (c *Container) buildStdlibSlog() (*slog.Logger, error) {
 	var zero *slog.Logger
-	dep_stdlib_slog_handler, err := c.getStdlibSlogHandler()
+	arg0_stdlib_slog_handler, err := c.getStdlibSlogHandler()
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "stdlib.slog", '\x00', err)
 	}
-	return stdlib.NewSlogLogger(dep_stdlib_slog_handler), nil
+	return stdlib.NewSlogLogger(arg0_stdlib_slog_handler), nil
 }
 
 func (c *Container) buildStdlibSlogHandlerText() (slog.Handler, error) {
 	var zero slog.Handler
-	dep_stdlib_slog_writer, err := c.getStdlibSlogWriter()
+	arg0_stdlib_slog_writer, err := c.getStdlibSlogWriter()
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "stdlib.slog.handler.text", '\x00', err)
 	}
-	param_stdlib_slog_level, err := c.params.GetInt("stdlib.slog.level")
+	param1_stdlib_slog_level, err := c.params.GetInt("stdlib.slog.level")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "stdlib.slog.handler.text", '\x01', "stdlib.slog.level", err)
 	}
-	return stdlib.NewSlogTextHandler(dep_stdlib_slog_writer, slog.Level(param_stdlib_slog_level)), nil
+	return stdlib.NewSlogTextHandler(arg0_stdlib_slog_writer, slog.Level(param1_stdlib_slog_level)), nil
 }
 
 func (c *Container) buildStdlibStderr() (io.Writer, error) {
@@ -123,15 +123,15 @@ func (c *Container) buildStdlibStderr() (io.Writer, error) {
 
 func (c *Container) buildUserHandler() (app.HTTPHandler, error) {
 	var zero app.HTTPHandler
-	dep_user_handler_logger, err := c.getUserHandlerLogger()
+	arg0_user_handler_logger, err := c.getUserHandlerLogger()
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "user.handler", '\x00', err)
 	}
-	dep_user_repo, err := c.getUserRepo()
+	arg1_user_repo, err := c.getUserRepo()
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "user.handler", '\x01', err)
 	}
-	return app.NewUserHandler(dep_user_handler_logger, dep_user_repo), nil
+	return app.NewUserHandler(arg0_user_handler_logger, arg1_user_repo), nil
 }
 
 func (c *Container) buildUserHandlerLogger() (*slog.Logger, error) {
@@ -145,11 +145,11 @@ func (c *Container) buildUserHandlerLogger() (*slog.Logger, error) {
 
 func (c *Container) buildUserRepo() (*app.UserRepoImpl, error) {
 	var zero *app.UserRepoImpl
-	param_db_dsn, err := c.params.GetString("db_dsn")
+	param0_db_dsn, err := c.params.GetString("db_dsn")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "user.repo", '\x00', "db_dsn", err)
 	}
-	return app.NewUserRepository(param_db_dsn), nil
+	return app.NewUserRepository(param0_db_dsn), nil
 }
 
 func (c *Container) getLogger() (*slog.Logger, error) {
