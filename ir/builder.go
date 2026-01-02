@@ -66,6 +66,7 @@ func (b *Builder) Build() (*Container, error) {
 		return nil, err
 	}
 	(&errorPropagator{}).propagate(ctx)
+	pruneUnreachable(ctx)
 
 	return &Container{
 		Services:     ctx.services,

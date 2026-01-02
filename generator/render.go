@@ -41,7 +41,6 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	// Assign getter names and populate serviceDef fields
 	tagGetterNames := collectTagGetterNames(ctx)
 	g.assignNames(ctx, tagGetterNames)
-	reachable := reachableServices(ctx)
 
 	body := &bytes.Buffer{}
 	hasParams := len(g.cfg.Parameters) > 0
@@ -55,13 +54,13 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	if err := g.renderParameters(body, hasParams); err != nil {
 		return nil, err
 	}
-	if err := g.renderContainerStruct(body, ctx, reachable, hasParams); err != nil {
+	if err := g.renderContainerStruct(body, ctx, hasParams); err != nil {
 		return nil, err
 	}
-	if err := g.renderBuildFunctions(body, ctx, reachable); err != nil {
+	if err := g.renderBuildFunctions(body, ctx); err != nil {
 		return nil, err
 	}
-	if err := g.renderGetterFunctions(body, ctx, reachable, tagGetterNames); err != nil {
+	if err := g.renderGetterFunctions(body, ctx, tagGetterNames); err != nil {
 		return nil, err
 	}
 
@@ -103,7 +102,7 @@ func (g *Generator) renderParameters(b *bytes.Buffer, hasParams bool) error {
 	return nil
 }
 
-func (g *Generator) renderContainerStruct(b *bytes.Buffer, ctx *genContext, reachable map[string]bool, hasParams bool) error {
+func (g *Generator) renderContainerStruct(b *bytes.Buffer, ctx *genContext, hasParams bool) error {
 	fmt.Fprintf(b, "type %s struct {\n", ctx.containerName)
 	fmt.Fprintf(b, "\tmu sync.Mutex\n")
 	if hasParams {
@@ -112,9 +111,6 @@ func (g *Generator) renderContainerStruct(b *bytes.Buffer, ctx *genContext, reac
 
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
-		if !reachable[id] {
-			continue
-		}
 		if svc.aliasTarget != "" || !svc.shared {
 			continue
 		}
@@ -138,11 +134,11 @@ func (g *Generator) renderContainerStruct(b *bytes.Buffer, ctx *genContext, reac
 	return nil
 }
 
-func (g *Generator) renderBuildFunctions(b *bytes.Buffer, ctx *genContext, reachable map[string]bool) error {
+func (g *Generator) renderBuildFunctions(b *bytes.Buffer, ctx *genContext) error {
 	// Render build functions for each service
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
-		if !reachable[id] || svc.aliasTarget != "" {
+		if svc.aliasTarget != "" {
 			continue
 		}
 		if err := renderBuild(b, ctx, svc); err != nil {
@@ -152,12 +148,9 @@ func (g *Generator) renderBuildFunctions(b *bytes.Buffer, ctx *genContext, reach
 	return nil
 }
 
-func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, reachable map[string]bool, tagGetterNames []string) error {
+func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, tagGetterNames []string) error {
 	// Render private getters
 	for _, id := range ctx.orderedServiceIDs {
-		if !reachable[id] {
-			continue
-		}
 		svc := ctx.services[id]
 		if err := renderPrivateGetter(b, ctx, svc); err != nil {
 			return err
@@ -178,7 +171,7 @@ func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, reac
 	// Render public getters
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
-		if !reachable[id] || !svc.public {
+		if !svc.public {
 			continue
 		}
 		if err := renderGetter(b, ctx, svc); err != nil {
@@ -431,63 +424,4 @@ func buildNeedsErrorHandling(svc *serviceDef) bool {
 		}
 	}
 	return false
-}
-
-func reachableServices(ctx *genContext) map[string]bool {
-	reachable := map[string]bool{}
-	var queue []string
-	for id, svc := range ctx.services {
-		if svc.public {
-			reachable[id] = true
-			queue = append(queue, id)
-		}
-	}
-	for _, tag := range ctx.tags {
-		if !tag.Public {
-			continue
-		}
-		for _, svc := range tag.Services {
-			if svc == nil || reachable[svc.ID] {
-				continue
-			}
-			reachable[svc.ID] = true
-			queue = append(queue, svc.ID)
-		}
-	}
-
-	for len(queue) > 0 {
-		id := queue[0]
-		queue = queue[1:]
-		svc := ctx.services[id]
-		if svc == nil {
-			continue
-		}
-
-		add := func(dep string) {
-			if dep == "" || reachable[dep] {
-				return
-			}
-			reachable[dep] = true
-			queue = append(queue, dep)
-		}
-
-		if svc.constructor.kind == "method" {
-			add(svc.constructor.methodRecvID)
-		}
-		if svc.aliasTarget != "" {
-			add(svc.aliasTarget)
-		}
-		for _, arg := range svc.constructor.argDefs {
-			switch arg.Kind {
-			case ir.ServiceRefArg:
-				add(arg.Service.ID)
-			case ir.TaggedArg:
-				for _, tagSvc := range arg.Tag.Services {
-					add(tagSvc.ID)
-				}
-			}
-		}
-	}
-
-	return reachable
 }
