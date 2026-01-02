@@ -49,7 +49,7 @@ func (p *errorPropagator) topologicalSort(services map[string]*Service) []string
 		}
 		visited[svc.ID] = true
 
-		// Visit dependencies first (including decorator base)
+		// Visit dependencies first.
 		for _, dep := range svc.Dependencies {
 			visit(dep)
 		}

@@ -4,6 +4,8 @@ import (
 	"go/types"
 	"strings"
 	"testing"
+
+	di "github.com/asp24/gendi"
 )
 
 func TestDecoratorExpanderSingleDecorator(t *testing.T) {
@@ -18,12 +20,19 @@ func TestDecoratorExpanderSingleDecorator(t *testing.T) {
 		ID:          "svc.decorator",
 		Type:        types.Typ[types.String],
 		Shared:      true,
-		Decorates:   base,
 		Constructor: &Constructor{Kind: FuncConstructor, Args: []*Argument{{Kind: InnerArg}}},
 	}
-	base.Decorators = []*Service{dec}
 
 	ctx := &buildContext{
+		cfg: &di.Config{
+			Services: map[string]di.Service{
+				base.ID: {},
+				dec.ID: {
+					Decorates:          base.ID,
+					DecorationPriority: 10,
+				},
+			},
+		},
 		services: map[string]*Service{
 			base.ID: base,
 			dec.ID:  dec,
@@ -31,8 +40,8 @@ func TestDecoratorExpanderSingleDecorator(t *testing.T) {
 		order: []string{base.ID, dec.ID},
 	}
 
-	expander := &decoratorExpander{}
-	if err := expander.expand(ctx); err != nil {
+	resolver := &decoratorResolver{}
+	if err := resolver.resolve(ctx); err != nil {
 		t.Fatalf("expand failed: %v", err)
 	}
 
@@ -49,9 +58,6 @@ func TestDecoratorExpanderSingleDecorator(t *testing.T) {
 
 	if base.Alias != nil {
 		t.Fatalf("expected base alias to be cleared")
-	}
-	if base.Decorators != nil || base.Decorates != nil {
-		t.Fatalf("expected base decoration fields to be cleared")
 	}
 	if base.Type != dec.Type {
 		t.Fatalf("expected base type to match decorator type")
@@ -73,7 +79,7 @@ func TestDecoratorExpanderSingleDecorator(t *testing.T) {
 	if dec.Alias != base {
 		t.Fatalf("expected decorator to become alias to base")
 	}
-	if dec.Constructor != nil || dec.Decorates != nil || dec.Decorators != nil {
+	if dec.Constructor != nil {
 		t.Fatalf("expected decorator fields to be cleared after expansion")
 	}
 	if dec.Type != base.Type {
@@ -91,21 +97,29 @@ func TestDecoratorExpanderChainCreatesInternalServices(t *testing.T) {
 	decA := &Service{
 		ID:          "svc.decA",
 		Type:        types.Typ[types.String],
-		Priority:    10,
-		Decorates:   base,
 		Constructor: &Constructor{Kind: FuncConstructor, Args: []*Argument{{Kind: InnerArg}}},
 	}
 	decB := &Service{
 		ID:          "svc.decB",
 		Type:        types.Typ[types.String],
-		Priority:    20,
 		Shared:      true,
-		Decorates:   base,
 		Constructor: &Constructor{Kind: FuncConstructor, Args: []*Argument{{Kind: InnerArg}}},
 	}
-	base.Decorators = []*Service{decB, decA}
 
 	ctx := &buildContext{
+		cfg: &di.Config{
+			Services: map[string]di.Service{
+				base.ID: {},
+				decA.ID: {
+					Decorates:          base.ID,
+					DecorationPriority: 10,
+				},
+				decB.ID: {
+					Decorates:          base.ID,
+					DecorationPriority: 20,
+				},
+			},
+		},
 		services: map[string]*Service{
 			base.ID: base,
 			decA.ID: decA,
@@ -114,8 +128,8 @@ func TestDecoratorExpanderChainCreatesInternalServices(t *testing.T) {
 		order: []string{base.ID, decA.ID, decB.ID},
 	}
 
-	expander := &decoratorExpander{}
-	if err := expander.expand(ctx); err != nil {
+	resolver := &decoratorResolver{}
+	if err := resolver.resolve(ctx); err != nil {
 		t.Fatalf("expand failed: %v", err)
 	}
 
@@ -157,8 +171,8 @@ func TestDecoratorExpanderInnerArgOutsideDecorator(t *testing.T) {
 		Constructor: &Constructor{Kind: FuncConstructor, Args: []*Argument{{Kind: InnerArg}}},
 	}
 
-	expander := &decoratorExpander{}
-	err := expander.validateInnerArgs(map[string]*Service{svc.ID: svc})
+	resolver := &decoratorResolver{}
+	err := resolver.validateInnerArgs(map[string]*Service{svc.ID: svc})
 	if err == nil || !strings.Contains(err.Error(), "@.inner used outside decorator") {
 		t.Fatalf("expected inner arg error, got: %v", err)
 	}
@@ -166,19 +180,31 @@ func TestDecoratorExpanderInnerArgOutsideDecorator(t *testing.T) {
 
 func TestDecoratorExpanderDecoratorCannotBeDecorated(t *testing.T) {
 	base := &Service{ID: "base"}
-	base.Decorates = &Service{ID: "other"}
-	base.Decorators = []*Service{{ID: "dec"}}
+	other := &Service{ID: "other"}
+	dec := &Service{ID: "dec"}
 
 	ctx := &buildContext{
-		services: map[string]*Service{
-			"base": base,
-			"dec":  base.Decorators[0],
+		cfg: &di.Config{
+			Services: map[string]di.Service{
+				base.ID: {
+					Decorates: "other",
+				},
+				dec.ID: {
+					Decorates: base.ID,
+				},
+				other.ID: {},
+			},
 		},
-		order: []string{"base", "dec"},
+		services: map[string]*Service{
+			"base":  base,
+			"dec":   dec,
+			"other": other,
+		},
+		order: []string{"base", "dec", "other"},
 	}
 
-	expander := &decoratorExpander{}
-	err := expander.expand(ctx)
+	resolver := &decoratorResolver{}
+	err := resolver.resolve(ctx)
 	if err == nil || !strings.Contains(err.Error(), "cannot be decorated") {
 		t.Fatalf("expected decorated decorator error, got: %v", err)
 	}

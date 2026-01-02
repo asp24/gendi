@@ -506,7 +506,7 @@ The getter returns all tagged services in the same order as tagged injection.
 
 ---
 
-## 7. Decorators
+## 7. Decorators (Compile-Time)
 
 ### 7.1 Model
 

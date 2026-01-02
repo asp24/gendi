@@ -2,6 +2,7 @@ package ir
 
 import (
 	"go/types"
+	"slices"
 	"time"
 
 	"github.com/asp24/gendi/internal/typeutil"
@@ -56,11 +57,6 @@ type Service struct {
 	Shared bool
 	Public bool
 
-	// Decoration
-	Decorates  *Service   // Service being decorated (if decorator)
-	Decorators []*Service // Services decorating this one
-	Priority   int        // Decoration priority
-
 	// Tags
 	Tags []*ServiceTag
 
@@ -73,11 +69,6 @@ type Service struct {
 // IsAlias returns true if this service is an alias.
 func (s *Service) IsAlias() bool {
 	return s.Alias != nil
-}
-
-// IsDecorator returns true if this service decorates another.
-func (s *Service) IsDecorator() bool {
-	return s.Decorates != nil
 }
 
 // Constructor defines how a service is constructed.
@@ -97,6 +88,27 @@ type Constructor struct {
 	ResultType   types.Type
 	ReturnsError bool
 	Variadic     bool // True if function/method has variadic parameters
+}
+
+func (c *Constructor) Clone() *Constructor {
+	result := *c
+
+	if len(c.Args) > 0 {
+		result.Args = make([]*Argument, len(c.Args))
+		for i, arg := range c.Args {
+			if arg == nil {
+				continue
+			}
+
+			argClone := *arg
+			result.Args[i] = &argClone
+		}
+	}
+
+	result.Params = slices.Clone(c.Params)
+	result.TypeArgs = slices.Clone(c.TypeArgs)
+
+	return &result
 }
 
 // ConstructorKind indicates the type of constructor.

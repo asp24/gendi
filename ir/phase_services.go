@@ -32,11 +32,10 @@ func (p *servicePhase) build(ctx *buildContext) error {
 		}
 
 		irSvc := &Service{
-			ID:       id,
-			Shared:   shared,
-			Public:   svc.Public,
-			Priority: svc.DecorationPriority,
-			Tags:     []*ServiceTag{},
+			ID:     id,
+			Shared: shared,
+			Public: svc.Public,
+			Tags:   []*ServiceTag{},
 		}
 
 		// Build service tags (create tags on-demand if not declared)

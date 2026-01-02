@@ -8,74 +8,56 @@ import (
 func TestDetectDecoratorCycles(t *testing.T) {
 	tests := []struct {
 		name        string
-		services    map[string]*Service
+		decoratesBy map[string]string
 		expectError bool
 		errorMsg    string
 	}{
 		{
 			name: "no cycle - linear chain",
-			services: map[string]*Service{
-				"base": {ID: "base", Public: true},
-				"dec1": {ID: "dec1", Decorates: &Service{ID: "base"}},
-				"dec2": {ID: "dec2", Decorates: &Service{ID: "base"}},
+			decoratesBy: map[string]string{
+				"dec1": "base",
+				"dec2": "base",
 			},
 			expectError: false,
 		},
 		{
 			name: "simple cycle - A decorates B, B decorates A",
-			services: map[string]*Service{
-				"decA": {ID: "decA"},
-				"decB": {ID: "decB"},
+			decoratesBy: map[string]string{
+				"decA": "decB",
+				"decB": "decA",
 			},
 			expectError: true,
 			errorMsg:    "circular decorator chain",
 		},
 		{
 			name: "three-way cycle - A -> B -> C -> A",
-			services: map[string]*Service{
-				"decA": {ID: "decA"},
-				"decB": {ID: "decB"},
-				"decC": {ID: "decC"},
+			decoratesBy: map[string]string{
+				"decA": "decB",
+				"decB": "decC",
+				"decC": "decA",
 			},
 			expectError: true,
 			errorMsg:    "circular decorator chain",
 		},
 		{
 			name: "self-decoration",
-			services: map[string]*Service{
-				"dec": {ID: "dec"},
+			decoratesBy: map[string]string{
+				"dec": "dec",
 			},
 			expectError: true,
 			errorMsg:    "circular decorator chain",
 		},
 		{
-			name: "no decorators",
-			services: map[string]*Service{
-				"svc1": {ID: "svc1", Public: true},
-				"svc2": {ID: "svc2"},
-			},
+			name:        "no decorators",
+			decoratesBy: map[string]string{},
 			expectError: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Setup circular references for cycle test cases
-			if tt.name == "simple cycle - A decorates B, B decorates A" {
-				tt.services["decA"].Decorates = tt.services["decB"]
-				tt.services["decB"].Decorates = tt.services["decA"]
-			}
-			if tt.name == "three-way cycle - A -> B -> C -> A" {
-				tt.services["decA"].Decorates = tt.services["decB"]
-				tt.services["decB"].Decorates = tt.services["decC"]
-				tt.services["decC"].Decorates = tt.services["decA"]
-			}
-			if tt.name == "self-decoration" {
-				tt.services["dec"].Decorates = tt.services["dec"]
-			}
-
-			expander := &decoratorExpander{}
-			err := expander.detectDecoratorCycles(tt.services)
+			resolver := &decoratorResolver{}
+			err := resolver.detectDecoratorCycles(tt.decoratesBy)
 
 			if tt.expectError {
 				if err == nil {

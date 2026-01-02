@@ -57,9 +57,6 @@ func (b *Builder) Build() (*Container, error) {
 	if err := (&decoratorResolver{}).resolve(ctx); err != nil {
 		return nil, err
 	}
-	if err := (&decoratorExpander{}).expand(ctx); err != nil {
-		return nil, err
-	}
 	if err := (&dependencyResolver{}).resolve(ctx); err != nil {
 		return nil, err
 	}
