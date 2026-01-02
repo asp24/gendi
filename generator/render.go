@@ -12,9 +12,35 @@ import (
 	"github.com/asp24/gendi/ir"
 )
 
+func collectTagGetterNames(ctx *genContext) []string {
+	tagNames := map[string]bool{}
+	for name, tag := range ctx.tags {
+		if tag != nil && tag.Public {
+			tagNames[name] = true
+		}
+	}
+	for _, svc := range ctx.services {
+		if svc == nil {
+			continue
+		}
+		for _, arg := range svc.constructor.argDefs {
+			if arg.Kind == ir.TaggedArg && arg.Tag != nil {
+				tagNames[arg.Tag.Name] = true
+			}
+		}
+	}
+	items := make([]string, 0, len(tagNames))
+	for name := range tagNames {
+		items = append(items, name)
+	}
+	sort.Strings(items)
+	return items
+}
+
 func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	// Assign getter names and populate serviceDef fields
-	g.assignNames(ctx)
+	tagGetterNames := collectTagGetterNames(ctx)
+	g.assignNames(ctx, tagGetterNames)
 	reachable := reachableServices(ctx)
 
 	body := &bytes.Buffer{}
@@ -35,7 +61,7 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	if err := g.renderBuildFunctions(body, ctx, reachable); err != nil {
 		return nil, err
 	}
-	if err := g.renderGetterFunctions(body, ctx, reachable); err != nil {
+	if err := g.renderGetterFunctions(body, ctx, reachable, tagGetterNames); err != nil {
 		return nil, err
 	}
 
@@ -43,8 +69,8 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	return g.assembleOutput(body, ctx, hasParams), nil
 }
 
-func (g *Generator) assignNames(ctx *genContext) {
-	ctx.nameGen.assignGetterNames(ctx.orderedServiceIDs, ctx.services, ctx.tags)
+func (g *Generator) assignNames(ctx *genContext, tagGetterNames []string) {
+	ctx.nameGen.assignGetterNames(ctx.orderedServiceIDs, ctx.services, ctx.tags, tagGetterNames)
 	for id := range ctx.services {
 		if ctx.services[id].public {
 			ctx.services[id].getterName = ctx.nameGen.publicGetterName(id)
@@ -148,7 +174,7 @@ func (g *Generator) renderBuildFunctions(b *bytes.Buffer, ctx *genContext, reach
 	return nil
 }
 
-func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, reachable map[string]bool) error {
+func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, reachable map[string]bool, tagGetterNames []string) error {
 	// Render private getters
 	for _, id := range ctx.orderedServiceIDs {
 		if !reachable[id] {
@@ -164,14 +190,9 @@ func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, reac
 	}
 
 	// Render private tag getters
-	tagNames := make([]string, 0, len(ctx.tags))
-	for name := range ctx.tags {
-		tagNames = append(tagNames, name)
-	}
-	sort.Strings(tagNames)
-	for _, name := range tagNames {
+	for _, name := range tagGetterNames {
 		tag := ctx.tags[name]
-		if tag == nil || !tag.Public {
+		if tag == nil {
 			continue
 		}
 		if err := renderPrivateTagGetter(b, ctx, name, tag); err != nil {
@@ -191,7 +212,7 @@ func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, reac
 	}
 
 	// Render public tag getters
-	for _, name := range tagNames {
+	for _, name := range tagGetterNames {
 		tag := ctx.tags[name]
 		if tag == nil || !tag.Public {
 			continue
@@ -289,7 +310,7 @@ func renderGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 
 func renderPrivateTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
 	if tag.ElementType == nil {
-		return fmt.Errorf("tag %q element type is required for public getter", tagName)
+		return fmt.Errorf("tag %q element type is required for tag getter", tagName)
 	}
 	getter := ctx.nameGen.privateTagGetterName(tagName)
 	elemType := ctx.imports.typeString(tag.ElementType)

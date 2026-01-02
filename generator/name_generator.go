@@ -27,7 +27,7 @@ func newNameGenerator() *nameGenerator {
 }
 
 // assignGetterNames assigns unique getter names for all services
-func (ng *nameGenerator) assignGetterNames(orderedServiceIDs []string, services map[string]*serviceDef, tags map[string]*ir.Tag) {
+func (ng *nameGenerator) assignGetterNames(orderedServiceIDs []string, services map[string]*serviceDef, tags map[string]*ir.Tag, privateTagNames []string) {
 	// Assign public getter names
 	used := map[string]bool{}
 	for _, id := range orderedServiceIDs {
@@ -67,21 +67,11 @@ func (ng *nameGenerator) assignGetterNames(orderedServiceIDs []string, services 
 	}
 
 	// Assign private tag getter names
-	if len(tags) > 0 {
-		tagNames := make([]string, 0, len(tags))
-		for name := range tags {
-			tagNames = append(tagNames, name)
-		}
-		sort.Strings(tagNames)
-		for _, name := range tagNames {
-			if !tags[name].Public {
-				continue
-			}
-			base := "getTaggedWith" + ng.toCamel(name)
-			getter := ng.uniqueName(base, privateUsed)
-			privateUsed[getter] = true
-			ng.privateTagGetterNames[name] = getter
-		}
+	for _, name := range privateTagNames {
+		base := "getTaggedWith" + ng.toCamel(name)
+		getter := ng.uniqueName(base, privateUsed)
+		privateUsed[getter] = true
+		ng.privateTagGetterNames[name] = getter
 	}
 }
 

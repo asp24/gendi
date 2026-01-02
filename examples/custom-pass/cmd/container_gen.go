@@ -79,15 +79,11 @@ func (c *Container) buildServer() (*app.Server, error) {
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "server", '\x00', err)
 	}
-	tag_product_handler, err := c.getProductHandler()
+	tagged_http_handler, err := c.getTaggedWithHttpHandler()
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "server", '\x01', "http.handler", err)
 	}
-	tag_user_handler, err := c.getUserHandler()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "server", '\x01', "http.handler", err)
-	}
-	return app.NewServer(dep_server_logger, []app.HTTPHandler{tag_product_handler, tag_user_handler}), nil
+	return app.NewServer(dep_server_logger, tagged_http_handler), nil
 }
 
 func (c *Container) buildServerLogger() (*slog.Logger, error) {
@@ -296,6 +292,21 @@ func (c *Container) getUserRepo() (*app.UserRepoImpl, error) {
 	}
 	c.svc_user_repo = res
 	return res, nil
+}
+
+func (c *Container) getTaggedWithHttpHandler() ([]app.HTTPHandler, error) {
+	items := make([]app.HTTPHandler, 0, 2)
+	tagged_product_handler, err := c.getProductHandler()
+	if err != nil {
+		return nil, err
+	}
+	items = append(items, tagged_product_handler)
+	tagged_user_handler, err := c.getUserHandler()
+	if err != nil {
+		return nil, err
+	}
+	items = append(items, tagged_user_handler)
+	return items, nil
 }
 
 func (c *Container) GetServer() (*app.Server, error) {

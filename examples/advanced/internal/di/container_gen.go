@@ -111,15 +111,11 @@ func (c *Container) buildMailerRetryDecorator(inner app.Mailer) (*app.MailerRetr
 
 func (c *Container) buildNotifierAggregate() (*app.AggregateNotifier, error) {
 	var zero *app.AggregateNotifier
-	tag_notifier_email, err := c.getNotifierEmail()
+	tagged_notifier, err := c.getTaggedWithNotifier()
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "notifier.aggregate", '\x00', "notifier", err)
 	}
-	tag_notifier_sms, err := c.getNotifierSms()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "notifier.aggregate", '\x00', "notifier", err)
-	}
-	return app.NewAggregateNotifier([]app.Notifier{tag_notifier_email, tag_notifier_sms}), nil
+	return app.NewAggregateNotifier(tagged_notifier), nil
 }
 
 func (c *Container) buildNotifierEmail() (*app.EmailNotifier, error) {

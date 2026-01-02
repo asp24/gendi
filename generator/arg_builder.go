@@ -3,7 +3,6 @@ package generator
 import (
 	"fmt"
 	"go/types"
-	"strings"
 
 	"github.com/asp24/gendi/internal/typeutil"
 	"github.com/asp24/gendi/ir"
@@ -86,23 +85,22 @@ func (b *paramRefBuilder) build(ctx *argBuildContext) (string, []string, error) 
 type taggedBuilder struct{}
 
 func (b *taggedBuilder) build(ctx *argBuildContext) (string, []string, error) {
-	values := taggedServices(ctx.genCtx, ctx.argument.Tag.Name)
-	items := make([]string, 0, len(values))
-	stmts := []string{}
-	for _, dep := range values {
-		call := fmt.Sprintf("c.%s()", dep.privateGetterName)
-		varName := ctx.genCtx.nameGen.varIdent("tag", dep.id)
-		if ctx.returnsErr {
-			stmts = append(stmts, fmt.Sprintf("%s, err := %s", varName, call))
-			stmts = append(stmts, serviceTagError(ctx.service.id, ctx.argIndex, ctx.argument.Tag.Name))
-			items = append(items, varName)
-		} else {
-			stmts = append(stmts, fmt.Sprintf("%s, _ := %s", varName, call))
-			items = append(items, varName)
-		}
+	tagName := ctx.argument.Tag.Name
+	getter := ctx.genCtx.nameGen.privateTagGetterName(tagName)
+	if getter == "" {
+		return "", nil, fmt.Errorf("tag %q: missing private getter", tagName)
 	}
-	sliceExpr := "[]" + ctx.genCtx.imports.typeString(tagElementType(ctx.genCtx, ctx.argument.Tag.Name)) + "{" + strings.Join(items, ", ") + "}"
-	return sliceExpr, stmts, nil
+
+	varName := ctx.genCtx.nameGen.varIdent("tagged", tagName)
+	call := fmt.Sprintf("c.%s()", getter)
+	stmts := []string{}
+	if ctx.returnsErr {
+		stmts = append(stmts, fmt.Sprintf("%s, err := %s", varName, call))
+		stmts = append(stmts, serviceTagError(ctx.service.id, ctx.argIndex, tagName))
+	} else {
+		stmts = append(stmts, fmt.Sprintf("%s, _ := %s", varName, call))
+	}
+	return varName, stmts, nil
 }
 
 // literalBuilder handles literal value arguments
