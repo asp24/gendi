@@ -10,17 +10,19 @@ import (
 
 // nameGenerator encapsulates all naming logic for generated code
 type nameGenerator struct {
-	publicGetterNames    map[string]string // service ID -> public getter name
-	privateGetterNames   map[string]string // service ID -> private getter name
-	publicTagGetterNames map[string]string // tag name -> public getter name
+	publicGetterNames     map[string]string // service ID -> public getter name
+	privateGetterNames    map[string]string // service ID -> private getter name
+	publicTagGetterNames  map[string]string // tag name -> public getter name
+	privateTagGetterNames map[string]string // tag name -> private getter name
 }
 
 // newNameGenerator creates a new name generator
 func newNameGenerator() *nameGenerator {
 	return &nameGenerator{
-		publicGetterNames:    make(map[string]string),
-		privateGetterNames:   make(map[string]string),
-		publicTagGetterNames: make(map[string]string),
+		publicGetterNames:     make(map[string]string),
+		privateGetterNames:    make(map[string]string),
+		publicTagGetterNames:  make(map[string]string),
+		privateTagGetterNames: make(map[string]string),
 	}
 }
 
@@ -63,6 +65,24 @@ func (ng *nameGenerator) assignGetterNames(orderedServiceIDs []string, services 
 		privateUsed[name] = true
 		ng.privateGetterNames[id] = name
 	}
+
+	// Assign private tag getter names
+	if len(tags) > 0 {
+		tagNames := make([]string, 0, len(tags))
+		for name := range tags {
+			tagNames = append(tagNames, name)
+		}
+		sort.Strings(tagNames)
+		for _, name := range tagNames {
+			if !tags[name].Public {
+				continue
+			}
+			base := "getTaggedWith" + ng.toCamel(name)
+			getter := ng.uniqueName(base, privateUsed)
+			privateUsed[getter] = true
+			ng.privateTagGetterNames[name] = getter
+		}
+	}
 }
 
 // uniqueName generates a unique name by appending numbers if needed
@@ -88,6 +108,11 @@ func (ng *nameGenerator) publicGetterName(id string) string {
 // publicTagGetterName returns the public getter name for a tag.
 func (ng *nameGenerator) publicTagGetterName(tag string) string {
 	return ng.publicTagGetterNames[tag]
+}
+
+// privateTagGetterName returns the private getter name for a tag.
+func (ng *nameGenerator) privateTagGetterName(tag string) string {
+	return ng.privateTagGetterNames[tag]
 }
 
 // privateGetterName returns the private getter name for a service

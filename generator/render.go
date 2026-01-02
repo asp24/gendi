@@ -163,6 +163,22 @@ func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, reac
 		}
 	}
 
+	// Render private tag getters
+	tagNames := make([]string, 0, len(ctx.tags))
+	for name := range ctx.tags {
+		tagNames = append(tagNames, name)
+	}
+	sort.Strings(tagNames)
+	for _, name := range tagNames {
+		tag := ctx.tags[name]
+		if tag == nil || !tag.Public {
+			continue
+		}
+		if err := renderPrivateTagGetter(b, ctx, name, tag); err != nil {
+			return err
+		}
+	}
+
 	// Render public getters
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
@@ -175,11 +191,6 @@ func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, reac
 	}
 
 	// Render public tag getters
-	tagNames := make([]string, 0, len(ctx.tags))
-	for name := range ctx.tags {
-		tagNames = append(tagNames, name)
-	}
-	sort.Strings(tagNames)
 	for _, name := range tagNames {
 		tag := ctx.tags[name]
 		if tag == nil || !tag.Public {
@@ -276,18 +287,16 @@ func renderGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	return nil
 }
 
-func renderTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
+func renderPrivateTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
 	if tag.ElementType == nil {
 		return fmt.Errorf("tag %q element type is required for public getter", tagName)
 	}
-	getter := ctx.nameGen.publicTagGetterName(tagName)
+	getter := ctx.nameGen.privateTagGetterName(tagName)
 	elemType := ctx.imports.typeString(tag.ElementType)
 	sliceType := "[]" + elemType
 	items := taggedServices(ctx, tagName)
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, sliceType)
-	fmt.Fprintf(b, "\tc.mu.Lock()\n")
-	fmt.Fprintf(b, "\tdefer c.mu.Unlock()\n")
 	fmt.Fprintf(b, "\titems := make(%s, 0, %d)\n", sliceType, len(items))
 	for _, svc := range items {
 		varName := ctx.nameGen.varIdent("tagged", svc.id)
@@ -296,6 +305,19 @@ func renderTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.T
 		fmt.Fprintf(b, "\titems = append(items, %s)\n", varName)
 	}
 	fmt.Fprintf(b, "\treturn items, nil\n")
+	b.WriteString("}\n\n")
+	return nil
+}
+
+func renderTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
+	getter := ctx.nameGen.publicTagGetterName(tagName)
+	privateGetter := ctx.nameGen.privateTagGetterName(tagName)
+	elemType := ctx.imports.typeString(tag.ElementType)
+	sliceType := "[]" + elemType
+	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, sliceType)
+	fmt.Fprintf(b, "\tc.mu.Lock()\n")
+	fmt.Fprintf(b, "\tdefer c.mu.Unlock()\n")
+	fmt.Fprintf(b, "\treturn c.%s()\n", privateGetter)
 	b.WriteString("}\n\n")
 	return nil
 }

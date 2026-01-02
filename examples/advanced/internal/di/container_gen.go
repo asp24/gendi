@@ -265,15 +265,7 @@ func (c *Container) getNotifierSms() (app.SMSNotifier, error) {
 	return res, nil
 }
 
-func (c *Container) GetHandler() (*app.Handler, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.getHandler()
-}
-
-func (c *Container) GetTaggedWithNotifier() ([]app.Notifier, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+func (c *Container) getTaggedWithNotifier() ([]app.Notifier, error) {
 	items := make([]app.Notifier, 0, 2)
 	tagged_notifier_email, err := c.getNotifierEmail()
 	if err != nil {
@@ -286,4 +278,16 @@ func (c *Container) GetTaggedWithNotifier() ([]app.Notifier, error) {
 	}
 	items = append(items, tagged_notifier_sms)
 	return items, nil
+}
+
+func (c *Container) GetHandler() (*app.Handler, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.getHandler()
+}
+
+func (c *Container) GetTaggedWithNotifier() ([]app.Notifier, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.getTaggedWithNotifier()
 }

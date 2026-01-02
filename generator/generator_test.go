@@ -113,6 +113,9 @@ func TestPublicTagGetter(t *testing.T) {
 	if !strings.Contains(out, "GetTaggedWithSvcTag") {
 		t.Fatalf("expected public tag getter to be generated")
 	}
+	if !strings.Contains(out, "getTaggedWithSvcTag") {
+		t.Fatalf("expected private tag getter to be generated")
+	}
 	if !strings.Contains(out, "[]app.Service") {
 		t.Fatalf("expected tag getter to use declared element type")
 	}
