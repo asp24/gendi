@@ -85,3 +85,11 @@ type Consumer struct {
 func NewConsumer(svc Service) *Consumer {
 	return &Consumer{Svc: svc}
 }
+
+type InterfaceConsumer struct {
+	Items []interface{}
+}
+
+func NewInterfaceConsumer(items []interface{}) *InterfaceConsumer {
+	return &InterfaceConsumer{Items: items}
+}

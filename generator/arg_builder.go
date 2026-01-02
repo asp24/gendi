@@ -91,7 +91,7 @@ func (b *taggedBuilder) build(ctx *argBuildContext) (string, []string, error) {
 		return "", nil, fmt.Errorf("tag %q: missing private getter", tagName)
 	}
 
-	varName := ctx.genCtx.nameGen.varIdent("tagged", tagName)
+	varName := ctx.genCtx.nameGen.varIdent(fmt.Sprintf("tagged%d", ctx.argIndex), tagName)
 	call := fmt.Sprintf("c.%s()", getter)
 	stmts := []string{}
 	if ctx.returnsErr {
@@ -100,7 +100,27 @@ func (b *taggedBuilder) build(ctx *argBuildContext) (string, []string, error) {
 	} else {
 		stmts = append(stmts, fmt.Sprintf("%s, _ := %s", varName, call))
 	}
-	return varName, stmts, nil
+
+	elemType := tagElementType(ctx.genCtx, tagName)
+	paramSlice, ok := ctx.paramType.Underlying().(*types.Slice)
+	if !ok {
+		return "", nil, fmt.Errorf("service %q arg[%d]: tagged injection requires slice type, got %s", ctx.service.id, ctx.argIndex, ctx.paramType)
+	}
+	paramElem := paramSlice.Elem()
+
+	if types.Identical(elemType, paramElem) {
+		return varName, stmts, nil
+	}
+
+	convVar := ctx.genCtx.nameGen.varIdent(fmt.Sprintf("taggedConv%d", ctx.argIndex), tagName)
+	convType := "[]" + ctx.genCtx.imports.typeString(paramElem)
+	idxVar := ctx.genCtx.nameGen.varIdent(fmt.Sprintf("tagIdx%d", ctx.argIndex), tagName)
+	itemVar := ctx.genCtx.nameGen.varIdent(fmt.Sprintf("tagItem%d", ctx.argIndex), tagName)
+	stmts = append(stmts, fmt.Sprintf("%s := make(%s, len(%s))", convVar, convType, varName))
+	stmts = append(stmts, fmt.Sprintf("for %s, %s := range %s {", idxVar, itemVar, varName))
+	stmts = append(stmts, fmt.Sprintf("\t%s[%s] = %s", convVar, idxVar, itemVar))
+	stmts = append(stmts, "}")
+	return convVar, stmts, nil
 }
 
 // literalBuilder handles literal value arguments

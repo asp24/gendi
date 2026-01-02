@@ -124,6 +124,52 @@ func TestPublicTagGetter(t *testing.T) {
 	}
 }
 
+func TestTaggedInjectionConversion(t *testing.T) {
+	cfg := &di.Config{
+		Tags: map[string]di.Tag{
+			"test.tag": {
+				ElementType: "*github.com/asp24/gendi/generator/testdata/app.A",
+			},
+		},
+		Services: map[string]di.Service{
+			"a": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
+				},
+				Tags: []di.ServiceTag{
+					{Name: "test.tag"},
+				},
+			},
+			"consumer": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewInterfaceConsumer",
+					Args: []di.Argument{
+						{Kind: di.ArgTagged, Value: "test.tag"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(cfg, testOptions(t))
+	code, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	if !strings.Contains(out, "getTaggedWithTestTag") {
+		t.Fatalf("expected private tag getter to be used")
+	}
+	if !strings.Contains(out, "taggedConv0_test_tag := make([]interface{}, len(tagged0_test_tag))") {
+		t.Fatalf("expected tagged conversion slice allocation")
+	}
+	if !strings.Contains(out, "for tagIdx0_test_tag, tagItem0_test_tag := range tagged0_test_tag") {
+		t.Fatalf("expected tagged conversion loop")
+	}
+}
+
 func TestParameterProviderCodegen(t *testing.T) {
 	cfg := &di.Config{
 		Parameters: map[string]di.Parameter{

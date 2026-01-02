@@ -62,11 +62,11 @@ func (c *Container) buildService() (*app.Service, error) {
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "service", '\x01', err)
 	}
-	tagged_payment_provider, err := c.getTaggedWithPaymentProvider()
+	tagged2_payment_provider, err := c.getTaggedWithPaymentProvider()
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "service", '\x02', "payment.provider", err)
 	}
-	res, err := app.NewService(dep_repo, dep_logger, tagged_payment_provider)
+	res, err := app.NewService(dep_repo, dep_logger, tagged2_payment_provider)
 	if err != nil {
 		return zero, fmt.Errorf("service %q constructor: %w", "service", err)
 	}

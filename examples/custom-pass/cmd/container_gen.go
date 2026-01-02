@@ -79,11 +79,11 @@ func (c *Container) buildServer() (*app.Server, error) {
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "server", '\x00', err)
 	}
-	tagged_http_handler, err := c.getTaggedWithHttpHandler()
+	tagged1_http_handler, err := c.getTaggedWithHttpHandler()
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "server", '\x01', "http.handler", err)
 	}
-	return app.NewServer(dep_server_logger, tagged_http_handler), nil
+	return app.NewServer(dep_server_logger, tagged1_http_handler), nil
 }
 
 func (c *Container) buildServerLogger() (*slog.Logger, error) {
