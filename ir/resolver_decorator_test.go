@@ -8,7 +8,7 @@ import (
 	di "github.com/asp24/gendi"
 )
 
-func TestDecoratorExpanderSingleDecorator(t *testing.T) {
+func TestDecoratorResolverSingleDecorator(t *testing.T) {
 	base := &Service{
 		ID:          "svc",
 		Type:        types.Typ[types.Int],
@@ -87,7 +87,7 @@ func TestDecoratorExpanderSingleDecorator(t *testing.T) {
 	}
 }
 
-func TestDecoratorExpanderChainCreatesInternalServices(t *testing.T) {
+func TestDecoratorResolverChainCreatesInternalServices(t *testing.T) {
 	base := &Service{
 		ID:          "svc",
 		Type:        types.Typ[types.Int],
@@ -163,7 +163,7 @@ func TestDecoratorExpanderChainCreatesInternalServices(t *testing.T) {
 	}
 }
 
-func TestDecoratorExpanderInnerArgOutsideDecorator(t *testing.T) {
+func TestDecoratorResolverInnerArgOutsideDecorator(t *testing.T) {
 	svc := &Service{
 		ID:          "svc",
 		Type:        types.Typ[types.Int],
@@ -178,7 +178,7 @@ func TestDecoratorExpanderInnerArgOutsideDecorator(t *testing.T) {
 	}
 }
 
-func TestDecoratorExpanderDecoratorCannotBeDecorated(t *testing.T) {
+func TestDecoratorResolverDecoratorCannotBeDecorated(t *testing.T) {
 	base := &Service{ID: "base"}
 	other := &Service{ID: "other"}
 	dec := &Service{ID: "dec"}
