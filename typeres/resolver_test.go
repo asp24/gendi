@@ -32,7 +32,7 @@ func New() *Item {
 		t.Fatalf("write package source: %v", err)
 	}
 
-	resolver := NewResolver(dir, modPath)
+	resolver := NewResolver(dir)
 
 	if err := resolver.LoadPackages([]string{modPath + "/foo"}); err != nil {
 		t.Fatalf("load packages: %v", err)

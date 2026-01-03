@@ -10,15 +10,13 @@ import (
 // Resolver coordinates package loading and type resolution.
 // It implements the ir.TypeResolver interface.
 type Resolver struct {
-	cache         *Cache
-	outputPkgPath string
+	cache *Cache
 }
 
 // NewResolver creates a new Resolver with the given module root and output package path.
-func NewResolver(moduleRoot, outputPkgPath string) *Resolver {
+func NewResolver(moduleRoot string) *Resolver {
 	return &Resolver{
-		cache:         NewCache(moduleRoot),
-		outputPkgPath: outputPkgPath,
+		cache: NewCache(moduleRoot),
 	}
 }
 
@@ -277,9 +275,4 @@ func (r *Resolver) InstantiateFunc(fn *types.Func, typeArgStrs []string) (*types
 // LoadPackages loads the specified packages into the cache.
 func (r *Resolver) LoadPackages(paths []string) error {
 	return r.cache.Load(paths)
-}
-
-// OutputPkgPath returns the output package path.
-func (r *Resolver) OutputPkgPath() string {
-	return r.outputPkgPath
 }

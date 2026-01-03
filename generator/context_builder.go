@@ -43,16 +43,18 @@ func (b *ContextBuilder) initTypeLoader() error {
 	if err != nil {
 		return err
 	}
-	loader := typeres.NewResolver(b.options.ModuleRoot, b.options.OutputPkgPath)
+
+	loader := typeres.NewResolver(b.options.ModuleRoot)
 	if err := loader.LoadPackages(paths); err != nil {
 		return err
 	}
 	b.loader = loader
+
 	return nil
 }
 
 func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genContext, error) {
-	imports := NewImportManager(b.loader.OutputPkgPath())
+	imports := NewImportManager(b.options.OutputPkgPath)
 
 	services := make(map[string]*serviceDef)
 	// Convert IR services to serviceDef
@@ -70,7 +72,7 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 		tags:              container.Tags,
 		loader:            b.loader,
 		imports:           imports,
-		outputPkgPath:     b.loader.OutputPkgPath(),
+		outputPkgPath:     b.options.OutputPkgPath,
 		containerName:     b.options.Container,
 		paramGetters:      paramGetters,
 		nameGen:           nameGen,
