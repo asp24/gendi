@@ -19,7 +19,7 @@ func selectPrivateGetterRenderer(svc *serviceDef, resType types.Type) privateGet
 	if !svc.shared {
 		return &nonSharedGetterRenderer{}
 	}
-	if isNilablePointer(resType) {
+	if isNilable(resType) {
 		return &sharedPtrGetterRenderer{}
 	}
 	return &sharedValueGetterRenderer{}

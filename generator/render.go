@@ -115,9 +115,9 @@ func (g *Generator) renderContainerStruct(b *bytes.Buffer, ctx *genContext, hasP
 			continue
 		}
 		resType := getterType(svc)
-		isPtr := isNilablePointer(resType)
+		nilable := isNilable(resType)
 		fmt.Fprintf(b, "\t%s %s\n", ctx.nameGen.fieldIdent(svc.id), ctx.imports.typeString(resType))
-		if !isPtr {
+		if !nilable {
 			fmt.Fprintf(b, "\t%sInit bool\n", ctx.nameGen.fieldIdent(svc.id))
 		}
 	}
@@ -402,12 +402,14 @@ func literalExpr(lit di.Literal) (string, error) {
 	}
 }
 
-func isNilablePointer(t types.Type) bool {
+func isNilable(t types.Type) bool {
 	switch tt := t.(type) {
-	case *types.Pointer:
+	case *types.Pointer, *types.Interface, *types.Slice, *types.Map, *types.Chan, *types.Signature:
 		return true
 	case *types.Named:
-		return isNilablePointer(tt.Underlying())
+		return isNilable(tt.Underlying())
+	case *types.Alias:
+		return isNilable(tt.Underlying())
 	default:
 		return false
 	}

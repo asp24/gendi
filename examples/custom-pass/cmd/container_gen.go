@@ -21,18 +21,15 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 })
 
 type Container struct {
-	mu                               sync.Mutex
-	params                           parameters.Provider
-	svc_product_handler              app.HTTPHandler
-	svc_product_handlerInit          bool
-	svc_product_repo                 *app.ProductRepoImpl
-	svc_server                       *app.Server
-	svc_stdlib_slog                  *slog.Logger
-	svc_stdlib_slog_handler_text     slog.Handler
-	svc_stdlib_slog_handler_textInit bool
-	svc_user_handler                 app.HTTPHandler
-	svc_user_handlerInit             bool
-	svc_user_repo                    *app.UserRepoImpl
+	mu                           sync.Mutex
+	params                       parameters.Provider
+	svc_product_handler          app.HTTPHandler
+	svc_product_repo             *app.ProductRepoImpl
+	svc_server                   *app.Server
+	svc_stdlib_slog              *slog.Logger
+	svc_stdlib_slog_handler_text slog.Handler
+	svc_user_handler             app.HTTPHandler
+	svc_user_repo                *app.UserRepoImpl
 }
 
 func NewContainer(params parameters.Provider) *Container {
@@ -158,7 +155,7 @@ func (c *Container) getLogger() (*slog.Logger, error) {
 
 func (c *Container) getProductHandler() (app.HTTPHandler, error) {
 	var zero app.HTTPHandler
-	if c.svc_product_handlerInit {
+	if c.svc_product_handler != nil {
 		return c.svc_product_handler, nil
 	}
 	res, err := c.buildProductHandler()
@@ -166,7 +163,6 @@ func (c *Container) getProductHandler() (app.HTTPHandler, error) {
 		return zero, err
 	}
 	c.svc_product_handler = res
-	c.svc_product_handlerInit = true
 	return res, nil
 }
 
@@ -233,7 +229,7 @@ func (c *Container) getStdlibSlogHandler() (slog.Handler, error) {
 
 func (c *Container) getStdlibSlogHandlerText() (slog.Handler, error) {
 	var zero slog.Handler
-	if c.svc_stdlib_slog_handler_textInit {
+	if c.svc_stdlib_slog_handler_text != nil {
 		return c.svc_stdlib_slog_handler_text, nil
 	}
 	res, err := c.buildStdlibSlogHandlerText()
@@ -241,7 +237,6 @@ func (c *Container) getStdlibSlogHandlerText() (slog.Handler, error) {
 		return zero, err
 	}
 	c.svc_stdlib_slog_handler_text = res
-	c.svc_stdlib_slog_handler_textInit = true
 	return res, nil
 }
 
@@ -260,7 +255,7 @@ func (c *Container) getStdlibStderr() (io.Writer, error) {
 
 func (c *Container) getUserHandler() (app.HTTPHandler, error) {
 	var zero app.HTTPHandler
-	if c.svc_user_handlerInit {
+	if c.svc_user_handler != nil {
 		return c.svc_user_handler, nil
 	}
 	res, err := c.buildUserHandler()
@@ -268,7 +263,6 @@ func (c *Container) getUserHandler() (app.HTTPHandler, error) {
 		return zero, err
 	}
 	c.svc_user_handler = res
-	c.svc_user_handlerInit = true
 	return res, nil
 }
 
