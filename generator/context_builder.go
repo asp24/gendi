@@ -27,8 +27,8 @@ func (b *ContextBuilder) Build() (*genContext, error) {
 	}
 
 	// Build IR using the IR builder
-	irBuilder := ir.NewBuilder(b.loader, b.cfg)
-	container, err := irBuilder.Build()
+	irBuilder := ir.NewBuilder(b.loader)
+	container, err := irBuilder.Build(b.cfg)
 	if err != nil {
 		return nil, err
 	}
