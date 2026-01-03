@@ -1,4 +1,4 @@
-package generator
+package typeres
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestTypeLoaderUsesModuleRoot(t *testing.T) {
+func TestResolverUsesModuleRoot(t *testing.T) {
 	dir := t.TempDir()
 	modPath := "example.com/testmod"
 
@@ -32,29 +32,16 @@ func New() *Item {
 		t.Fatalf("write package source: %v", err)
 	}
 
-	opts := Options{
-		ModulePath: modPath,
-		ModuleRoot: dir,
-		Out:        dir,
-		Package:    "test",
-	}
-	if err := opts.Finalize(); err != nil {
-		t.Fatalf("finalize options: %v", err)
-	}
+	resolver := NewResolver(dir, modPath)
 
-	loader, err := NewTypeLoader(opts)
-	if err != nil {
-		t.Fatalf("new loader: %v", err)
-	}
-
-	if err := loader.loadPackages([]string{modPath + "/foo"}); err != nil {
+	if err := resolver.LoadPackages([]string{modPath + "/foo"}); err != nil {
 		t.Fatalf("load packages: %v", err)
 	}
 
-	if _, err := loader.LookupType(modPath + "/foo.Item"); err != nil {
+	if _, err := resolver.LookupType(modPath + "/foo.Item"); err != nil {
 		t.Fatalf("lookup type: %v", err)
 	}
-	if _, err := loader.LookupFunc(modPath+"/foo", "New"); err != nil {
+	if _, err := resolver.LookupFunc(modPath+"/foo", "New"); err != nil {
 		t.Fatalf("lookup func: %v", err)
 	}
 }

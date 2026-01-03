@@ -1,25 +1,9 @@
-package typeutil
+package typeres
 
 import (
 	"fmt"
 	"strings"
 )
-
-// SplitQualifiedName splits a qualified symbol like "pkg/path.Symbol" into package path and symbol name.
-// Returns (packagePath, symbolName, error).
-func SplitQualifiedName(s string) (string, string, error) {
-	// Strip type parameters if present
-	base := s
-	if bracketIdx := strings.Index(s, "["); bracketIdx != -1 {
-		base = s[:bracketIdx]
-	}
-
-	idx := strings.LastIndex(base, ".")
-	if idx <= 0 || idx == len(base)-1 {
-		return "", "", fmt.Errorf("invalid qualified name %q", s)
-	}
-	return base[:idx], base[idx+1:], nil
-}
 
 // SplitQualifiedNameWithTypeParams splits a qualified symbol with optional type parameters.
 // Input: "pkg/path.Symbol[type1, type2]"

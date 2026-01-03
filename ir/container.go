@@ -6,7 +6,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/asp24/gendi/internal/typeutil"
+	"github.com/asp24/gendi/typeres"
 )
 
 // Container is the fully resolved intermediate representation of a DI container.
@@ -242,15 +242,15 @@ type ServiceTag struct {
 // GetterMethod returns the Provider method name for this parameter's type.
 func (p *Parameter) GetterMethod() string {
 	switch {
-	case typeutil.IsString(p.Type):
+	case typeres.IsString(p.Type):
 		return "GetString"
-	case typeutil.IsInt(p.Type):
+	case typeres.IsInt(p.Type):
 		return "GetInt"
-	case typeutil.IsBool(p.Type):
+	case typeres.IsBool(p.Type):
 		return "GetBool"
-	case typeutil.IsFloat64(p.Type):
+	case typeres.IsFloat64(p.Type):
 		return "GetFloat"
-	case typeutil.IsDuration(p.Type):
+	case typeres.IsDuration(p.Type):
 		return "GetDuration"
 	default:
 		return ""

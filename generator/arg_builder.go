@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"go/types"
 
-	"github.com/asp24/gendi/internal/typeutil"
 	"github.com/asp24/gendi/ir"
+	"github.com/asp24/gendi/typeres"
 )
 
 // argBuildContext bundles parameters for building constructor arguments.
@@ -139,7 +139,7 @@ func (b *taggedBuilder) build(ctx *argBuildContext) (string, []string, error) {
 type literalBuilder struct{}
 
 func (b *literalBuilder) build(ctx *argBuildContext) (string, []string, error) {
-	if typeutil.IsDuration(ctx.paramType) {
+	if typeres.IsDuration(ctx.paramType) {
 		nanos, err := durationLiteralValue(ctx.argument.Literal)
 		if err != nil {
 			return "", nil, err

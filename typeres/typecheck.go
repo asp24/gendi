@@ -1,4 +1,4 @@
-package typeutil
+package typeres
 
 import "go/types"
 

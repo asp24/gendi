@@ -1,4 +1,4 @@
-package generator
+package typeres
 
 import (
 	"errors"
@@ -9,15 +9,15 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// PackageCache handles loading and caching of Go packages.
-type PackageCache struct {
+// Cache handles loading and caching of Go packages.
+type Cache struct {
 	packages   map[string]*types.Package
 	moduleRoot string
 }
 
-// NewPackageCache creates a new package cache.
-func NewPackageCache(moduleRoot string) *PackageCache {
-	return &PackageCache{
+// NewCache creates a new package cache.
+func NewCache(moduleRoot string) *Cache {
+	return &Cache{
 		packages:   make(map[string]*types.Package),
 		moduleRoot: moduleRoot,
 	}
@@ -25,7 +25,7 @@ func NewPackageCache(moduleRoot string) *PackageCache {
 
 // Get retrieves a package from the cache.
 // Returns an error if the package has not been loaded.
-func (c *PackageCache) Get(path string) (*types.Package, error) {
+func (c *Cache) Get(path string) (*types.Package, error) {
 	if pkg, ok := c.packages[path]; ok {
 		return pkg, nil
 	}
@@ -33,7 +33,7 @@ func (c *PackageCache) Get(path string) (*types.Package, error) {
 }
 
 // Load loads packages by their import paths and caches them along with their dependencies.
-func (c *PackageCache) Load(paths []string) error {
+func (c *Cache) Load(paths []string) error {
 	if len(paths) == 0 {
 		return nil
 	}
@@ -66,7 +66,7 @@ func (c *PackageCache) Load(paths []string) error {
 }
 
 // cacheTree recursively caches a package and all its dependencies.
-func (c *PackageCache) cacheTree(seen map[string]bool, pkg *packages.Package) {
+func (c *Cache) cacheTree(seen map[string]bool, pkg *packages.Package) {
 	if pkg == nil {
 		return
 	}

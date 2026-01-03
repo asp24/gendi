@@ -1,33 +1,30 @@
-package generator
+package typeres
 
 import (
 	"fmt"
 	"go/types"
 	"strconv"
 	"strings"
-
-	"github.com/asp24/gendi/internal/typeutil"
 )
 
-// TypeLoader coordinates package loading and type resolution.
+// Resolver coordinates package loading and type resolution.
 // It implements the ir.TypeResolver interface.
-type TypeLoader struct {
-	cache         *PackageCache
+type Resolver struct {
+	cache         *Cache
 	outputPkgPath string
 }
 
-// NewTypeLoader creates a new TypeLoader with the given options.
-// Options must be finalized before calling this (via Options.Finalize()).
-func NewTypeLoader(opts Options) (*TypeLoader, error) {
-	return &TypeLoader{
-		cache:         NewPackageCache(opts.ModuleRoot),
-		outputPkgPath: opts.OutputPkgPath,
-	}, nil
+// NewResolver creates a new Resolver with the given module root and output package path.
+func NewResolver(moduleRoot, outputPkgPath string) *Resolver {
+	return &Resolver{
+		cache:         NewCache(moduleRoot),
+		outputPkgPath: outputPkgPath,
+	}
 }
 
 // LookupFunc looks up a function by package path and name.
-func (l *TypeLoader) LookupFunc(pkgPath, name string) (*types.Func, error) {
-	pkg, err := l.cache.Get(pkgPath)
+func (r *Resolver) LookupFunc(pkgPath, name string) (*types.Func, error) {
+	pkg, err := r.cache.Get(pkgPath)
 	if err != nil {
 		return nil, err
 	}
@@ -48,12 +45,12 @@ func (l *TypeLoader) LookupFunc(pkgPath, name string) (*types.Func, error) {
 // LookupType resolves a type string to a types.Type.
 // Supports composite types: pointers (*T), slices ([]T), arrays ([N]T),
 // maps (map[K]V), channels (chan T, <-chan T, chan<- T), and named types.
-func (l *TypeLoader) LookupType(typeStr string) (types.Type, error) {
+func (r *Resolver) LookupType(typeStr string) (types.Type, error) {
 	typeStr = strings.TrimSpace(typeStr)
 
 	// Pointer type: *T
 	if strings.HasPrefix(typeStr, "*") {
-		elem, err := l.LookupType(typeStr[1:])
+		elem, err := r.LookupType(typeStr[1:])
 		if err != nil {
 			return nil, err
 		}
@@ -62,7 +59,7 @@ func (l *TypeLoader) LookupType(typeStr string) (types.Type, error) {
 
 	// Slice type: []T
 	if strings.HasPrefix(typeStr, "[]") {
-		elem, err := l.LookupType(typeStr[2:])
+		elem, err := r.LookupType(typeStr[2:])
 		if err != nil {
 			return nil, err
 		}
@@ -80,7 +77,7 @@ func (l *TypeLoader) LookupType(typeStr string) (types.Type, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid array size in %q: %w", typeStr, err)
 		}
-		elem, err := l.LookupType(typeStr[closeBracket+1:])
+		elem, err := r.LookupType(typeStr[closeBracket+1:])
 		if err != nil {
 			return nil, err
 		}
@@ -96,11 +93,11 @@ func (l *TypeLoader) LookupType(typeStr string) (types.Type, error) {
 		keyStr := typeStr[4:keyEnd]
 		valStr := typeStr[keyEnd+1:]
 
-		key, err := l.LookupType(keyStr)
+		key, err := r.LookupType(keyStr)
 		if err != nil {
 			return nil, fmt.Errorf("map key type: %w", err)
 		}
-		val, err := l.LookupType(valStr)
+		val, err := r.LookupType(valStr)
 		if err != nil {
 			return nil, fmt.Errorf("map value type: %w", err)
 		}
@@ -109,7 +106,7 @@ func (l *TypeLoader) LookupType(typeStr string) (types.Type, error) {
 
 	// Receive-only channel: <-chan T
 	if strings.HasPrefix(typeStr, "<-chan ") {
-		elem, err := l.LookupType(typeStr[7:])
+		elem, err := r.LookupType(typeStr[7:])
 		if err != nil {
 			return nil, err
 		}
@@ -118,7 +115,7 @@ func (l *TypeLoader) LookupType(typeStr string) (types.Type, error) {
 
 	// Send-only channel: chan<- T
 	if strings.HasPrefix(typeStr, "chan<- ") {
-		elem, err := l.LookupType(typeStr[7:])
+		elem, err := r.LookupType(typeStr[7:])
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +124,7 @@ func (l *TypeLoader) LookupType(typeStr string) (types.Type, error) {
 
 	// Bidirectional channel: chan T
 	if strings.HasPrefix(typeStr, "chan ") {
-		elem, err := l.LookupType(typeStr[5:])
+		elem, err := r.LookupType(typeStr[5:])
 		if err != nil {
 			return nil, err
 		}
@@ -140,12 +137,12 @@ func (l *TypeLoader) LookupType(typeStr string) (types.Type, error) {
 	}
 
 	// Named type: pkg/path.TypeName or pkg/path.TypeName[T1, T2]
-	pkgPath, name, typeArgStrs, err := typeutil.SplitQualifiedNameWithTypeParams(typeStr)
+	pkgPath, name, typeArgStrs, err := SplitQualifiedNameWithTypeParams(typeStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid type %q: %w", typeStr, err)
 	}
 
-	pkg, err := l.cache.Get(pkgPath)
+	pkg, err := r.cache.Get(pkgPath)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +177,7 @@ func (l *TypeLoader) LookupType(typeStr string) (types.Type, error) {
 			// Resolve type arguments
 			typeArgs := make([]types.Type, len(typeArgStrs))
 			for i, argStr := range typeArgStrs {
-				t, err := l.LookupType(argStr)
+				t, err := r.LookupType(argStr)
 				if err != nil {
 					return nil, fmt.Errorf("type argument %d: %w", i, err)
 				}
@@ -223,7 +220,7 @@ func findMatchingBracket(s string, start int) int {
 }
 
 // LookupMethod looks up a method on a type.
-func (l *TypeLoader) LookupMethod(recv types.Type, name string) (*types.Func, error) {
+func (r *Resolver) LookupMethod(recv types.Type, name string) (*types.Func, error) {
 	obj, _, _ := types.LookupFieldOrMethod(recv, true, nil, name)
 	if obj == nil {
 		return nil, fmt.Errorf("method %s not found", name)
@@ -239,7 +236,7 @@ func (l *TypeLoader) LookupMethod(recv types.Type, name string) (*types.Func, er
 
 // InstantiateFunc instantiates a generic function with the given type arguments.
 // Returns the instantiated signature and resolved type arguments.
-func (l *TypeLoader) InstantiateFunc(fn *types.Func, typeArgStrs []string) (*types.Signature, []types.Type, error) {
+func (r *Resolver) InstantiateFunc(fn *types.Func, typeArgStrs []string) (*types.Signature, []types.Type, error) {
 	sig := fn.Type().(*types.Signature)
 
 	// Get type parameters from the signature
@@ -256,7 +253,7 @@ func (l *TypeLoader) InstantiateFunc(fn *types.Func, typeArgStrs []string) (*typ
 	// Resolve type argument strings to types
 	typeArgs := make([]types.Type, len(typeArgStrs))
 	for i, typeStr := range typeArgStrs {
-		t, err := l.LookupType(typeStr)
+		t, err := r.LookupType(typeStr)
 		if err != nil {
 			return nil, nil, fmt.Errorf("type argument %d: %w", i, err)
 		}
@@ -277,12 +274,12 @@ func (l *TypeLoader) InstantiateFunc(fn *types.Func, typeArgStrs []string) (*typ
 	return instSig, typeArgs, nil
 }
 
-// typeString formats a types.Type as a string with appropriate package qualification.
-func (l *TypeLoader) typeString(t types.Type) string {
-	return FormatTypeString(t, l.outputPkgPath)
+// LoadPackages loads the specified packages into the cache.
+func (r *Resolver) LoadPackages(paths []string) error {
+	return r.cache.Load(paths)
 }
 
-// loadPackages loads the specified packages into the cache.
-func (l *TypeLoader) loadPackages(paths []string) error {
-	return l.cache.Load(paths)
+// OutputPkgPath returns the output package path.
+func (r *Resolver) OutputPkgPath() string {
+	return r.outputPkgPath
 }

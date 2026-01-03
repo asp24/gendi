@@ -3,13 +3,14 @@ package generator
 import (
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/ir"
+	"github.com/asp24/gendi/typeres"
 )
 
 // ContextBuilder builds the generation context using the IR layer.
 type ContextBuilder struct {
 	cfg     *di.Config
 	options Options
-	loader  *TypeLoader
+	loader  *typeres.Resolver
 }
 
 // NewContextBuilder creates a new context builder.
@@ -38,15 +39,12 @@ func (b *ContextBuilder) Build() (*genContext, error) {
 }
 
 func (b *ContextBuilder) initTypeLoader() error {
-	loader, err := NewTypeLoader(b.options)
-	if err != nil {
-		return err
-	}
 	paths, err := collectPackagePaths(b.cfg)
 	if err != nil {
 		return err
 	}
-	if err := loader.loadPackages(paths); err != nil {
+	loader := typeres.NewResolver(b.options.ModuleRoot, b.options.OutputPkgPath)
+	if err := loader.LoadPackages(paths); err != nil {
 		return err
 	}
 	b.loader = loader
@@ -54,7 +52,7 @@ func (b *ContextBuilder) initTypeLoader() error {
 }
 
 func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genContext, error) {
-	imports := NewImportManager(b.loader.outputPkgPath)
+	imports := NewImportManager(b.loader.OutputPkgPath())
 
 	services := make(map[string]*serviceDef)
 	// Convert IR services to serviceDef
@@ -72,7 +70,7 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 		tags:              container.Tags,
 		loader:            b.loader,
 		imports:           imports,
-		outputPkgPath:     b.loader.outputPkgPath,
+		outputPkgPath:     b.loader.OutputPkgPath(),
 		containerName:     b.options.Container,
 		paramGetters:      paramGetters,
 		nameGen:           nameGen,

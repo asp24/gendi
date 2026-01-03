@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/internal/typeutil"
+	"github.com/asp24/gendi/typeres"
 )
 
 // constructorResolver resolves service constructors (functions, methods, and aliases)
@@ -163,7 +163,7 @@ func (r *constructorResolver) resolveConstructor(container *Container, svc *Serv
 
 // resolveFuncConstructor resolves a function constructor
 func (r *constructorResolver) resolveFuncConstructor(id string, cons di.Constructor) (*Constructor, error) {
-	pkgPath, name, typeParamStrs, err := typeutil.SplitQualifiedNameWithTypeParams(cons.Func)
+	pkgPath, name, typeParamStrs, err := typeres.SplitQualifiedNameWithTypeParams(cons.Func)
 	if err != nil {
 		return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
 	}

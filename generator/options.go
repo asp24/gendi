@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/asp24/gendi/typeres"
 )
 
 type Options struct {
@@ -76,7 +78,7 @@ func (o *Options) Finalize() error {
 
 	// 4. Compute output path if needed
 	if o.OutputPkgPath == "" {
-		o.OutputPkgPath = ComputeOutputPkgPath(o.ModulePath, o.ModuleRoot, o.Out)
+		o.OutputPkgPath = typeres.ComputeOutputPkgPath(o.ModulePath, o.ModuleRoot, o.Out)
 	}
 
 	return nil

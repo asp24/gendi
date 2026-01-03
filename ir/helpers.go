@@ -5,7 +5,7 @@ import (
 	"go/types"
 
 	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/internal/typeutil"
+	"github.com/asp24/gendi/typeres"
 )
 
 // validateConstructorSignature validates that a signature returns T or (T, error)
@@ -37,7 +37,7 @@ func signatureParams(sig *types.Signature) []types.Type {
 
 // convertLiteral converts a di.Literal to IR LiteralValue
 func convertLiteral(lit di.Literal, targetType types.Type) (LiteralValue, error) {
-	if typeutil.IsDuration(targetType) {
+	if typeres.IsDuration(targetType) {
 		return convertDurationLiteral(lit)
 	}
 

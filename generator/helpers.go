@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/internal/typeutil"
+	"github.com/asp24/gendi/typeres"
 )
 
 func collectPackagePaths(cfg *di.Config) ([]string, error) {
@@ -24,7 +24,7 @@ func collectPackagePaths(cfg *di.Config) ([]string, error) {
 	for _, svc := range cfg.Services {
 		if svc.Constructor.Func != "" {
 			// Extract function package and type arguments
-			pkg, _, typeParams, err := typeutil.SplitQualifiedNameWithTypeParams(svc.Constructor.Func)
+			pkg, _, typeParams, err := typeres.SplitQualifiedNameWithTypeParams(svc.Constructor.Func)
 			if err != nil {
 				return nil, err
 			}
@@ -117,7 +117,7 @@ func collectTypePackages(typeStr string) []string {
 	}
 
 	// Named type: pkg/path.TypeName or pkg/path.TypeName[T1, T2]
-	pkg, _, typeArgs, err := typeutil.SplitQualifiedNameWithTypeParams(typeStr)
+	pkg, _, typeArgs, err := typeres.SplitQualifiedNameWithTypeParams(typeStr)
 	if err != nil {
 		return nil
 	}
