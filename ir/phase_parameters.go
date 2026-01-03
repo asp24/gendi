@@ -3,7 +3,9 @@ package ir
 import "fmt"
 
 // parameterPhase builds parameters from config
-type parameterPhase struct{}
+type parameterPhase struct {
+	resolver TypeResolver
+}
 
 // build converts config parameters to IR parameters
 func (p *parameterPhase) build(ctx *buildContext) error {
@@ -11,7 +13,7 @@ func (p *parameterPhase) build(ctx *buildContext) error {
 		if param.Type == "" {
 			return fmt.Errorf("parameter %q missing type", name)
 		}
-		paramType, err := ctx.resolver.LookupType(param.Type)
+		paramType, err := p.resolver.LookupType(param.Type)
 		if err != nil {
 			return fmt.Errorf("parameter %q type: %w", name, err)
 		}

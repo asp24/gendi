@@ -6,8 +6,7 @@ import (
 
 // buildContext holds shared state during IR construction
 type buildContext struct {
-	cfg      *di.Config
-	resolver TypeResolver
+	cfg *di.Config
 
 	// Intermediate state - populated during build phases
 	services   map[string]*Service
@@ -17,10 +16,9 @@ type buildContext struct {
 }
 
 // newBuildContext creates a new build context
-func newBuildContext(cfg *di.Config, resolver TypeResolver) *buildContext {
+func newBuildContext(cfg *di.Config) *buildContext {
 	return &buildContext{
 		cfg:        cfg,
-		resolver:   resolver,
 		services:   make(map[string]*Service),
 		parameters: make(map[string]*Parameter),
 		tags:       make(map[string]*Tag),

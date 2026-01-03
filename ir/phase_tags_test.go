@@ -62,9 +62,9 @@ func TestTagPhaseOptionalElementType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := newBuildContext(&di.Config{Tags: tt.tags}, &mockResolver{})
+			ctx := newBuildContext(&di.Config{Tags: tt.tags})
 
-			p := &tagPhase{}
+			p := &tagPhase{resolver: &mockResolver{}}
 			err := p.build(ctx)
 
 			if tt.expectError {
@@ -93,10 +93,10 @@ func TestServicePhaseCreatesTagsOnDemand(t *testing.T) {
 		},
 	}
 
-	ctx := newBuildContext(cfg, &mockResolver{})
+	ctx := newBuildContext(cfg)
 
 	// Build tags first (empty)
-	if err := (&tagPhase{}).build(ctx); err != nil {
+	if err := (&tagPhase{resolver: &mockResolver{}}).build(ctx); err != nil {
 		t.Fatalf("tagPhase failed: %v", err)
 	}
 

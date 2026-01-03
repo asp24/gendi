@@ -19,15 +19,15 @@ type TypeResolver interface {
 
 // Builder constructs an IR Container from raw config.
 type Builder struct {
-	cfg      *di.Config
 	resolver TypeResolver
+	cfg      *di.Config
 }
 
 // NewBuilder creates a new IR builder.
-func NewBuilder(cfg *di.Config, resolver TypeResolver) *Builder {
+func NewBuilder(resolver TypeResolver, cfg *di.Config) *Builder {
 	return &Builder{
-		cfg:      cfg,
 		resolver: resolver,
+		cfg:      cfg,
 	}
 }
 
@@ -37,13 +37,13 @@ func (b *Builder) Build() (*Container, error) {
 		return nil, errors.New("no services defined")
 	}
 
-	ctx := newBuildContext(b.cfg, b.resolver)
+	ctx := newBuildContext(b.cfg)
 
 	// Phase 1: Build foundational structures
-	if err := (&parameterPhase{}).build(ctx); err != nil {
+	if err := (&parameterPhase{resolver: b.resolver}).build(ctx); err != nil {
 		return nil, err
 	}
-	if err := (&tagPhase{}).build(ctx); err != nil {
+	if err := (&tagPhase{resolver: b.resolver}).build(ctx); err != nil {
 		return nil, err
 	}
 	if err := (&servicePhase{}).build(ctx); err != nil {
@@ -51,7 +51,7 @@ func (b *Builder) Build() (*Container, error) {
 	}
 
 	// Phase 2: Resolve constructors and dependencies
-	if err := (&constructorResolver{}).resolve(ctx); err != nil {
+	if err := (&constructorResolver{resolver: b.resolver}).resolve(ctx); err != nil {
 		return nil, err
 	}
 	if err := (&decoratorResolver{}).resolve(ctx); err != nil {

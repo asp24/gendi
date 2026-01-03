@@ -3,7 +3,9 @@ package ir
 import "fmt"
 
 // tagPhase builds tags from config
-type tagPhase struct{}
+type tagPhase struct {
+	resolver TypeResolver
+}
 
 // build converts config tags to IR tags
 func (p *tagPhase) build(ctx *buildContext) error {
@@ -20,7 +22,7 @@ func (p *tagPhase) build(ctx *buildContext) error {
 
 		// ElementType is now optional - can be inferred from constructor arguments
 		if tag.ElementType != "" {
-			elemType, err := ctx.resolver.LookupType(tag.ElementType)
+			elemType, err := p.resolver.LookupType(tag.ElementType)
 			if err != nil {
 				return fmt.Errorf("tag %q element_type: %w", name, err)
 			}

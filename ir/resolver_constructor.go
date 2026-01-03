@@ -10,7 +10,9 @@ import (
 )
 
 // constructorResolver resolves service constructors (functions, methods, and aliases)
-type constructorResolver struct{}
+type constructorResolver struct {
+	resolver TypeResolver
+}
 
 // resolve resolves all service constructors with circular reference detection
 func (r *constructorResolver) resolve(ctx *buildContext) error {
@@ -69,7 +71,7 @@ func (r *constructorResolver) resolveAlias(ctx *buildContext, svc *Service, cfg 
 	svc.Type = target.Type
 
 	if cfg.Type != "" {
-		declType, err := ctx.resolver.LookupType(cfg.Type)
+		declType, err := r.resolver.LookupType(cfg.Type)
 		if err != nil {
 			return fmt.Errorf("service %q type: %w", svc.ID, err)
 		}
@@ -147,7 +149,7 @@ func (r *constructorResolver) resolveConstructor(ctx *buildContext, svc *Service
 	svc.Type = irCons.ResultType
 
 	if cfg.Type != "" {
-		declType, err := ctx.resolver.LookupType(cfg.Type)
+		declType, err := r.resolver.LookupType(cfg.Type)
 		if err != nil {
 			return fmt.Errorf("service %q type: %w", svc.ID, err)
 		}
@@ -166,7 +168,7 @@ func (r *constructorResolver) resolveFuncConstructor(ctx *buildContext, id strin
 		return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
 	}
 
-	fn, err := ctx.resolver.LookupFunc(pkgPath, name)
+	fn, err := r.resolver.LookupFunc(pkgPath, name)
 	if err != nil {
 		return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
 	}
@@ -178,7 +180,7 @@ func (r *constructorResolver) resolveFuncConstructor(ctx *buildContext, id strin
 
 	if len(typeParamStrs) > 0 {
 		// Generic function - instantiate with type arguments
-		sig, typeArgs, err = ctx.resolver.InstantiateFunc(fn, typeParamStrs)
+		sig, typeArgs, err = r.resolver.InstantiateFunc(fn, typeParamStrs)
 		if err != nil {
 			return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
 		}
@@ -235,7 +237,7 @@ func (r *constructorResolver) resolveMethodConstructor(ctx *buildContext, id str
 		return nil, fmt.Errorf("service %q constructor.method unknown receiver service %q", id, recvID)
 	}
 
-	meth, err := ctx.resolver.LookupMethod(recvSvc.Type, methodName)
+	meth, err := r.resolver.LookupMethod(recvSvc.Type, methodName)
 	if err != nil {
 		return nil, fmt.Errorf("service %q constructor.method: %w", id, err)
 	}

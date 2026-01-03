@@ -9,7 +9,7 @@ import (
 )
 
 func TestTaggedElementTypeAssignable(t *testing.T) {
-	ctx := newBuildContext(&di.Config{}, nil)
+	ctx := newBuildContext(&di.Config{})
 	r := &argumentResolver{}
 	arg := di.Argument{Kind: di.ArgTagged, Value: "tag.test"}
 
@@ -25,7 +25,7 @@ func TestTaggedElementTypeAssignable(t *testing.T) {
 }
 
 func TestTaggedElementTypeNotAssignable(t *testing.T) {
-	ctx := newBuildContext(&di.Config{}, nil)
+	ctx := newBuildContext(&di.Config{})
 	r := &argumentResolver{}
 	arg := di.Argument{Kind: di.ArgTagged, Value: "tag.test"}
 
