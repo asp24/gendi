@@ -19,8 +19,6 @@ type Container struct {
 	svc_logger                  *app.Logger
 	svc_provider_paypal         *app.PaymentProvider
 	svc_provider_stripe         *app.PaymentProvider
-	svc_repo                    *app.Repo
-	svc_service_decorator       *app.Service
 	svc_service_decorator_inner *app.Service
 	svc_timer                   *app.Timer
 }
@@ -132,14 +130,10 @@ func (c *Container) getProviderStripe() (*app.PaymentProvider, error) {
 
 func (c *Container) getRepo() (*app.Repo, error) {
 	var zero *app.Repo
-	if c.svc_repo != nil {
-		return c.svc_repo, nil
-	}
 	res, err := c.buildRepo()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_repo = res
 	return res, nil
 }
 
@@ -149,14 +143,10 @@ func (c *Container) getService() (*app.Service, error) {
 
 func (c *Container) getServiceDecorator() (*app.Service, error) {
 	var zero *app.Service
-	if c.svc_service_decorator != nil {
-		return c.svc_service_decorator, nil
-	}
 	res, err := c.buildServiceDecorator()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_service_decorator = res
 	return res, nil
 }
 

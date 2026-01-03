@@ -357,8 +357,8 @@ func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 	if !strings.Contains(out, "getSvcDecoratorAInner") {
 		t.Fatalf("expected private getter for raw base")
 	}
-	if !strings.Contains(out, "svc_svc_decoratorA ") || !strings.Contains(out, "svc_svc_decoratorB ") {
-		t.Fatalf("expected storage fields for decorators")
+	if strings.Contains(out, "svc_svc_decoratorA ") || strings.Contains(out, "svc_svc_decoratorB ") {
+		t.Fatalf("unexpected storage fields for decorators")
 	}
 }
 
@@ -401,8 +401,8 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 	if !strings.Contains(out, "getSvcDecoratorA") {
 		t.Fatalf("expected private getter for referenced decorator")
 	}
-	if !strings.Contains(out, "svc_svc_decoratorA ") {
-		t.Fatalf("expected shared field for referenced decorator")
+	if strings.Contains(out, "svc_svc_decoratorA ") {
+		t.Fatalf("unexpected shared field for referenced decorator")
 	}
 }
 

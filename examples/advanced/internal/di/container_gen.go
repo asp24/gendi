@@ -17,17 +17,12 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 })
 
 type Container struct {
-	mu                         sync.Mutex
-	params                     parameters.Provider
-	svc_db                     *app.DB
-	svc_factory                *app.Factory
-	svc_handler                *app.Handler
-	svc_logger                 *app.Logger
-	svc_mailer_prefix          *app.MailerPrefixDecorator
-	svc_mailer_retry           *app.MailerRetryDecorator
-	svc_mailer_retry_inner     app.Mailer
-	svc_mailer_retry_innerInit bool
-	svc_notifier_aggregate     *app.AggregateNotifier
+	mu                     sync.Mutex
+	params                 parameters.Provider
+	svc_handler            *app.Handler
+	svc_notifier_aggregate *app.AggregateNotifier
+	svc_notifier_email     *app.EmailNotifier
+	svc_notifier_sms       *app.SMSNotifier
 }
 
 func NewContainer(params parameters.Provider) *Container {
@@ -138,33 +133,25 @@ func (c *Container) buildNotifierEmail() (*app.EmailNotifier, error) {
 	return app.NewEmailNotifier(arg0_mailer), nil
 }
 
-func (c *Container) buildNotifierSms() (app.SMSNotifier, error) {
+func (c *Container) buildNotifierSms() (*app.SMSNotifier, error) {
 	return app.NewSMSNotifier(), nil
 }
 
 func (c *Container) getDb() (*app.DB, error) {
 	var zero *app.DB
-	if c.svc_db != nil {
-		return c.svc_db, nil
-	}
 	res, err := c.buildDb()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_db = res
 	return res, nil
 }
 
 func (c *Container) getFactory() (*app.Factory, error) {
 	var zero *app.Factory
-	if c.svc_factory != nil {
-		return c.svc_factory, nil
-	}
 	res, err := c.buildFactory()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_factory = res
 	return res, nil
 }
 
@@ -183,14 +170,10 @@ func (c *Container) getHandler() (*app.Handler, error) {
 
 func (c *Container) getLogger() (*app.Logger, error) {
 	var zero *app.Logger
-	if c.svc_logger != nil {
-		return c.svc_logger, nil
-	}
 	res, err := c.buildLogger()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_logger = res
 	return res, nil
 }
 
@@ -200,41 +183,28 @@ func (c *Container) getMailer() (*app.MailerPrefixDecorator, error) {
 
 func (c *Container) getMailerPrefix() (*app.MailerPrefixDecorator, error) {
 	var zero *app.MailerPrefixDecorator
-	if c.svc_mailer_prefix != nil {
-		return c.svc_mailer_prefix, nil
-	}
 	res, err := c.buildMailerPrefix()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_mailer_prefix = res
 	return res, nil
 }
 
 func (c *Container) getMailerRetry() (*app.MailerRetryDecorator, error) {
 	var zero *app.MailerRetryDecorator
-	if c.svc_mailer_retry != nil {
-		return c.svc_mailer_retry, nil
-	}
 	res, err := c.buildMailerRetry()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_mailer_retry = res
 	return res, nil
 }
 
 func (c *Container) getMailerRetryInner() (app.Mailer, error) {
 	var zero app.Mailer
-	if c.svc_mailer_retry_innerInit {
-		return c.svc_mailer_retry_inner, nil
-	}
 	res, err := c.buildMailerRetryInner()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_mailer_retry_inner = res
-	c.svc_mailer_retry_innerInit = true
 	return res, nil
 }
 
@@ -257,19 +227,27 @@ func (c *Container) getNotifierAggregate() (*app.AggregateNotifier, error) {
 
 func (c *Container) getNotifierEmail() (*app.EmailNotifier, error) {
 	var zero *app.EmailNotifier
+	if c.svc_notifier_email != nil {
+		return c.svc_notifier_email, nil
+	}
 	res, err := c.buildNotifierEmail()
 	if err != nil {
 		return zero, err
 	}
+	c.svc_notifier_email = res
 	return res, nil
 }
 
-func (c *Container) getNotifierSms() (app.SMSNotifier, error) {
-	var zero app.SMSNotifier
+func (c *Container) getNotifierSms() (*app.SMSNotifier, error) {
+	var zero *app.SMSNotifier
+	if c.svc_notifier_sms != nil {
+		return c.svc_notifier_sms, nil
+	}
 	res, err := c.buildNotifierSms()
 	if err != nil {
 		return zero, err
 	}
+	c.svc_notifier_sms = res
 	return res, nil
 }
 

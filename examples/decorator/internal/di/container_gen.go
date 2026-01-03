@@ -9,7 +9,6 @@ import (
 
 type Container struct {
 	mu                                   sync.Mutex
-	svc_payment_provider_dummy           *app.PaymentProviderDummy
 	svc_payment_provider_with_comission  *app.PaymentProviderCommissionDecorator
 	svc_payment_provider_with_comission2 *app.PaymentProviderCommissionDecorator
 }
@@ -42,14 +41,10 @@ func (c *Container) getPaymentProvider() (*app.PaymentProviderCommissionDecorato
 
 func (c *Container) getPaymentProviderDummy() (*app.PaymentProviderDummy, error) {
 	var zero *app.PaymentProviderDummy
-	if c.svc_payment_provider_dummy != nil {
-		return c.svc_payment_provider_dummy, nil
-	}
 	res, err := c.buildPaymentProviderDummy()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_payment_provider_dummy = res
 	return res, nil
 }
 

@@ -16,9 +16,9 @@ func (n *EmailNotifier) Notify() error { return nil }
 
 type SMSNotifier struct{}
 
-func NewSMSNotifier() SMSNotifier { return SMSNotifier{} }
+func NewSMSNotifier() *SMSNotifier { return &SMSNotifier{} }
 
-func (n SMSNotifier) Notify() error { return nil }
+func (n *SMSNotifier) Notify() error { return nil }
 
 type AggregateNotifier struct {
 	notifiers []Notifier

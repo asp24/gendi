@@ -28,19 +28,16 @@ services:
       func: "github.com/asp24/gendi/examples/advanced/app.NewLogger"
       args:
         - "%log_prefix%"
-    shared: true
   db:
     constructor:
       func: "github.com/asp24/gendi/examples/advanced/app.NewDB"
       args:
         - "%dsn%"
-    shared: true
   mailer:
     constructor:
       func: "github.com/asp24/gendi/examples/advanced/app.NewMailerBasic"
       args:
         - "%mail_host%"
-    shared: true
   mailer.retry:
     constructor:
       func: "github.com/asp24/gendi/examples/advanced/app.NewMailerRetryDecorator"
@@ -62,29 +59,24 @@ services:
       func: "github.com/asp24/gendi/examples/advanced/app.NewFactory"
       args:
         - "@logger"
-    shared: true
   handler:
     constructor:
       method: "@factory.NewHandler"
       args:
         - "@db"
         - "@notifier"
-    shared: true
     public: true
-
   notifier.email:
     constructor:
       func: "github.com/asp24/gendi/examples/advanced/app.NewEmailNotifier"
       args:
         - "@mailer"
-    shared: false
     tags:
       - name: notifier
         priority: 50
   notifier.sms:
     constructor:
       func: "github.com/asp24/gendi/examples/advanced/app.NewSMSNotifier"
-    shared: false
     tags:
       - name: notifier
         priority: 10

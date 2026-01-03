@@ -67,6 +67,7 @@ func (b *Builder) Build() (*Container, error) {
 	}
 	(&errorPropagator{}).propagate(ctx)
 	pruneUnreachable(ctx)
+	_ = (&sharedOptimizer{}).resolve(ctx)
 
 	return &Container{
 		Services:     ctx.services,
