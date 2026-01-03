@@ -16,26 +16,21 @@ type constructorResolver struct {
 
 // resolve resolves all service constructors with circular reference detection
 func (r *constructorResolver) resolve(cfg *di.Config, container *Container) error {
-	tracker := struct {
-		resolving map[string]bool
-		resolved  map[string]bool
-	}{
-		resolving: make(map[string]bool),
-		resolved:  make(map[string]bool),
-	}
+	resolvingSvcs := make(map[string]bool)
+	resolvedSvcs := make(map[string]bool)
 
 	var resolveService func(id string) error
 	resolveService = func(id string) error {
-		if tracker.resolved[id] {
+		if resolvedSvcs[id] {
 			return nil
 		}
-		if tracker.resolving[id] {
+		if resolvingSvcs[id] {
 			return fmt.Errorf("circular constructor reference at %q", id)
 		}
-		tracker.resolving[id] = true
+		resolvingSvcs[id] = true
 		defer func() {
-			tracker.resolving[id] = false
-			tracker.resolved[id] = true
+			resolvingSvcs[id] = false
+			resolvedSvcs[id] = true
 		}()
 
 		svc := container.Services[id]
