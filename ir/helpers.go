@@ -8,33 +8,6 @@ import (
 	"github.com/asp24/gendi/typeres"
 )
 
-// validateConstructorSignature validates that a signature returns T or (T, error)
-func validateConstructorSignature(sig *types.Signature) (types.Type, bool, error) {
-	res := sig.Results()
-	if res.Len() == 0 || res.Len() > 2 {
-		return nil, false, fmt.Errorf("constructor must return T or (T, error)")
-	}
-	resType := res.At(0).Type()
-	returnsErr := false
-	if res.Len() == 2 {
-		errType := res.At(1).Type()
-		if !types.Identical(errType, types.Universe.Lookup("error").Type()) {
-			return nil, false, fmt.Errorf("second return value must be error")
-		}
-		returnsErr = true
-	}
-	return resType, returnsErr, nil
-}
-
-// signatureParams extracts parameter types from a function signature
-func signatureParams(sig *types.Signature) []types.Type {
-	params := make([]types.Type, sig.Params().Len())
-	for i := 0; i < sig.Params().Len(); i++ {
-		params[i] = sig.Params().At(i).Type()
-	}
-	return params
-}
-
 // convertLiteral converts a di.Literal to IR LiteralValue
 func convertLiteral(lit di.Literal, targetType types.Type) (LiteralValue, error) {
 	if typeres.IsDuration(targetType) {
@@ -67,19 +40,5 @@ func convertDurationLiteral(lit di.Literal) (LiteralValue, error) {
 		return LiteralValue{Type: DurationLiteral, Value: lit.Int()}, nil
 	default:
 		return LiteralValue{}, fmt.Errorf("duration must be string or int")
-	}
-}
-
-// resolutionTracker tracks service resolution to detect circular references
-type resolutionTracker struct {
-	resolving map[string]bool
-	resolved  map[string]bool
-}
-
-// newResolutionTracker creates a new resolution tracker
-func newResolutionTracker() *resolutionTracker {
-	return &resolutionTracker{
-		resolving: make(map[string]bool),
-		resolved:  make(map[string]bool),
 	}
 }

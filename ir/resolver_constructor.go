@@ -16,7 +16,13 @@ type constructorResolver struct {
 
 // resolve resolves all service constructors with circular reference detection
 func (r *constructorResolver) resolve(cfg *di.Config, container *Container) error {
-	tracker := newResolutionTracker()
+	tracker := struct {
+		resolving map[string]bool
+		resolved  map[string]bool
+	}{
+		resolving: make(map[string]bool),
+		resolved:  make(map[string]bool),
+	}
 
 	var resolveService func(id string) error
 	resolveService = func(id string) error {
@@ -161,6 +167,33 @@ func (r *constructorResolver) resolveConstructor(container *Container, svc *Serv
 	return nil
 }
 
+// validateConstructorSignature validates that a signature returns T or (T, error)
+func (r *constructorResolver) validateConstructorSignature(sig *types.Signature) (types.Type, bool, error) {
+	res := sig.Results()
+	if res.Len() == 0 || res.Len() > 2 {
+		return nil, false, fmt.Errorf("constructor must return T or (T, error)")
+	}
+	resType := res.At(0).Type()
+	returnsErr := false
+	if res.Len() == 2 {
+		errType := res.At(1).Type()
+		if !types.Identical(errType, types.Universe.Lookup("error").Type()) {
+			return nil, false, fmt.Errorf("second return value must be error")
+		}
+		returnsErr = true
+	}
+	return resType, returnsErr, nil
+}
+
+// signatureParams extracts parameter types from a function signature
+func (r *constructorResolver) signatureParams(sig *types.Signature) []types.Type {
+	params := make([]types.Type, sig.Params().Len())
+	for i := 0; i < sig.Params().Len(); i++ {
+		params[i] = sig.Params().At(i).Type()
+	}
+	return params
+}
+
 // resolveFuncConstructor resolves a function constructor
 func (r *constructorResolver) resolveFuncConstructor(id string, cons di.Constructor) (*Constructor, error) {
 	pkgPath, name, typeParamStrs, err := typeres.SplitQualifiedNameWithTypeParams(cons.Func)
@@ -193,7 +226,7 @@ func (r *constructorResolver) resolveFuncConstructor(id string, cons di.Construc
 		sig = rawSig
 	}
 
-	resultType, returnsErr, err := validateConstructorSignature(sig)
+	resultType, returnsErr, err := r.validateConstructorSignature(sig)
 	if err != nil {
 		return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
 	}
@@ -202,7 +235,7 @@ func (r *constructorResolver) resolveFuncConstructor(id string, cons di.Construc
 		Kind:         FuncConstructor,
 		Func:         fn,
 		TypeArgs:     typeArgs,
-		Params:       signatureParams(sig),
+		Params:       r.signatureParams(sig),
 		ResultType:   resultType,
 		ReturnsError: returnsErr,
 		Variadic:     sig.Variadic(),
@@ -243,7 +276,7 @@ func (r *constructorResolver) resolveMethodConstructor(container *Container, id 
 	}
 
 	sig := meth.Type().(*types.Signature)
-	resultType, returnsErr, err := validateConstructorSignature(sig)
+	resultType, returnsErr, err := r.validateConstructorSignature(sig)
 	if err != nil {
 		return nil, fmt.Errorf("service %q constructor.method: %w", id, err)
 	}
@@ -252,7 +285,7 @@ func (r *constructorResolver) resolveMethodConstructor(container *Container, id 
 		Kind:         MethodConstructor,
 		Func:         meth,
 		Receiver:     recvSvc,
-		Params:       signatureParams(sig),
+		Params:       r.signatureParams(sig),
 		ResultType:   resultType,
 		ReturnsError: returnsErr,
 		Variadic:     sig.Variadic(),
