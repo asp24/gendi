@@ -60,14 +60,10 @@ func TestServicePhaseValidatesEmptyID(t *testing.T) {
 				},
 			}
 
-			ctx := &buildContext{
-				cfg:      cfg,
-				services: make(map[string]*Service),
-				tags:     make(map[string]*Tag),
-			}
+			container := NewContainer()
 
 			phase := &servicePhase{}
-			err := phase.build(ctx)
+			err := phase.build(cfg, container)
 
 			if tt.expectError {
 				if err == nil {

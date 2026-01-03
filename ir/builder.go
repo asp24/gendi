@@ -37,42 +37,40 @@ func (b *Builder) Build() (*Container, error) {
 		return nil, errors.New("no services defined")
 	}
 
-	ctx := newBuildContext(b.cfg)
+	result := NewContainer()
 
 	// Phase 1: Build foundational structures
-	if err := (&parameterPhase{resolver: b.resolver}).build(ctx); err != nil {
+	if err := (&parameterPhase{resolver: b.resolver}).build(b.cfg, result); err != nil {
 		return nil, err
 	}
-	if err := (&tagPhase{resolver: b.resolver}).build(ctx); err != nil {
+	if err := (&tagPhase{resolver: b.resolver}).build(b.cfg, result); err != nil {
 		return nil, err
 	}
-	if err := (&servicePhase{}).build(ctx); err != nil {
+	if err := (&servicePhase{}).build(b.cfg, result); err != nil {
 		return nil, err
 	}
 
 	// Phase 2: Resolve constructors and dependencies
-	if err := (&constructorResolver{resolver: b.resolver}).resolve(ctx); err != nil {
+	if err := (&constructorResolver{resolver: b.resolver}).resolve(b.cfg, result); err != nil {
 		return nil, err
 	}
-	if err := (&decoratorResolver{}).resolve(ctx); err != nil {
+	if err := (&decoratorResolver{}).resolve(b.cfg, result); err != nil {
 		return nil, err
 	}
-	if err := (&dependencyResolver{}).resolve(ctx); err != nil {
+	if err := (&dependencyResolver{}).resolve(b.cfg, result); err != nil {
 		return nil, err
 	}
 
 	// Phase 3: Validate and analyze
-	if err := (&validator{}).validate(ctx); err != nil {
+	if err := (&validator{}).validate(b.cfg, result); err != nil {
 		return nil, err
 	}
-	(&errorPropagator{}).propagate(ctx)
-	pruneUnreachable(ctx)
-	_ = (&sharedOptimizer{}).resolve(ctx)
 
-	return &Container{
-		Services:     ctx.services,
-		Parameters:   ctx.parameters,
-		Tags:         ctx.tags,
-		ServiceOrder: ctx.order,
-	}, nil
+	(&errorPropagator{}).propagate(b.cfg, result)
+
+	// Phase 4: Optimizations
+	pruneUnreachable(b.cfg, result)
+	_ = (&sharedOptimizer{}).resolve(b.cfg, result)
+
+	return result, nil
 }

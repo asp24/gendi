@@ -11,12 +11,12 @@ import (
 type argumentResolver struct{}
 
 // resolve resolves a single constructor argument
-func (r *argumentResolver) resolve(ctx *buildContext, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
+func (r *argumentResolver) resolve(container *Container, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
 	irArg := &Argument{Type: paramType}
 
 	switch arg.Kind {
 	case di.ArgServiceRef:
-		dep, ok := ctx.services[arg.Value]
+		dep, ok := container.Services[arg.Value]
 		if !ok {
 			return nil, fmt.Errorf("service %q arg[%d]: unknown service %q", svcID, idx, arg.Value)
 		}
@@ -27,7 +27,7 @@ func (r *argumentResolver) resolve(ctx *buildContext, svcID string, idx int, arg
 		irArg.Kind = InnerArg
 
 	case di.ArgParam:
-		param, ok := ctx.parameters[arg.Value]
+		param, ok := container.Parameters[arg.Value]
 		if !ok {
 			// Parameter might be provided at runtime
 			irArg.Kind = ParamRefArg
@@ -41,14 +41,14 @@ func (r *argumentResolver) resolve(ctx *buildContext, svcID string, idx int, arg
 		}
 
 	case di.ArgTagged:
-		tag, ok := ctx.tags[arg.Value]
+		tag, ok := container.Tags[arg.Value]
 		if !ok {
 			// Create tag on-demand - infer ElementType from parameter
 			tag = &Tag{
 				Name:     arg.Value,
 				Services: []*Service{},
 			}
-			ctx.tags[arg.Value] = tag
+			container.Tags[arg.Value] = tag
 		}
 
 		// Infer or validate ElementType from parameter type

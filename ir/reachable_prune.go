@@ -1,13 +1,15 @@
 package ir
 
-import "sort"
+import (
+	di "github.com/asp24/gendi"
+)
 
 // pruneUnreachable removes services not reachable from public services or tags.
-func pruneUnreachable(ctx *buildContext) {
+func pruneUnreachable(_ *di.Config, container *Container) {
 	reachable := map[string]bool{}
 	var queue []*Service
 
-	for _, svc := range ctx.services {
+	for _, svc := range container.Services {
 		if svc != nil && svc.Public {
 			if !reachable[svc.ID] {
 				reachable[svc.ID] = true
@@ -15,7 +17,7 @@ func pruneUnreachable(ctx *buildContext) {
 			}
 		}
 	}
-	for _, tag := range ctx.tags {
+	for _, tag := range container.Tags {
 		if tag == nil || !tag.Public {
 			continue
 		}
@@ -43,19 +45,13 @@ func pruneUnreachable(ctx *buildContext) {
 		}
 	}
 
-	for id := range ctx.services {
+	for id := range container.Services {
 		if !reachable[id] {
-			delete(ctx.services, id)
+			delete(container.Services, id)
 		}
 	}
 
-	ctx.order = ctx.order[:0]
-	for id := range ctx.services {
-		ctx.order = append(ctx.order, id)
-	}
-	sort.Strings(ctx.order)
-
-	for _, tag := range ctx.tags {
+	for _, tag := range container.Tags {
 		if tag == nil {
 			continue
 		}

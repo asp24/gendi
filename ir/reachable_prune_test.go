@@ -9,33 +9,28 @@ func TestPruneUnreachableRemovesServices(t *testing.T) {
 
 	publicSvc.Dependencies = []*Service{sharedDep}
 
-	ctx := &buildContext{
-		services: map[string]*Service{
+	container := &Container{
+		Services: map[string]*Service{
 			publicSvc.ID:  publicSvc,
 			privateSvc.ID: privateSvc,
 			sharedDep.ID:  sharedDep,
 		},
-		tags: map[string]*Tag{},
-		order: []string{
-			privateSvc.ID,
-			publicSvc.ID,
-			sharedDep.ID,
-		},
+		Tags: map[string]*Tag{},
 	}
 
-	pruneUnreachable(ctx)
+	pruneUnreachable(nil, container)
 
-	if _, ok := ctx.services[publicSvc.ID]; !ok {
+	if _, ok := container.Services[publicSvc.ID]; !ok {
 		t.Fatalf("expected public service to remain")
 	}
-	if _, ok := ctx.services[sharedDep.ID]; !ok {
+	if _, ok := container.Services[sharedDep.ID]; !ok {
 		t.Fatalf("expected dependency to remain")
 	}
-	if _, ok := ctx.services[privateSvc.ID]; ok {
+	if _, ok := container.Services[privateSvc.ID]; ok {
 		t.Fatalf("expected private service to be removed")
 	}
-	if len(ctx.order) != 2 {
-		t.Fatalf("expected 2 services after prune, got %d", len(ctx.order))
+	if len(container.Services) != 2 {
+		t.Fatalf("expected 2 services after prune, got %d", len(container.Services))
 	}
 }
 
@@ -48,18 +43,17 @@ func TestPruneUnreachableFiltersTagServices(t *testing.T) {
 		Services: []*Service{privateSvc},
 	}
 
-	ctx := &buildContext{
-		services: map[string]*Service{
+	container := &Container{
+		Services: map[string]*Service{
 			publicSvc.ID:  publicSvc,
 			privateSvc.ID: privateSvc,
 		},
-		tags: map[string]*Tag{
+		Tags: map[string]*Tag{
 			tag.Name: tag,
 		},
-		order: []string{publicSvc.ID, privateSvc.ID},
 	}
 
-	pruneUnreachable(ctx)
+	pruneUnreachable(nil, container)
 
 	if len(tag.Services) != 1 || tag.Services[0].ID != privateSvc.ID {
 		t.Fatalf("expected tag services to be filtered to reachable ones")

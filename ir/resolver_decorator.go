@@ -3,6 +3,8 @@ package ir
 import (
 	"fmt"
 	"sort"
+
+	di "github.com/asp24/gendi"
 )
 
 // decoratorResolver links decorators to their base services
@@ -30,30 +32,30 @@ func (ds *decoratorResolverState) popNext() (innerID string, decoratorID string,
 	return "", "", false
 }
 
-func (r *decoratorResolver) buildState(ctx *buildContext) (*decoratorResolverState, error) {
+func (r *decoratorResolver) buildState(cfg *di.Config, container *Container) (*decoratorResolverState, error) {
 	state := &decoratorResolverState{
 		decoratorToInner:    make(map[string]string),
 		serviceToDecorators: make(map[string][]*Service),
 	}
 
 	idToPriorityMap := make(map[string]int)
-	for _, svc := range ctx.services {
-		cfg := ctx.cfg.Services[svc.ID]
-		if cfg.Decorates == "" {
+	for _, svc := range container.Services {
+		svcCfg := cfg.Services[svc.ID]
+		if svcCfg.Decorates == "" {
 			continue
 		}
 
-		base, ok := ctx.services[cfg.Decorates]
+		base, ok := container.Services[svcCfg.Decorates]
 		if !ok {
-			return nil, fmt.Errorf("decorator %q decorates unknown service %q", svc.ID, cfg.Decorates)
+			return nil, fmt.Errorf("decorator %q decorates unknown service %q", svc.ID, svcCfg.Decorates)
 		}
-		if baseCfg := ctx.cfg.Services[base.ID]; baseCfg.Decorates != "" {
+		if baseSvcCfg := cfg.Services[base.ID]; baseSvcCfg.Decorates != "" {
 			return nil, fmt.Errorf("decorator %q cannot be decorated", base.ID)
 		}
 
 		state.decoratorToInner[svc.ID] = base.ID
 		state.serviceToDecorators[base.ID] = append(state.serviceToDecorators[base.ID], svc)
-		idToPriorityMap[svc.ID] = cfg.DecorationPriority
+		idToPriorityMap[svc.ID] = svcCfg.DecorationPriority
 	}
 
 	for baseID, decs := range state.serviceToDecorators {
@@ -69,8 +71,8 @@ func (r *decoratorResolver) buildState(ctx *buildContext) (*decoratorResolverSta
 }
 
 // resolve links decorators and expands them into plain services and aliases.
-func (r *decoratorResolver) resolve(ctx *buildContext) error {
-	state, err := r.buildState(ctx)
+func (r *decoratorResolver) resolve(cfg *di.Config, container *Container) error {
+	state, err := r.buildState(cfg, container)
 	if err != nil {
 		return err
 	}
@@ -86,14 +88,12 @@ func (r *decoratorResolver) resolve(ctx *buildContext) error {
 			break
 		}
 
-		if err := r.expandOne(ctx, innerID, decoratorID); err != nil {
+		if err := r.expandOne(container, innerID, decoratorID); err != nil {
 			return err
 		}
 	}
 
-	r.rebuildOrder(ctx)
-
-	return r.validateInnerArgs(ctx.services)
+	return r.validateInnerArgs(container.Services)
 }
 
 func (r *decoratorResolver) rewriteInnerArgs(cons *Constructor, innerSvc *Service) {
@@ -107,8 +107,8 @@ func (r *decoratorResolver) rewriteInnerArgs(cons *Constructor, innerSvc *Servic
 	}
 }
 
-func (r *decoratorResolver) expandOne(ctx *buildContext, innerID, decoratorID string) error {
-	innerService := ctx.services[innerID]
+func (r *decoratorResolver) expandOne(container *Container, innerID, decoratorID string) error {
+	innerService := container.Services[innerID]
 
 	var aliasService *Service
 
@@ -127,7 +127,7 @@ func (r *decoratorResolver) expandOne(ctx *buildContext, innerID, decoratorID st
 		aliasService.Dependencies = nil
 	}
 
-	decoratorService := ctx.services[decoratorID]
+	decoratorService := container.Services[decoratorID]
 	chainShared := aliasService.Shared || innerService.Shared || decoratorService.Shared
 	decoratorService.Shared = chainShared
 	r.rewriteInnerArgs(decoratorService.Constructor, innerService)
@@ -137,8 +137,8 @@ func (r *decoratorResolver) expandOne(ctx *buildContext, innerID, decoratorID st
 	aliasService.Alias = decoratorService
 	aliasService.Shared = chainShared
 
-	ctx.services[innerService.ID] = innerService
-	ctx.services[aliasService.ID] = aliasService
+	container.Services[innerService.ID] = innerService
+	container.Services[aliasService.ID] = aliasService
 
 	return nil
 }
@@ -191,14 +191,6 @@ func (r *decoratorResolver) detectDecoratorCycles(decoratesByID map[string]strin
 		}
 	}
 	return nil
-}
-
-func (r *decoratorResolver) rebuildOrder(ctx *buildContext) {
-	ctx.order = ctx.order[:0]
-	for id := range ctx.services {
-		ctx.order = append(ctx.order, id)
-	}
-	sort.Strings(ctx.order)
 }
 
 func joinIDs(ids []string) string {

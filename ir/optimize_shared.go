@@ -2,6 +2,8 @@ package ir
 
 import (
 	"slices"
+
+	di "github.com/asp24/gendi"
 )
 
 type sharedOptimizer struct{}
@@ -34,11 +36,11 @@ func (p *sharedOptimizer) hasPublicTagOrTagInjection(tags []*ServiceTag) bool {
 // This ensures that if A -> B -> C, and A, B, C are shared:
 // 1. C is checked. Parent B is Shared. C becomes Non-Shared.
 // 2. B is checked. Parent A is Shared. B becomes Non-Shared.
-func (p *sharedOptimizer) resolve(ctx *buildContext) error {
+func (p *sharedOptimizer) resolve(_ *di.Config, container *Container) error {
 	// Map service ID to list of parent service IDs (referencing services)
 	usage := make(map[string][]string)
 
-	for _, parent := range ctx.services {
+	for _, parent := range container.Services {
 		if parent == nil {
 			continue
 		}
@@ -71,24 +73,17 @@ func (p *sharedOptimizer) resolve(ctx *buildContext) error {
 		}
 
 		// 2. Try to optimize current service
-		p.optimize(ctx, svc, usage)
+		p.optimize(container, svc, usage)
 	}
 
-	// Iterate over services in a deterministic order (sorted by ID)
-	svcIDs := make([]string, 0, len(ctx.services))
-	for id := range ctx.services {
-		svcIDs = append(svcIDs, id)
-	}
-	slices.Sort(svcIDs)
-
-	for _, id := range svcIDs {
-		visit(ctx.services[id])
+	for _, id := range container.ServiceIDsOrdered() {
+		visit(container.Services[id])
 	}
 
 	return nil
 }
 
-func (p *sharedOptimizer) optimize(ctx *buildContext, svc *Service, usage map[string][]string) {
+func (p *sharedOptimizer) optimize(container *Container, svc *Service, usage map[string][]string) {
 	// Candidate must be Shared and not Public and not Alias
 	if !svc.Shared || svc.Public || svc.IsAlias() {
 		return
@@ -106,7 +101,7 @@ func (p *sharedOptimizer) optimize(ctx *buildContext, svc *Service, usage map[st
 	}
 
 	parentID := parents[0]
-	parent := ctx.services[parentID]
+	parent := container.Services[parentID]
 
 	// The single parent must be a Shared service.
 	// If parent is Non-Shared (prototype), it is created multiple times.

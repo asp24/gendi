@@ -15,7 +15,7 @@ type constructorResolver struct {
 }
 
 // resolve resolves all service constructors with circular reference detection
-func (r *constructorResolver) resolve(ctx *buildContext) error {
+func (r *constructorResolver) resolve(cfg *di.Config, container *Container) error {
 	tracker := newResolutionTracker()
 
 	var resolveService func(id string) error
@@ -32,16 +32,16 @@ func (r *constructorResolver) resolve(ctx *buildContext) error {
 			tracker.resolved[id] = true
 		}()
 
-		svc := ctx.services[id]
-		cfg := ctx.cfg.Services[id]
+		svc := container.Services[id]
+		cfgService := cfg.Services[id]
 
-		if cfg.Alias != "" {
-			return r.resolveAlias(ctx, svc, &cfg, resolveService)
+		if cfgService.Alias != "" {
+			return r.resolveAlias(container, svc, &cfgService, resolveService)
 		}
-		return r.resolveConstructor(ctx, svc, &cfg, resolveService)
+		return r.resolveConstructor(container, svc, &cfgService, resolveService)
 	}
 
-	for _, id := range ctx.order {
+	for _, id := range container.ServiceIDsOrdered() {
 		if err := resolveService(id); err != nil {
 			return err
 		}
@@ -50,7 +50,7 @@ func (r *constructorResolver) resolve(ctx *buildContext) error {
 }
 
 // resolveAlias resolves an alias service
-func (r *constructorResolver) resolveAlias(ctx *buildContext, svc *Service, cfg *di.Service, resolve func(string) error) error {
+func (r *constructorResolver) resolveAlias(container *Container, svc *Service, cfg *di.Service, resolve func(string) error) error {
 	if cfg.Constructor.Func != "" || cfg.Constructor.Method != "" || len(cfg.Constructor.Args) > 0 {
 		return fmt.Errorf("service %q alias cannot define constructor", svc.ID)
 	}
@@ -62,7 +62,7 @@ func (r *constructorResolver) resolveAlias(ctx *buildContext, svc *Service, cfg 
 		return err
 	}
 
-	target, ok := ctx.services[cfg.Alias]
+	target, ok := container.Services[cfg.Alias]
 	if !ok {
 		return fmt.Errorf("service %q alias target %q not found", svc.ID, cfg.Alias)
 	}
@@ -83,7 +83,7 @@ func (r *constructorResolver) resolveAlias(ctx *buildContext, svc *Service, cfg 
 }
 
 // resolveConstructor resolves a function or method constructor
-func (r *constructorResolver) resolveConstructor(ctx *buildContext, svc *Service, cfg *di.Service, resolve func(string) error) error {
+func (r *constructorResolver) resolveConstructor(container *Container, svc *Service, cfg *di.Service, resolve func(string) error) error {
 	cons := cfg.Constructor
 	if cons.Func == "" && cons.Method == "" {
 		return fmt.Errorf("service %q missing constructor", svc.ID)
@@ -96,9 +96,9 @@ func (r *constructorResolver) resolveConstructor(ctx *buildContext, svc *Service
 	var err error
 
 	if cons.Func != "" {
-		irCons, err = r.resolveFuncConstructor(ctx, svc.ID, cons)
+		irCons, err = r.resolveFuncConstructor(svc.ID, cons)
 	} else {
-		irCons, err = r.resolveMethodConstructor(ctx, svc.ID, cons, resolve)
+		irCons, err = r.resolveMethodConstructor(container, svc.ID, cons, resolve)
 	}
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func (r *constructorResolver) resolveConstructor(ctx *buildContext, svc *Service
 			}
 		}
 
-		irArg, err := argResolver.resolve(ctx, svc.ID, i, arg, paramType)
+		irArg, err := argResolver.resolve(container, svc.ID, i, arg, paramType)
 		if err != nil {
 			return err
 		}
@@ -162,7 +162,7 @@ func (r *constructorResolver) resolveConstructor(ctx *buildContext, svc *Service
 }
 
 // resolveFuncConstructor resolves a function constructor
-func (r *constructorResolver) resolveFuncConstructor(ctx *buildContext, id string, cons di.Constructor) (*Constructor, error) {
+func (r *constructorResolver) resolveFuncConstructor(id string, cons di.Constructor) (*Constructor, error) {
 	pkgPath, name, typeParamStrs, err := typeutil.SplitQualifiedNameWithTypeParams(cons.Func)
 	if err != nil {
 		return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
@@ -210,7 +210,7 @@ func (r *constructorResolver) resolveFuncConstructor(ctx *buildContext, id strin
 }
 
 // resolveMethodConstructor resolves a method constructor
-func (r *constructorResolver) resolveMethodConstructor(ctx *buildContext, id string, cons di.Constructor, resolve func(string) error) (*Constructor, error) {
+func (r *constructorResolver) resolveMethodConstructor(container *Container, id string, cons di.Constructor, resolve func(string) error) (*Constructor, error) {
 	methodRef := cons.Method
 	if !strings.HasPrefix(methodRef, "@") {
 		return nil, fmt.Errorf("service %q constructor.method must start with @", id)
@@ -232,7 +232,7 @@ func (r *constructorResolver) resolveMethodConstructor(ctx *buildContext, id str
 		return nil, err
 	}
 
-	recvSvc, ok := ctx.services[recvID]
+	recvSvc, ok := container.Services[recvID]
 	if !ok {
 		return nil, fmt.Errorf("service %q constructor.method unknown receiver service %q", id, recvID)
 	}

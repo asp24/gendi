@@ -23,29 +23,28 @@ func TestDecoratorResolverSingleDecorator(t *testing.T) {
 		Constructor: &Constructor{Kind: FuncConstructor, Args: []*Argument{{Kind: InnerArg}}},
 	}
 
-	ctx := &buildContext{
-		cfg: &di.Config{
-			Services: map[string]di.Service{
-				base.ID: {},
-				dec.ID: {
-					Decorates:          base.ID,
-					DecorationPriority: 10,
-				},
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			base.ID: {},
+			dec.ID: {
+				Decorates:          base.ID,
+				DecorationPriority: 10,
 			},
 		},
-		services: map[string]*Service{
+	}
+	container := &Container{
+		Services: map[string]*Service{
 			base.ID: base,
 			dec.ID:  dec,
 		},
-		order: []string{base.ID, dec.ID},
 	}
 
 	resolver := &decoratorResolver{}
-	if err := resolver.resolve(ctx); err != nil {
+	if err := resolver.resolve(cfg, container); err != nil {
 		t.Fatalf("expand failed: %v", err)
 	}
 
-	rawBase := ctx.services["svc.decorator.inner"]
+	rawBase := container.Services["svc.decorator.inner"]
 	if rawBase == nil {
 		t.Fatalf("expected raw base service to be created")
 	}
@@ -99,34 +98,33 @@ func TestDecoratorResolverChainCreatesInternalServices(t *testing.T) {
 		Constructor: &Constructor{Kind: FuncConstructor, Args: []*Argument{{Kind: InnerArg}}},
 	}
 
-	ctx := &buildContext{
-		cfg: &di.Config{
-			Services: map[string]di.Service{
-				base.ID: {},
-				decA.ID: {
-					Decorates:          base.ID,
-					DecorationPriority: 10,
-				},
-				decB.ID: {
-					Decorates:          base.ID,
-					DecorationPriority: 20,
-				},
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			base.ID: {},
+			decA.ID: {
+				Decorates:          base.ID,
+				DecorationPriority: 10,
+			},
+			decB.ID: {
+				Decorates:          base.ID,
+				DecorationPriority: 20,
 			},
 		},
-		services: map[string]*Service{
+	}
+	container := &Container{
+		Services: map[string]*Service{
 			base.ID: base,
 			decA.ID: decA,
 			decB.ID: decB,
 		},
-		order: []string{base.ID, decA.ID, decB.ID},
 	}
 
 	resolver := &decoratorResolver{}
-	if err := resolver.resolve(ctx); err != nil {
+	if err := resolver.resolve(cfg, container); err != nil {
 		t.Fatalf("expand failed: %v", err)
 	}
 
-	rawBase := ctx.services["svc.decA.inner"]
+	rawBase := container.Services["svc.decA.inner"]
 	if rawBase == nil {
 		t.Fatalf("expected raw base service to be created")
 	}
@@ -181,28 +179,27 @@ func TestDecoratorResolverDecoratorCannotBeDecorated(t *testing.T) {
 	other := &Service{ID: "other"}
 	dec := &Service{ID: "dec"}
 
-	ctx := &buildContext{
-		cfg: &di.Config{
-			Services: map[string]di.Service{
-				base.ID: {
-					Decorates: "other",
-				},
-				dec.ID: {
-					Decorates: base.ID,
-				},
-				other.ID: {},
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			base.ID: {
+				Decorates: "other",
 			},
+			dec.ID: {
+				Decorates: base.ID,
+			},
+			other.ID: {},
 		},
-		services: map[string]*Service{
+	}
+	container := &Container{
+		Services: map[string]*Service{
 			"base":  base,
 			"dec":   dec,
 			"other": other,
 		},
-		order: []string{"base", "dec", "other"},
 	}
 
 	resolver := &decoratorResolver{}
-	err := resolver.resolve(ctx)
+	err := resolver.resolve(cfg, container)
 	if err == nil || !strings.Contains(err.Error(), "cannot be decorated") {
 		t.Fatalf("expected decorated decorator error, got: %v", err)
 	}

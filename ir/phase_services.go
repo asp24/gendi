@@ -2,17 +2,17 @@ package ir
 
 import (
 	"fmt"
-	"sort"
 	"strings"
+
+	di "github.com/asp24/gendi"
 )
 
 // servicePhase initializes services from config
 type servicePhase struct{}
 
 // build initializes IR services and determines service order
-func (p *servicePhase) build(ctx *buildContext) error {
-	ctx.order = make([]string, 0, len(ctx.cfg.Services))
-	for id, svc := range ctx.cfg.Services {
+func (p *servicePhase) build(cfg *di.Config, container *Container) error {
+	for id, svc := range cfg.Services {
 		// Validate service ID is not empty or whitespace-only
 		if id == "" {
 			return fmt.Errorf("service ID cannot be empty")
@@ -20,8 +20,6 @@ func (p *servicePhase) build(ctx *buildContext) error {
 		if strings.TrimSpace(id) == "" {
 			return fmt.Errorf("service ID %q cannot be whitespace-only", id)
 		}
-
-		ctx.order = append(ctx.order, id)
 
 		shared := true
 		if svc.Shared != nil {
@@ -40,14 +38,14 @@ func (p *servicePhase) build(ctx *buildContext) error {
 
 		// Build service tags (create tags on-demand if not declared)
 		for _, st := range svc.Tags {
-			tag, ok := ctx.tags[st.Name]
+			tag, ok := container.Tags[st.Name]
 			if !ok {
 				// Create tag on-demand - ElementType will be inferred later
 				tag = &Tag{
 					Name:     st.Name,
 					Services: []*Service{},
 				}
-				ctx.tags[st.Name] = tag
+				container.Tags[st.Name] = tag
 			}
 			irSvc.Tags = append(irSvc.Tags, &ServiceTag{
 				Tag:        tag,
@@ -55,8 +53,8 @@ func (p *servicePhase) build(ctx *buildContext) error {
 			})
 		}
 
-		ctx.services[id] = irSvc
+		container.Services[id] = irSvc
 	}
-	sort.Strings(ctx.order)
+
 	return nil
 }

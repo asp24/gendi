@@ -62,10 +62,11 @@ func TestTagPhaseOptionalElementType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := newBuildContext(&di.Config{Tags: tt.tags})
+			cfg := &di.Config{Tags: tt.tags}
+			container := NewContainer()
 
 			p := &tagPhase{resolver: &mockResolver{}}
-			err := p.build(ctx)
+			err := p.build(cfg, container)
 
 			if tt.expectError {
 				if err == nil {
@@ -93,20 +94,20 @@ func TestServicePhaseCreatesTagsOnDemand(t *testing.T) {
 		},
 	}
 
-	ctx := newBuildContext(cfg)
+	container := NewContainer()
 
 	// Build tags first (empty)
-	if err := (&tagPhase{resolver: &mockResolver{}}).build(ctx); err != nil {
+	if err := (&tagPhase{resolver: &mockResolver{}}).build(cfg, container); err != nil {
 		t.Fatalf("tagPhase failed: %v", err)
 	}
 
 	// Build services - should create tag on demand
-	if err := (&servicePhase{}).build(ctx); err != nil {
+	if err := (&servicePhase{}).build(cfg, container); err != nil {
 		t.Fatalf("servicePhase failed: %v", err)
 	}
 
 	// Check that tag was created
-	tag, ok := ctx.tags["undeclared.tag"]
+	tag, ok := container.Tags["undeclared.tag"]
 	if !ok {
 		t.Fatal("expected tag 'undeclared.tag' to be created on demand")
 	}

@@ -4,30 +4,32 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	di "github.com/asp24/gendi"
 )
 
 // validator validates the IR for correctness
 type validator struct{}
 
 // validate runs all validation checks
-func (v *validator) validate(ctx *buildContext) error {
-	if err := v.validatePublicServices(ctx); err != nil {
+func (v *validator) validate(_ *di.Config, container *Container) error {
+	if err := v.validatePublicServices(container); err != nil {
 		return err
 	}
-	if err := v.detectCycles(ctx); err != nil {
+	if err := v.detectCycles(container); err != nil {
 		return err
 	}
 	return nil
 }
 
 // validatePublicServices ensures at least one public service exists
-func (v *validator) validatePublicServices(ctx *buildContext) error {
-	for _, svc := range ctx.services {
+func (v *validator) validatePublicServices(container *Container) error {
+	for _, svc := range container.Services {
 		if svc.Public {
 			return nil
 		}
 	}
-	for _, tag := range ctx.tags {
+	for _, tag := range container.Tags {
 		if tag.Public {
 			return nil
 		}
@@ -79,9 +81,9 @@ func (v *validator) detectCyclesDFS(
 }
 
 // detectCycles detects circular dependencies using DFS
-func (v *validator) detectCycles(ctx *buildContext) error {
+func (v *validator) detectCycles(container *Container) error {
 	return v.detectCyclesDFS(
-		ctx.services,
+		container.Services,
 		func(svc *Service) []*Service { return svc.Dependencies },
 		"circular dependency",
 	)

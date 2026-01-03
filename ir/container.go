@@ -2,7 +2,9 @@ package ir
 
 import (
 	"go/types"
+	"iter"
 	"slices"
+	"sort"
 	"time"
 
 	"github.com/asp24/gendi/internal/typeutil"
@@ -16,6 +18,65 @@ type Container struct {
 
 	// Computed fields
 	ServiceOrder []string // Topologically sorted service IDs
+}
+
+func NewContainer() *Container {
+	return &Container{
+		Services:   make(map[string]*Service),
+		Parameters: make(map[string]*Parameter),
+		Tags:       make(map[string]*Tag),
+	}
+}
+
+func (c *Container) ServiceIDsOrdered() []string {
+	svcIDs := make([]string, 0, len(c.Services))
+	for id := range c.Services {
+		svcIDs = append(svcIDs, id)
+	}
+
+	sort.Strings(svcIDs)
+
+	return svcIDs
+}
+
+func (c *Container) ServiceIDsOrderedTopological() []string {
+	result := make([]string, 0, len(c.Services))
+	visited := make(map[string]bool)
+
+	var visit func(svc *Service)
+	visit = func(svc *Service) {
+		if visited[svc.ID] {
+			return
+		}
+		visited[svc.ID] = true
+
+		// Visit dependencies first.
+		for _, dep := range svc.Dependencies {
+			visit(dep)
+		}
+
+		// Add this service after its dependencies
+		result = append(result, svc.ID)
+	}
+
+	// Visit all services
+	for _, svc := range c.Services {
+		visit(svc)
+	}
+
+	return result
+}
+
+func (c *Container) ServicesOrdered() iter.Seq2[string, *Service] {
+	orderedIDs := c.ServiceIDsOrdered()
+
+	return func(yield func(string, *Service) bool) {
+		for _, id := range orderedIDs {
+			if !yield(id, c.Services[id]) {
+				return
+			}
+		}
+	}
 }
 
 // ParamGetters returns parameter getter methods needed by the container.

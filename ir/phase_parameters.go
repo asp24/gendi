@@ -1,6 +1,10 @@
 package ir
 
-import "fmt"
+import (
+	"fmt"
+
+	di "github.com/asp24/gendi"
+)
 
 // parameterPhase builds parameters from config
 type parameterPhase struct {
@@ -8,8 +12,8 @@ type parameterPhase struct {
 }
 
 // build converts config parameters to IR parameters
-func (p *parameterPhase) build(ctx *buildContext) error {
-	for name, param := range ctx.cfg.Parameters {
+func (p *parameterPhase) build(cfg *di.Config, container *Container) error {
+	for name, param := range cfg.Parameters {
 		if param.Type == "" {
 			return fmt.Errorf("parameter %q missing type", name)
 		}
@@ -23,7 +27,7 @@ func (p *parameterPhase) build(ctx *buildContext) error {
 			return fmt.Errorf("parameter %q value: %w", name, err)
 		}
 
-		ctx.parameters[name] = &Parameter{
+		container.Parameters[name] = &Parameter{
 			Name:  name,
 			Type:  paramType,
 			Value: litVal,

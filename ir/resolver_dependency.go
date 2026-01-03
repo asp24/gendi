@@ -3,20 +3,22 @@ package ir
 import (
 	"fmt"
 	"go/types"
+
+	di "github.com/asp24/gendi"
 )
 
 // dependencyResolver builds service dependency graph and links tagged services
 type dependencyResolver struct{}
 
 // resolve builds the dependency graph for all services
-func (r *dependencyResolver) resolve(ctx *buildContext) error {
+func (r *dependencyResolver) resolve(_ *di.Config, container *Container) error {
 	// First, link services to their tags and validate types
-	if err := r.resolveTaggedServices(ctx); err != nil {
+	if err := r.resolveTaggedServices(container); err != nil {
 		return err
 	}
 
 	// Then build dependency graph
-	for _, svc := range ctx.services {
+	for _, svc := range container.Services {
 		if svc.IsAlias() {
 			svc.Dependencies = []*Service{svc.Alias}
 			continue
@@ -56,8 +58,8 @@ func (r *dependencyResolver) resolve(ctx *buildContext) error {
 }
 
 // resolveTaggedServices links services to their tags and validates type compatibility
-func (r *dependencyResolver) resolveTaggedServices(ctx *buildContext) error {
-	for _, svc := range ctx.services {
+func (r *dependencyResolver) resolveTaggedServices(container *Container) error {
+	for _, svc := range container.Services {
 		for _, st := range svc.Tags {
 			// Validate service type is assignable to tag's ElementType (if known)
 			if st.Tag.ElementType != nil && svc.Type != nil {

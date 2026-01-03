@@ -1,18 +1,22 @@
 package ir
 
+import (
+	di "github.com/asp24/gendi"
+)
+
 // errorPropagator propagates error flags through the dependency graph
 type errorPropagator struct{}
 
 // propagate computes error propagation for all services in O(n) time
 // using topological ordering to avoid iterative convergence.
-func (p *errorPropagator) propagate(ctx *buildContext) {
+func (p *errorPropagator) propagate(_ *di.Config, container *Container) {
 	// Build topological order based on dependency graph
-	order := p.topologicalSort(ctx.services)
+	order := p.topologicalSort(container.Services)
 
 	// Phase 1: Propagate BuildCanError in dependency order
 	// Process services in topological order (dependencies before dependents)
 	for _, id := range order {
-		svc := ctx.services[id]
+		svc := container.Services[id]
 
 		// Initialize from constructor
 		if svc.Constructor != nil && svc.Constructor.ReturnsError {
@@ -31,7 +35,7 @@ func (p *errorPropagator) propagate(ctx *buildContext) {
 
 	// Phase 2: CanError mirrors BuildCanError after dependency propagation.
 	for _, id := range order {
-		svc := ctx.services[id]
+		svc := container.Services[id]
 		svc.CanError = svc.BuildCanError
 	}
 }
