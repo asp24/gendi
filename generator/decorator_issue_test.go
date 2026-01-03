@@ -141,17 +141,17 @@ func TestDecoratorSharesStorageWithBase(t *testing.T) {
 	}
 
 	// Verify that BOTH getters share the same storage
-	// getSvcDecorator should use svc_svc_decoratorInit
-	if !strings.Contains(out, "if c.svc_svc_decoratorInit") {
-		t.Fatalf("expected decorator getter to use shared field init flag")
+	// getSvcDecorator should use nil check (optimized for nilable types)
+	if !strings.Contains(out, "if c.svc_svc_decorator != nil") {
+		t.Fatalf("expected decorator getter to use nil check for caching")
 	}
 	// getSvc should delegate to getSvcDecorator
 	if !strings.Contains(out, "return c.getSvcDecorator()") {
 		t.Fatalf("expected getSvc to delegate to getSvcDecorator")
 	}
-	// Only getSvcDecorator should check the flag directly (deduplication)
-	count := strings.Count(out, "if c.svc_svc_decoratorInit")
+	// Only getSvcDecorator should check the cache directly (deduplication)
+	count := strings.Count(out, "if c.svc_svc_decorator != nil")
 	if count != 1 {
-		t.Fatalf("expected init flag check to appear exactly once (in decorator getter), found %d", count)
+		t.Fatalf("expected nil check to appear exactly once (in decorator getter), found %d", count)
 	}
 }
