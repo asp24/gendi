@@ -41,7 +41,7 @@ func (r *constructorResolver) resolve(cfg *di.Config, container *Container) erro
 		return r.resolveConstructor(container, svc, &cfgService, resolveService)
 	}
 
-	for _, id := range container.ServiceIDsOrdered() {
+	for _, id := range container.ServiceIDsPostOrder() {
 		if err := resolveService(id); err != nil {
 			return err
 		}

@@ -35,10 +35,6 @@ func (c *Container) buildPaymentProviderWithComission2() (*app.PaymentProviderCo
 	return app.NewPaymentProviderCommissionDecorator(arg0_payment_provider_with_comission, 2), nil
 }
 
-func (c *Container) getPaymentProvider() (*app.PaymentProviderCommissionDecorator, error) {
-	return c.getPaymentProviderWithComission2()
-}
-
 func (c *Container) getPaymentProviderDummy() (*app.PaymentProviderDummy, error) {
 	var zero *app.PaymentProviderDummy
 	res, err := c.buildPaymentProviderDummy()
@@ -72,6 +68,10 @@ func (c *Container) getPaymentProviderWithComission2() (*app.PaymentProviderComm
 	}
 	c.svc_payment_provider_with_comission2 = res
 	return res, nil
+}
+
+func (c *Container) getPaymentProvider() (*app.PaymentProviderCommissionDecorator, error) {
+	return c.getPaymentProviderWithComission2()
 }
 
 func (c *Container) getTaggedWithJob() ([]app.Job, error) {

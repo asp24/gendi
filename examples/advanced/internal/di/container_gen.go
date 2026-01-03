@@ -19,10 +19,10 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 type Container struct {
 	mu                     sync.Mutex
 	params                 parameters.Provider
-	svc_handler            *app.Handler
-	svc_notifier_aggregate *app.AggregateNotifier
 	svc_notifier_email     *app.EmailNotifier
 	svc_notifier_sms       *app.SMSNotifier
+	svc_notifier_aggregate *app.AggregateNotifier
+	svc_handler            *app.Handler
 }
 
 func NewContainer(params parameters.Provider) *Container {
@@ -30,6 +30,72 @@ func NewContainer(params parameters.Provider) *Container {
 		params = DefaultParameters
 	}
 	return &Container{params: params}
+}
+
+func (c *Container) buildLogger() (*app.Logger, error) {
+	var zero *app.Logger
+	param0_log_prefix, err := c.params.GetString("log_prefix")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "logger", '\x00', "log_prefix", err)
+	}
+	return app.NewLogger(param0_log_prefix), nil
+}
+
+func (c *Container) buildMailerRetryInner() (app.Mailer, error) {
+	var zero app.Mailer
+	param0_mail_host, err := c.params.GetString("mail_host")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.retry.inner", '\x00', "mail_host", err)
+	}
+	return app.NewMailerBasic(param0_mail_host), nil
+}
+
+func (c *Container) buildMailerRetry() (*app.MailerRetryDecorator, error) {
+	var zero *app.MailerRetryDecorator
+	arg0_mailer_retry_inner, err := c.getMailerRetryInner()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "mailer.retry", '\x00', err)
+	}
+	param1_mail_retries, err := c.params.GetInt("mail_retries")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.retry", '\x01', "mail_retries", err)
+	}
+	return app.NewMailerRetryDecorator(arg0_mailer_retry_inner, param1_mail_retries), nil
+}
+
+func (c *Container) buildMailerPrefix() (*app.MailerPrefixDecorator, error) {
+	var zero *app.MailerPrefixDecorator
+	arg0_mailer_retry, err := c.getMailerRetry()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "mailer.prefix", '\x00', err)
+	}
+	param1_mail_prefix, err := c.params.GetString("mail_prefix")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.prefix", '\x01', "mail_prefix", err)
+	}
+	return app.NewMailerPrefixDecorator(arg0_mailer_retry, param1_mail_prefix), nil
+}
+
+func (c *Container) buildNotifierEmail() (*app.EmailNotifier, error) {
+	var zero *app.EmailNotifier
+	arg0_mailer, err := c.getMailer()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "notifier.email", '\x00', err)
+	}
+	return app.NewEmailNotifier(arg0_mailer), nil
+}
+
+func (c *Container) buildNotifierSms() (*app.SMSNotifier, error) {
+	return app.NewSMSNotifier(), nil
+}
+
+func (c *Container) buildNotifierAggregate() (*app.AggregateNotifier, error) {
+	var zero *app.AggregateNotifier
+	arg0_tagged_notifier, err := c.getTaggedWithNotifier()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "notifier.aggregate", '\x00', "notifier", err)
+	}
+	return app.NewAggregateNotifier(arg0_tagged_notifier), nil
 }
 
 func (c *Container) buildDb() (*app.DB, error) {
@@ -71,70 +137,87 @@ func (c *Container) buildHandler() (*app.Handler, error) {
 	return recv_handler.NewHandler(arg0_db, arg1_notifier), nil
 }
 
-func (c *Container) buildLogger() (*app.Logger, error) {
+func (c *Container) getLogger() (*app.Logger, error) {
 	var zero *app.Logger
-	param0_log_prefix, err := c.params.GetString("log_prefix")
+	res, err := c.buildLogger()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "logger", '\x00', "log_prefix", err)
+		return zero, err
 	}
-	return app.NewLogger(param0_log_prefix), nil
+	return res, nil
 }
 
-func (c *Container) buildMailerPrefix() (*app.MailerPrefixDecorator, error) {
-	var zero *app.MailerPrefixDecorator
-	arg0_mailer_retry, err := c.getMailerRetry()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "mailer.prefix", '\x00', err)
-	}
-	param1_mail_prefix, err := c.params.GetString("mail_prefix")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.prefix", '\x01', "mail_prefix", err)
-	}
-	return app.NewMailerPrefixDecorator(arg0_mailer_retry, param1_mail_prefix), nil
-}
-
-func (c *Container) buildMailerRetry() (*app.MailerRetryDecorator, error) {
-	var zero *app.MailerRetryDecorator
-	arg0_mailer_retry_inner, err := c.getMailerRetryInner()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "mailer.retry", '\x00', err)
-	}
-	param1_mail_retries, err := c.params.GetInt("mail_retries")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.retry", '\x01', "mail_retries", err)
-	}
-	return app.NewMailerRetryDecorator(arg0_mailer_retry_inner, param1_mail_retries), nil
-}
-
-func (c *Container) buildMailerRetryInner() (app.Mailer, error) {
+func (c *Container) getMailerRetryInner() (app.Mailer, error) {
 	var zero app.Mailer
-	param0_mail_host, err := c.params.GetString("mail_host")
+	res, err := c.buildMailerRetryInner()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.retry.inner", '\x00', "mail_host", err)
+		return zero, err
 	}
-	return app.NewMailerBasic(param0_mail_host), nil
+	return res, nil
 }
 
-func (c *Container) buildNotifierAggregate() (*app.AggregateNotifier, error) {
-	var zero *app.AggregateNotifier
-	arg0_tagged_notifier, err := c.getTaggedWithNotifier()
+func (c *Container) getMailerRetry() (*app.MailerRetryDecorator, error) {
+	var zero *app.MailerRetryDecorator
+	res, err := c.buildMailerRetry()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "notifier.aggregate", '\x00', "notifier", err)
+		return zero, err
 	}
-	return app.NewAggregateNotifier(arg0_tagged_notifier), nil
+	return res, nil
 }
 
-func (c *Container) buildNotifierEmail() (*app.EmailNotifier, error) {
+func (c *Container) getMailerPrefix() (*app.MailerPrefixDecorator, error) {
+	var zero *app.MailerPrefixDecorator
+	res, err := c.buildMailerPrefix()
+	if err != nil {
+		return zero, err
+	}
+	return res, nil
+}
+
+func (c *Container) getMailer() (*app.MailerPrefixDecorator, error) {
+	return c.getMailerPrefix()
+}
+
+func (c *Container) getNotifierEmail() (*app.EmailNotifier, error) {
 	var zero *app.EmailNotifier
-	arg0_mailer, err := c.getMailer()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "notifier.email", '\x00', err)
+	if c.svc_notifier_email != nil {
+		return c.svc_notifier_email, nil
 	}
-	return app.NewEmailNotifier(arg0_mailer), nil
+	res, err := c.buildNotifierEmail()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_notifier_email = res
+	return res, nil
 }
 
-func (c *Container) buildNotifierSms() (*app.SMSNotifier, error) {
-	return app.NewSMSNotifier(), nil
+func (c *Container) getNotifierSms() (*app.SMSNotifier, error) {
+	var zero *app.SMSNotifier
+	if c.svc_notifier_sms != nil {
+		return c.svc_notifier_sms, nil
+	}
+	res, err := c.buildNotifierSms()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_notifier_sms = res
+	return res, nil
+}
+
+func (c *Container) getNotifierAggregate() (*app.AggregateNotifier, error) {
+	var zero *app.AggregateNotifier
+	if c.svc_notifier_aggregate != nil {
+		return c.svc_notifier_aggregate, nil
+	}
+	res, err := c.buildNotifierAggregate()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_notifier_aggregate = res
+	return res, nil
+}
+
+func (c *Container) getNotifier() (*app.AggregateNotifier, error) {
+	return c.getNotifierAggregate()
 }
 
 func (c *Container) getDb() (*app.DB, error) {
@@ -165,89 +248,6 @@ func (c *Container) getHandler() (*app.Handler, error) {
 		return zero, err
 	}
 	c.svc_handler = res
-	return res, nil
-}
-
-func (c *Container) getLogger() (*app.Logger, error) {
-	var zero *app.Logger
-	res, err := c.buildLogger()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
-}
-
-func (c *Container) getMailer() (*app.MailerPrefixDecorator, error) {
-	return c.getMailerPrefix()
-}
-
-func (c *Container) getMailerPrefix() (*app.MailerPrefixDecorator, error) {
-	var zero *app.MailerPrefixDecorator
-	res, err := c.buildMailerPrefix()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
-}
-
-func (c *Container) getMailerRetry() (*app.MailerRetryDecorator, error) {
-	var zero *app.MailerRetryDecorator
-	res, err := c.buildMailerRetry()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
-}
-
-func (c *Container) getMailerRetryInner() (app.Mailer, error) {
-	var zero app.Mailer
-	res, err := c.buildMailerRetryInner()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
-}
-
-func (c *Container) getNotifier() (*app.AggregateNotifier, error) {
-	return c.getNotifierAggregate()
-}
-
-func (c *Container) getNotifierAggregate() (*app.AggregateNotifier, error) {
-	var zero *app.AggregateNotifier
-	if c.svc_notifier_aggregate != nil {
-		return c.svc_notifier_aggregate, nil
-	}
-	res, err := c.buildNotifierAggregate()
-	if err != nil {
-		return zero, err
-	}
-	c.svc_notifier_aggregate = res
-	return res, nil
-}
-
-func (c *Container) getNotifierEmail() (*app.EmailNotifier, error) {
-	var zero *app.EmailNotifier
-	if c.svc_notifier_email != nil {
-		return c.svc_notifier_email, nil
-	}
-	res, err := c.buildNotifierEmail()
-	if err != nil {
-		return zero, err
-	}
-	c.svc_notifier_email = res
-	return res, nil
-}
-
-func (c *Container) getNotifierSms() (*app.SMSNotifier, error) {
-	var zero *app.SMSNotifier
-	if c.svc_notifier_sms != nil {
-		return c.svc_notifier_sms, nil
-	}
-	res, err := c.buildNotifierSms()
-	if err != nil {
-		return zero, err
-	}
-	c.svc_notifier_sms = res
 	return res, nil
 }
 

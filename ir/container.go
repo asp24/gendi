@@ -4,7 +4,6 @@ import (
 	"go/types"
 	"iter"
 	"slices"
-	"sort"
 	"time"
 
 	"github.com/asp24/gendi/internal/typeutil"
@@ -15,9 +14,6 @@ type Container struct {
 	Services   map[string]*Service
 	Parameters map[string]*Parameter
 	Tags       map[string]*Tag
-
-	// Computed fields
-	ServiceOrder []string // Topologically sorted service IDs
 }
 
 func NewContainer() *Container {
@@ -28,18 +24,7 @@ func NewContainer() *Container {
 	}
 }
 
-func (c *Container) ServiceIDsOrdered() []string {
-	svcIDs := make([]string, 0, len(c.Services))
-	for id := range c.Services {
-		svcIDs = append(svcIDs, id)
-	}
-
-	sort.Strings(svcIDs)
-
-	return svcIDs
-}
-
-func (c *Container) ServiceIDsOrderedTopological() []string {
+func (c *Container) ServiceIDsPostOrder() []string {
 	result := make([]string, 0, len(c.Services))
 	for svc := range c.ServicesPostOrder() {
 		result = append(result, svc.ID)
@@ -73,18 +58,6 @@ func (c *Container) ServicesPostOrder() iter.Seq[*Service] {
 
 		for _, svc := range c.Services {
 			if !visit(svc) {
-				return
-			}
-		}
-	}
-}
-
-func (c *Container) ServicesOrdered() iter.Seq2[string, *Service] {
-	orderedIDs := c.ServiceIDsOrdered()
-
-	return func(yield func(string, *Service) bool) {
-		for _, id := range orderedIDs {
-			if !yield(id, c.Services[id]) {
 				return
 			}
 		}

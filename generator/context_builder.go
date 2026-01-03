@@ -68,7 +68,7 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 
 	ctx := &genContext{
 		services:          services,
-		orderedServiceIDs: container.ServiceIDsOrderedTopological(),
+		orderedServiceIDs: container.ServiceIDsPostOrder(),
 		tags:              container.Tags,
 		loader:            b.loader,
 		imports:           imports,
