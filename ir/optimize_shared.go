@@ -58,26 +58,9 @@ func (p *sharedOptimizer) resolve(_ *di.Config, container *Container) error {
 		}
 	}
 
-	visited := make(map[string]bool)
-	var visit func(svc *Service)
-	visit = func(svc *Service) {
-		if svc == nil || visited[svc.ID] {
-			return
-		}
-		visited[svc.ID] = true
-
-		// 1. Process dependencies first (post-order traversal).
-		// This ensures we optimize children (C) before parents (B) in a chain A->B->C.
-		for _, dep := range svc.Dependencies {
-			visit(dep)
-		}
-
-		// 2. Try to optimize current service
+	// Process in post-order: optimize children (C) before parents (B) in a chain A->B->C
+	for svc := range container.ServicesPostOrder() {
 		p.optimize(container, svc, usage)
-	}
-
-	for _, id := range container.ServiceIDsOrdered() {
-		visit(container.Services[id])
 	}
 
 	return nil

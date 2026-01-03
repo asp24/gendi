@@ -41,30 +41,42 @@ func (c *Container) ServiceIDsOrdered() []string {
 
 func (c *Container) ServiceIDsOrderedTopological() []string {
 	result := make([]string, 0, len(c.Services))
-	visited := make(map[string]bool)
-
-	var visit func(svc *Service)
-	visit = func(svc *Service) {
-		if visited[svc.ID] {
-			return
-		}
-		visited[svc.ID] = true
-
-		// Visit dependencies first.
-		for _, dep := range svc.Dependencies {
-			visit(dep)
-		}
-
-		// Add this service after its dependencies
+	for svc := range c.ServicesPostOrder() {
 		result = append(result, svc.ID)
 	}
-
-	// Visit all services
-	for _, svc := range c.Services {
-		visit(svc)
-	}
-
 	return result
+}
+
+// ServicesPostOrder returns an iterator that yields services in post-order
+// (dependencies before dependents). This is useful for operations that need
+// to process dependencies before their dependents.
+func (c *Container) ServicesPostOrder() iter.Seq[*Service] {
+	return func(yield func(*Service) bool) {
+		visited := make(map[string]bool)
+		var visit func(*Service) bool
+		visit = func(svc *Service) bool {
+			if svc == nil || visited[svc.ID] {
+				return true
+			}
+			visited[svc.ID] = true
+
+			// Visit dependencies first
+			for _, dep := range svc.Dependencies {
+				if !visit(dep) {
+					return false
+				}
+			}
+
+			// Yield this service after its dependencies
+			return yield(svc)
+		}
+
+		for _, svc := range c.Services {
+			if !visit(svc) {
+				return
+			}
+		}
+	}
 }
 
 func (c *Container) ServicesOrdered() iter.Seq2[string, *Service] {
