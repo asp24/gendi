@@ -21,10 +21,17 @@ func New(cfg *di.Config, opts Options) *Generator {
 // Config should already have passes applied (via di.ApplyPasses()).
 func (g *Generator) Generate() ([]byte, error) {
 	// Build context
-	ctx, rnd, err := g.buildContext()
+	builder := NewContextBuilder(g.cfg, g.options)
+
+	ctx, err := builder.Build()
 	if err != nil {
 		return nil, err
 	}
+
+	ident := &identGenerator{}
+	getters := newGetterRegistry(ident)
+	imports := NewImportManager(g.options.OutputPkgPath)
+	rnd := NewRenderer(imports, ident, getters, g.options.Container)
 
 	// Render code
 	code, err := g.render(ctx, rnd)
@@ -38,9 +45,4 @@ func (g *Generator) Generate() ([]byte, error) {
 		return nil, fmt.Errorf("format generated code: %w", err)
 	}
 	return formatted, nil
-}
-
-func (g *Generator) buildContext() (*genContext, *Renderer, error) {
-	builder := NewContextBuilder(g.cfg, g.options)
-	return builder.Build()
 }
