@@ -403,19 +403,6 @@ func literalExpr(lit di.Literal) (string, error) {
 	}
 }
 
-func isNilable(t types.Type) bool {
-	switch tt := t.(type) {
-	case *types.Pointer, *types.Interface, *types.Slice, *types.Map, *types.Chan, *types.Signature:
-		return true
-	case *types.Named:
-		return isNilable(tt.Underlying())
-	case *types.Alias:
-		return isNilable(tt.Underlying())
-	default:
-		return false
-	}
-}
-
 func buildNeedsErrorHandling(svc *serviceDef) bool {
 	if svc.constructor.returnsError || svc.constructor.kind == "method" {
 		return true
