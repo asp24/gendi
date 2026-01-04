@@ -70,7 +70,6 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 		services:          services,
 		orderedServiceIDs: container.ServiceIDsPostOrder(),
 		tags:              container.Tags,
-		loader:            b.loader,
 		imports:           imports,
 		outputPkgPath:     b.options.OutputPkgPath,
 		containerName:     b.options.Container,
