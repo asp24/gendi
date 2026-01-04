@@ -37,10 +37,10 @@ func collectTagGetterNames(ctx *genContext) []string {
 	return items
 }
 
-func (g *Generator) render(ctx *genContext) ([]byte, error) {
+func (g *Generator) render(ctx *genContext, rnd *Renderer) ([]byte, error) {
 	// Assign getter names and populate serviceDef fields
 	tagGetterNames := collectTagGetterNames(ctx)
-	g.assignNames(ctx, tagGetterNames)
+	rnd.assignNames(ctx, tagGetterNames)
 
 	body := &bytes.Buffer{}
 	hasParams := len(g.cfg.Parameters) > 0
@@ -48,33 +48,33 @@ func (g *Generator) render(ctx *genContext) ([]byte, error) {
 	if hasParams {
 		reservedAliases = append(reservedAliases, "parameters")
 	}
-	ctx.imports.ReserveAliases(reservedAliases...)
+	rnd.imports.ReserveAliases(reservedAliases...)
 
 	// Render main code sections
 	if err := g.renderParameters(body, hasParams); err != nil {
 		return nil, err
 	}
-	if err := g.renderContainerStruct(body, ctx, hasParams); err != nil {
+	if err := rnd.renderContainerStruct(body, ctx, hasParams); err != nil {
 		return nil, err
 	}
-	if err := g.renderBuildFunctions(body, ctx); err != nil {
+	if err := rnd.renderBuildFunctions(body, ctx); err != nil {
 		return nil, err
 	}
-	if err := g.renderGetterFunctions(body, ctx, tagGetterNames); err != nil {
+	if err := rnd.renderGetterFunctions(body, ctx, tagGetterNames); err != nil {
 		return nil, err
 	}
 
 	// Assemble final output with header
-	return g.assembleOutput(body, ctx, hasParams), nil
+	return g.assembleOutput(body, rnd, hasParams), nil
 }
 
-func (g *Generator) assignNames(ctx *genContext, tagGetterNames []string) {
-	ctx.nameGen.assignGetterNames(ctx.orderedServiceIDs, ctx.services, ctx.tags, tagGetterNames)
+func (r *Renderer) assignNames(ctx *genContext, tagGetterNames []string) {
+	r.nameGen.assignGetterNames(ctx.orderedServiceIDs, ctx.services, ctx.tags, tagGetterNames)
 	for id := range ctx.services {
 		if ctx.services[id].public {
-			ctx.services[id].getterName = ctx.nameGen.publicGetterName(id)
+			ctx.services[id].getterName = r.nameGen.publicGetterName(id)
 		}
-		ctx.services[id].privateGetterName = ctx.nameGen.privateGetterName(id)
+		ctx.services[id].privateGetterName = r.nameGen.privateGetterName(id)
 	}
 }
 
@@ -102,8 +102,8 @@ func (g *Generator) renderParameters(b *bytes.Buffer, hasParams bool) error {
 	return nil
 }
 
-func (g *Generator) renderContainerStruct(b *bytes.Buffer, ctx *genContext, hasParams bool) error {
-	fmt.Fprintf(b, "type %s struct {\n", ctx.containerName)
+func (r *Renderer) renderContainerStruct(b *bytes.Buffer, ctx *genContext, hasParams bool) error {
+	fmt.Fprintf(b, "type %s struct {\n", r.containerName)
 	fmt.Fprintf(b, "\tmu sync.Mutex\n")
 	if hasParams {
 		fmt.Fprintf(b, "\tparams parameters.Provider\n")
@@ -116,43 +116,43 @@ func (g *Generator) renderContainerStruct(b *bytes.Buffer, ctx *genContext, hasP
 		}
 		resType := getterType(svc)
 		nilable := isNilable(resType)
-		fmt.Fprintf(b, "\t%s %s\n", ctx.nameGen.fieldIdent(svc.id), ctx.imports.typeString(resType))
+		fmt.Fprintf(b, "\t%s %s\n", r.nameGen.fieldIdent(svc.id), r.imports.typeString(resType))
 		if !nilable {
-			fmt.Fprintf(b, "\t%sInit bool\n", ctx.nameGen.fieldIdent(svc.id))
+			fmt.Fprintf(b, "\t%sInit bool\n", r.nameGen.fieldIdent(svc.id))
 		}
 	}
 	b.WriteString("}\n\n")
 
 	if hasParams {
-		fmt.Fprintf(b, "func New%s(params parameters.Provider) *%s {\n", ctx.containerName, ctx.containerName)
+		fmt.Fprintf(b, "func New%s(params parameters.Provider) *%s {\n", r.containerName, r.containerName)
 		fmt.Fprintf(b, "\tif params == nil {\n")
 		fmt.Fprintf(b, "\t\tparams = DefaultParameters\n")
 		fmt.Fprintf(b, "\t}\n")
-		fmt.Fprintf(b, "\treturn &%s{params: params}\n", ctx.containerName)
+		fmt.Fprintf(b, "\treturn &%s{params: params}\n", r.containerName)
 		b.WriteString("}\n\n")
 	}
 	return nil
 }
 
-func (g *Generator) renderBuildFunctions(b *bytes.Buffer, ctx *genContext) error {
+func (r *Renderer) renderBuildFunctions(b *bytes.Buffer, ctx *genContext) error {
 	// Render build functions for each service
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
 		if svc.aliasTarget != "" {
 			continue
 		}
-		if err := renderBuild(b, ctx, svc); err != nil {
+		if err := r.renderBuild(b, ctx, svc); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, tagGetterNames []string) error {
+func (r *Renderer) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, tagGetterNames []string) error {
 	// Render private getters
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
-		if err := renderPrivateGetter(b, ctx, svc); err != nil {
+		if err := r.renderPrivateGetter(b, ctx, svc); err != nil {
 			return err
 		}
 	}
@@ -163,7 +163,7 @@ func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, tagG
 		if tag == nil {
 			continue
 		}
-		if err := renderPrivateTagGetter(b, ctx, name, tag); err != nil {
+		if err := r.renderPrivateTagGetter(b, ctx, name, tag); err != nil {
 			return err
 		}
 	}
@@ -174,7 +174,7 @@ func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, tagG
 		if !svc.public {
 			continue
 		}
-		if err := renderGetter(b, ctx, svc); err != nil {
+		if err := r.renderGetter(b, ctx, svc); err != nil {
 			return err
 		}
 	}
@@ -185,14 +185,14 @@ func (g *Generator) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, tagG
 		if tag == nil || !tag.Public {
 			continue
 		}
-		if err := renderTagGetter(b, ctx, name, tag); err != nil {
+		if err := r.renderTagGetter(b, ctx, name, tag); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (g *Generator) assembleOutput(body *bytes.Buffer, ctx *genContext, hasParams bool) []byte {
+func (g *Generator) assembleOutput(body *bytes.Buffer, rnd *Renderer, hasParams bool) []byte {
 	out := &bytes.Buffer{}
 
 	// Build tags
@@ -209,26 +209,26 @@ func (g *Generator) assembleOutput(body *bytes.Buffer, ctx *genContext, hasParam
 	if hasParams {
 		extraImports = append(extraImports, "github.com/asp24/gendi/parameters")
 	}
-	out.WriteString(ctx.imports.renderImports(extraImports))
+	out.WriteString(rnd.imports.renderImports(extraImports))
 	out.Write(body.Bytes())
 
 	return out.Bytes()
 }
 
-func renderBuild(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+func (r *Renderer) renderBuild(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	renderer := selectBuildRenderer(svc)
-	return renderer.render(b, ctx, svc)
+	return renderer.render(b, r, ctx, svc)
 }
 
-func renderPrivateGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+func (r *Renderer) renderPrivateGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	resType := getterType(svc)
 	renderer := selectPrivateGetterRenderer(svc, resType)
-	return renderer.render(b, ctx, svc)
+	return renderer.render(b, r, ctx, svc)
 }
 
-func renderGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+func (r *Renderer) renderGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.getterName
-	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, ctx.imports.typeString(getterType(svc)))
+	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", r.containerName, getter, r.imports.typeString(getterType(svc)))
 	fmt.Fprintf(b, "\tc.mu.Lock()\n")
 	fmt.Fprintf(b, "\tdefer c.mu.Unlock()\n")
 	fmt.Fprintf(b, "\treturn c.%s()\n", svc.privateGetterName)
@@ -236,19 +236,19 @@ func renderGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	return nil
 }
 
-func renderPrivateTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
+func (r *Renderer) renderPrivateTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
 	if tag.ElementType == nil {
 		return fmt.Errorf("tag %q element type is required for tag getter", tagName)
 	}
-	getter := ctx.nameGen.privateTagGetterName(tagName)
-	elemType := ctx.imports.typeString(tag.ElementType)
+	getter := r.nameGen.privateTagGetterName(tagName)
+	elemType := r.imports.typeString(tag.ElementType)
 	sliceType := "[]" + elemType
 	items := taggedServices(ctx, tagName)
 
-	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, sliceType)
+	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", r.containerName, getter, sliceType)
 	fmt.Fprintf(b, "\titems := make(%s, 0, %d)\n", sliceType, len(items))
 	for _, svc := range items {
-		varName := ctx.nameGen.varIdent("tagged", svc.id)
+		varName := r.nameGen.varIdent("tagged", svc.id)
 		fmt.Fprintf(b, "\t%s, err := c.%s()\n", varName, svc.privateGetterName)
 		fmt.Fprintf(b, "\tif err != nil {\n\t\treturn nil, err\n\t}\n")
 		fmt.Fprintf(b, "\titems = append(items, %s)\n", varName)
@@ -258,12 +258,12 @@ func renderPrivateTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, ta
 	return nil
 }
 
-func renderTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
-	getter := ctx.nameGen.publicTagGetterName(tagName)
-	privateGetter := ctx.nameGen.privateTagGetterName(tagName)
-	elemType := ctx.imports.typeString(tag.ElementType)
+func (r *Renderer) renderTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
+	getter := r.nameGen.publicTagGetterName(tagName)
+	privateGetter := r.nameGen.privateTagGetterName(tagName)
+	elemType := r.imports.typeString(tag.ElementType)
 	sliceType := "[]" + elemType
-	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", ctx.containerName, getter, sliceType)
+	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", r.containerName, getter, sliceType)
 	fmt.Fprintf(b, "\tc.mu.Lock()\n")
 	fmt.Fprintf(b, "\tdefer c.mu.Unlock()\n")
 	fmt.Fprintf(b, "\treturn c.%s()\n", privateGetter)
@@ -271,7 +271,7 @@ func renderTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.T
 	return nil
 }
 
-func constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsErr bool) ([]string, string, error) {
+func (r *Renderer) constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsErr bool) ([]string, string, error) {
 	var stmts []string
 	var args []string
 	for i, arg := range svc.constructor.argDefs {
@@ -279,7 +279,7 @@ func constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsE
 		if i < len(svc.constructor.params) {
 			paramType = svc.constructor.params[i]
 		}
-		argExpr, argStmts, err := buildArg(ctx, svc, arg, innerVar, returnsErr, i, paramType)
+		argExpr, argStmts, err := r.buildArg(ctx, svc, arg, innerVar, returnsErr, i, paramType)
 		if err != nil {
 			return nil, "", err
 		}
@@ -289,13 +289,13 @@ func constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsE
 
 	var call string
 	if svc.constructor.kind == "func" {
-		funcName := ctx.imports.funcNameWithTypeArgs(svc.constructor.funcObj, svc.constructor.typeArgs)
+		funcName := r.imports.funcNameWithTypeArgs(svc.constructor.funcObj, svc.constructor.typeArgs)
 		call = fmt.Sprintf("%s(%s)", funcName, strings.Join(args, ", "))
 	} else {
 		recv := svc.constructor.methodRecvID
 		recvGetter := ctx.services[recv].privateGetterName
 		recvExpr := fmt.Sprintf("c.%s()", recvGetter)
-		recvVar := ctx.nameGen.varIdent("recv", svc.id)
+		recvVar := r.nameGen.varIdent("recv", svc.id)
 		if returnsErr {
 			stmts = append(stmts, fmt.Sprintf("%s, err := %s", recvVar, recvExpr))
 			stmts = append(stmts, serviceReceiverError(svc.id, recv))
@@ -308,9 +308,10 @@ func constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsE
 	return stmts, call, nil
 }
 
-func buildArg(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
+func (r *Renderer) buildArg(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
 	builder := getArgumentBuilder(arg.Kind)
 	buildCtx := &argBuildContext{
+		rnd:        r,
 		genCtx:     ctx,
 		service:    svc,
 		argument:   arg,
@@ -381,8 +382,8 @@ func tagElementType(ctx *genContext, tag string) types.Type {
 	return types.Typ[types.Invalid]
 }
 
-func getterBuildExpr(ctx *genContext, svc *serviceDef) string {
-	return "c." + ctx.nameGen.buildName(svc) + "()"
+func (r *Renderer) getterBuildExpr(svc *serviceDef) string {
+	return "c." + r.nameGen.buildName(svc) + "()"
 }
 
 func literalExpr(lit di.Literal) (string, error) {

@@ -21,17 +21,17 @@ func NewContextBuilder(cfg *di.Config, options Options) *ContextBuilder {
 	}
 }
 
-// Build executes all phases and returns the generation context.
-func (b *ContextBuilder) Build() (*genContext, error) {
+// Build executes all phases and returns the generation context and renderer.
+func (b *ContextBuilder) Build() (*genContext, *Renderer, error) {
 	if err := b.initTypeLoader(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Build IR using the IR builder
 	irBuilder := ir.NewBuilder(b.loader)
 	container, err := irBuilder.Build(b.cfg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Convert IR to genContext for rendering
@@ -53,8 +53,9 @@ func (b *ContextBuilder) initTypeLoader() error {
 	return nil
 }
 
-func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genContext, error) {
+func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genContext, *Renderer, error) {
 	imports := NewImportManager(b.options.OutputPkgPath)
+	nameGen := newNameGenerator()
 
 	services := make(map[string]*serviceDef)
 	// Convert IR services to serviceDef
@@ -62,22 +63,18 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 		svcDef := b.convertService(irSvc)
 		services[id] = svcDef
 	}
-	paramGetters := container.ParamGetters()
-
-	nameGen := newNameGenerator()
 
 	ctx := &genContext{
 		services:          services,
 		orderedServiceIDs: container.ServiceIDsPostOrder(),
 		tags:              container.Tags,
-		imports:           imports,
 		outputPkgPath:     b.options.OutputPkgPath,
-		containerName:     b.options.Container,
-		paramGetters:      paramGetters,
-		nameGen:           nameGen,
+		paramGetters:      container.ParamGetters(),
 	}
 
-	return ctx, nil
+	rnd := NewRenderer(imports, nameGen, b.options.Container)
+
+	return ctx, rnd, nil
 }
 
 func (b *ContextBuilder) convertService(irSvc *ir.Service) *serviceDef {

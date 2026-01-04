@@ -7,8 +7,8 @@ import (
 
 // buildFunctionRenderer renders a build function for a service.
 type buildFunctionRenderer interface {
-	buildSignature(ctx *genContext, svc *serviceDef) (signature, innerVar string)
-	render(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error
+	buildSignature(rnd *Renderer, svc *serviceDef) (signature, innerVar string)
+	render(b *bytes.Buffer, rnd *Renderer, ctx *genContext, svc *serviceDef) error
 }
 
 // selectBuildRenderer chooses the appropriate renderer based on service properties.
@@ -19,16 +19,16 @@ func selectBuildRenderer(svc *serviceDef) buildFunctionRenderer {
 // regularBuildRenderer renders a standard build function.
 type regularBuildRenderer struct{}
 
-func (r *regularBuildRenderer) buildSignature(ctx *genContext, svc *serviceDef) (string, string) {
-	name := ctx.nameGen.buildName(svc)
-	retType := ctx.imports.typeString(svc.typeName)
-	signature := fmt.Sprintf("func (c *%s) %s() (%s, error)", ctx.containerName, name, retType)
+func (r *regularBuildRenderer) buildSignature(rnd *Renderer, svc *serviceDef) (string, string) {
+	name := rnd.nameGen.buildName(svc)
+	retType := rnd.imports.typeString(svc.typeName)
+	signature := fmt.Sprintf("func (c *%s) %s() (%s, error)", rnd.containerName, name, retType)
 	return signature, ""
 }
 
-func (r *regularBuildRenderer) render(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
-	signature, innerVar := r.buildSignature(ctx, svc)
-	retType := ctx.imports.typeString(svc.typeName)
+func (r *regularBuildRenderer) render(b *bytes.Buffer, rnd *Renderer, ctx *genContext, svc *serviceDef) error {
+	signature, innerVar := r.buildSignature(rnd, svc)
+	retType := rnd.imports.typeString(svc.typeName)
 	returnsErr := buildNeedsErrorHandling(svc)
 
 	fmt.Fprintf(b, "%s {\n", signature)
@@ -36,7 +36,7 @@ func (r *regularBuildRenderer) render(b *bytes.Buffer, ctx *genContext, svc *ser
 		fmt.Fprintf(b, "\tvar zero %s\n", retType)
 	}
 
-	stmts, callExpr, err := constructorCall(ctx, svc, innerVar, returnsErr)
+	stmts, callExpr, err := rnd.constructorCall(ctx, svc, innerVar, returnsErr)
 	if err != nil {
 		return err
 	}

@@ -21,13 +21,13 @@ func New(cfg *di.Config, opts Options) *Generator {
 // Config should already have passes applied (via di.ApplyPasses()).
 func (g *Generator) Generate() ([]byte, error) {
 	// Build context
-	ctx, err := g.buildContext()
+	ctx, rnd, err := g.buildContext()
 	if err != nil {
 		return nil, err
 	}
 
 	// Render code
-	code, err := g.render(ctx)
+	code, err := g.render(ctx, rnd)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func (g *Generator) Generate() ([]byte, error) {
 	return formatted, nil
 }
 
-func (g *Generator) buildContext() (*genContext, error) {
+func (g *Generator) buildContext() (*genContext, *Renderer, error) {
 	builder := NewContextBuilder(g.cfg, g.options)
 	return builder.Build()
 }
