@@ -55,7 +55,8 @@ func (b *ContextBuilder) initTypeLoader() error {
 
 func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genContext, *Renderer, error) {
 	imports := NewImportManager(b.options.OutputPkgPath)
-	nameGen := newNameGenerator()
+	ident := &identGenerator{}
+	getters := newGetterRegistry(ident)
 
 	services := make(map[string]*serviceDef)
 	// Convert IR services to serviceDef
@@ -72,7 +73,7 @@ func (b *ContextBuilder) convertToGenContext(container *ir.Container) (*genConte
 		paramGetters:      container.ParamGetters(),
 	}
 
-	rnd := NewRenderer(imports, nameGen, b.options.Container)
+	rnd := NewRenderer(imports, ident, getters, b.options.Container)
 
 	return ctx, rnd, nil
 }

@@ -52,7 +52,7 @@ func (g *sharedPtrGetterRenderer) render(b *bytes.Buffer, rnd *Renderer, ctx *ge
 	getter := svc.privateGetterName
 	resType := getterType(svc)
 	getterTypeStr := rnd.imports.typeString(resType)
-	fieldName := rnd.nameGen.fieldIdent(svc.id)
+	fieldName := rnd.ident.Field(svc.id)
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", rnd.containerName, getter, getterTypeStr)
 	fmt.Fprintf(b, "\tvar zero %s\n", getterTypeStr)
@@ -74,7 +74,7 @@ func (g *sharedValueGetterRenderer) render(b *bytes.Buffer, rnd *Renderer, ctx *
 	getter := svc.privateGetterName
 	resType := getterType(svc)
 	getterTypeStr := rnd.imports.typeString(resType)
-	fieldName := rnd.nameGen.fieldIdent(svc.id)
+	fieldName := rnd.ident.Field(svc.id)
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", rnd.containerName, getter, getterTypeStr)
 	fmt.Fprintf(b, "\tvar zero %s\n", getterTypeStr)

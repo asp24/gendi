@@ -20,7 +20,7 @@ func selectBuildRenderer(svc *serviceDef) buildFunctionRenderer {
 type regularBuildRenderer struct{}
 
 func (r *regularBuildRenderer) buildSignature(rnd *Renderer, svc *serviceDef) (string, string) {
-	name := rnd.nameGen.buildName(svc)
+	name := rnd.ident.Build(svc.id)
 	retType := rnd.imports.typeString(svc.typeName)
 	signature := fmt.Sprintf("func (c *%s) %s() (%s, error)", rnd.containerName, name, retType)
 	return signature, ""
