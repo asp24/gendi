@@ -113,6 +113,13 @@ func (b *taggedBuilder) generateCasted(varName string, paramElem types.Type, ctx
 	return varName, stmts, nil
 }
 
+func tagElementType(ctx *genContext, tag string) types.Type {
+	if t, ok := ctx.tags[tag]; ok {
+		return t.ElementType
+	}
+	return types.Typ[types.Invalid]
+}
+
 func (b *taggedBuilder) build(ctx *argBuildContext) (string, []string, error) {
 	tagName := ctx.argument.Tag.Name
 	getter := ctx.rnd.getters.PrivateTag(tagName)

@@ -3,6 +3,8 @@ package generator
 import (
 	"bytes"
 	"fmt"
+
+	"github.com/asp24/gendi/ir"
 )
 
 // buildFunctionRenderer renders a build function for a service.
@@ -14,6 +16,19 @@ type buildFunctionRenderer interface {
 // selectBuildRenderer chooses the appropriate renderer based on service properties.
 func selectBuildRenderer(svc *serviceDef) buildFunctionRenderer {
 	return &regularBuildRenderer{}
+}
+
+func buildNeedsErrorHandling(svc *serviceDef) bool {
+	if svc.constructor.returnsError || svc.constructor.kind == "method" {
+		return true
+	}
+	for _, arg := range svc.constructor.argDefs {
+		switch arg.Kind {
+		case ir.ServiceRefArg, ir.TaggedArg, ir.ParamRefArg:
+			return true
+		}
+	}
+	return false
 }
 
 // regularBuildRenderer renders a standard build function.
