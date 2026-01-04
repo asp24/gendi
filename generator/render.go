@@ -303,7 +303,7 @@ func (r *Renderer) constructorCall(ctx *genContext, svc *serviceDef, innerVar st
 			stmts = append(stmts, fmt.Sprintf("%s, _ := %s", recvVar, recvExpr))
 		}
 		recvExpr = recvVar
-		call = fmt.Sprintf("%s.%s(%s)", recvExpr, svc.constructor.methodObj.Name(), strings.Join(args, ", "))
+		call = fmt.Sprintf("%s.%s(%s)", recvExpr, svc.constructor.funcObj.Name(), strings.Join(args, ", "))
 	}
 	return stmts, call, nil
 }

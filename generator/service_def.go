@@ -33,7 +33,6 @@ func (s *serviceDef) HasConstructor() bool {
 type constructorDef struct {
 	kind         string // func|method
 	funcObj      *types.Func
-	methodObj    *types.Func
 	methodRecvID string
 	typeArgs     []types.Type // For generic functions
 	params       []types.Type

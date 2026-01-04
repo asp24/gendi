@@ -114,15 +114,14 @@ func (b *ContextBuilder) convertConstructor(irCons *ir.Constructor) constructorD
 		returnsError: irCons.ReturnsError,
 	}
 
+	result.funcObj = irCons.Func
+
 	if irCons.Kind == ir.FuncConstructor {
 		result.kind = "func"
-		result.funcObj = irCons.Func
-
 		return result
 	}
 
 	result.kind = "method"
-	result.methodObj = irCons.Func
 	if irCons.Receiver != nil {
 		result.methodRecvID = irCons.Receiver.ID
 	}
