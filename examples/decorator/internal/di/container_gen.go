@@ -4,13 +4,22 @@ package di
 import (
 	"fmt"
 	app "github.com/asp24/gendi/examples/decorator/app"
+	"github.com/asp24/gendi/parameters"
 	"sync"
 )
 
 type Container struct {
 	mu                                   sync.Mutex
+	params                               parameters.Provider
 	svc_payment_provider_with_comission  *app.PaymentProviderCommissionDecorator
 	svc_payment_provider_with_comission2 *app.PaymentProviderCommissionDecorator
+}
+
+func NewContainer(params parameters.Provider) *Container {
+	if params == nil {
+		params = parameters.ProviderNullInstance
+	}
+	return &Container{params: params}
 }
 
 func (c *Container) buildPaymentProviderDummy() (*app.PaymentProviderDummy, error) {

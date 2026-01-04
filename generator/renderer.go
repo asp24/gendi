@@ -42,9 +42,7 @@ func (r *Renderer) assignNames(ctx *genContext, tagGetterNames []string) {
 func (r *Renderer) renderContainerStruct(b *bytes.Buffer, ctx *genContext, hasParams bool) error {
 	fmt.Fprintf(b, "type %s struct {\n", r.containerName)
 	fmt.Fprintf(b, "\tmu sync.Mutex\n")
-	if hasParams {
-		fmt.Fprintf(b, "\tparams parameters.Provider\n")
-	}
+	fmt.Fprintf(b, "\tparams parameters.Provider\n")
 
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
@@ -60,14 +58,19 @@ func (r *Renderer) renderContainerStruct(b *bytes.Buffer, ctx *genContext, hasPa
 	}
 	b.WriteString("}\n\n")
 
+	fmt.Fprintf(b, "func New%s(params parameters.Provider) *%s {\n", r.containerName, r.containerName)
+	fmt.Fprintf(b, "\tif params == nil {\n")
+
 	if hasParams {
-		fmt.Fprintf(b, "func New%s(params parameters.Provider) *%s {\n", r.containerName, r.containerName)
-		fmt.Fprintf(b, "\tif params == nil {\n")
 		fmt.Fprintf(b, "\t\tparams = DefaultParameters\n")
-		fmt.Fprintf(b, "\t}\n")
-		fmt.Fprintf(b, "\treturn &%s{params: params}\n", r.containerName)
-		b.WriteString("}\n\n")
+	} else {
+		fmt.Fprintf(b, "\t\tparams = parameters.ProviderNullInstance\n")
 	}
+
+	fmt.Fprintf(b, "\t}\n")
+	fmt.Fprintf(b, "\treturn &%s{params: params}\n", r.containerName)
+	b.WriteString("}\n\n")
+
 	return nil
 }
 
