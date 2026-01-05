@@ -6,6 +6,8 @@ import (
 	"go/format"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/ir"
+	"github.com/asp24/gendi/typeres"
 )
 
 type Generator struct {
@@ -53,14 +55,40 @@ func (g *Generator) assembleOutput(body *bytes.Buffer, cRenderer *ContainerRende
 	return out.Bytes()
 }
 
+func (g *Generator) createTypeResolver(cfg *di.Config) (*typeres.Resolver, error) {
+	paths, err := collectPackagePaths(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	result := typeres.NewResolver(g.options.ModuleRoot)
+
+	if err := result.LoadPackages(paths); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 // Generate produces the container code.
 // Options must be finalized before calling New() (via Options.Finalize()).
 // Config should already have passes applied (via di.ApplyPasses()).
 func (g *Generator) Generate() ([]byte, error) {
-	// Build context
-	builder := NewContextBuilder(g.cfg, g.options)
+	typeResolver, err := g.createTypeResolver(g.cfg)
+	if err != nil {
+		return nil, err
+	}
 
-	ctx, err := builder.Build()
+	// di.Config -> IR
+	irBuilder := ir.NewBuilder(typeResolver)
+	irContainer, err := irBuilder.Build(g.cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// IR -> getContext
+	irConverter := NewIRConverter(typeResolver, g.options)
+	ctx, err := irConverter.Convert(irContainer, g.cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -81,5 +109,6 @@ func (g *Generator) Generate() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("format generated code: %w", err)
 	}
+
 	return formatted, nil
 }
