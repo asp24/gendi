@@ -2,9 +2,9 @@ package generator
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/asp24/gendi/ir"
+	"github.com/asp24/gendi/xmaps"
 )
 
 // getterRegistry manages unique getter names for services and tags.
@@ -43,12 +43,7 @@ func (gr *getterRegistry) Assign(orderedServiceIDs []string, services map[string
 
 	// Assign public tag getter names
 	if len(tags) > 0 {
-		tagNames := make([]string, 0, len(tags))
-		for name := range tags {
-			tagNames = append(tagNames, name)
-		}
-		sort.Strings(tagNames)
-		for _, name := range tagNames {
+		for _, name := range xmaps.OrderedKeys(tags) {
 			if !tags[name].Public {
 				continue
 			}

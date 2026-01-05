@@ -3,10 +3,10 @@ package generator
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strconv"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/xmaps"
 )
 
 type RendererParameters struct {
@@ -37,14 +37,8 @@ func (r *RendererParameters) Render(params map[string]di.Parameter, w *bytes.Buf
 
 	r.importManager.ReserveAliases("parameters")
 
-	keys := make([]string, 0, len(params))
-	for k := range params {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
 	w.WriteString("var DefaultParameters = parameters.NewProviderMap(map[string]any{\n")
-	for _, name := range keys {
+	for _, name := range xmaps.OrderedKeys(params) {
 		param := params[name]
 		lit, err := r.literalExpr(param.Value)
 		if err != nil {

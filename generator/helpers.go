@@ -2,11 +2,11 @@ package generator
 
 import (
 	"go/types"
-	"sort"
 	"strings"
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/typeres"
+	"github.com/asp24/gendi/xmaps"
 )
 
 func collectPackagePaths(cfg *di.Config) ([]string, error) {
@@ -55,12 +55,7 @@ func collectPackagePaths(cfg *di.Config) ([]string, error) {
 		}
 	}
 
-	out := make([]string, 0, len(seen))
-	for path := range seen {
-		out = append(out, path)
-	}
-	sort.Strings(out)
-	return out, nil
+	return xmaps.OrderedKeys(seen), nil
 }
 
 // collectTypePackages extracts all package paths from a type string,
