@@ -9,11 +9,15 @@ import (
 	"github.com/asp24/gendi/xmaps"
 )
 
-type RendererParameters struct {
+type ParametersRenderer struct {
 	importManager *ImportManager
 }
 
-func (r *RendererParameters) literalExpr(lit di.Literal) (string, error) {
+func NewParametersRenderer(importManager *ImportManager) *ParametersRenderer {
+	return &ParametersRenderer{importManager: importManager}
+}
+
+func (r *ParametersRenderer) literalExpr(lit di.Literal) (string, error) {
 	switch lit.Kind {
 	case di.LiteralString:
 		return strconv.Quote(lit.String()), nil
@@ -30,7 +34,7 @@ func (r *RendererParameters) literalExpr(lit di.Literal) (string, error) {
 	}
 }
 
-func (r *RendererParameters) Render(params map[string]di.Parameter, w *bytes.Buffer) error {
+func (r *ParametersRenderer) Render(params map[string]di.Parameter, w *bytes.Buffer) error {
 	if len(params) == 0 {
 		return nil
 	}
