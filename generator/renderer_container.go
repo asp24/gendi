@@ -8,20 +8,26 @@ import (
 	"strconv"
 	"strings"
 
+	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/ir"
+	"github.com/asp24/gendi/xmaps"
 )
 
-// Renderer contains tools for rendering generated code.
-type Renderer struct {
+// ContainerRenderer contains tools for rendering generated code.
+type ContainerRenderer struct {
 	imports       *ImportManager
 	ident         *identGenerator
 	getters       *getterRegistry
 	containerName string
 }
 
-// NewRenderer creates a new Renderer.
-func NewRenderer(imports *ImportManager, ident *identGenerator, getters *getterRegistry, containerName string) *Renderer {
-	return &Renderer{
+func NewContainerRenderer(
+	imports *ImportManager,
+	ident *identGenerator,
+	getters *getterRegistry,
+	containerName string,
+) *ContainerRenderer {
+	return &ContainerRenderer{
 		imports:       imports,
 		ident:         ident,
 		getters:       getters,
@@ -29,7 +35,7 @@ func NewRenderer(imports *ImportManager, ident *identGenerator, getters *getterR
 	}
 }
 
-func (r *Renderer) assignNames(ctx *genContext, tagGetterNames []string) {
+func (r *ContainerRenderer) assignNames(ctx *genContext, tagGetterNames []string) {
 	r.getters.Assign(ctx.orderedServiceIDs, ctx.services, ctx.tags, tagGetterNames)
 	for id := range ctx.services {
 		if ctx.services[id].public {
@@ -39,7 +45,7 @@ func (r *Renderer) assignNames(ctx *genContext, tagGetterNames []string) {
 	}
 }
 
-func (r *Renderer) renderContainerStruct(b *bytes.Buffer, ctx *genContext, hasParams bool) error {
+func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *genContext, hasParams bool) error {
 	fmt.Fprintf(b, "type %s struct {\n", r.containerName)
 	fmt.Fprintf(b, "\tmu sync.Mutex\n")
 	fmt.Fprintf(b, "\tparams parameters.Provider\n")
@@ -73,7 +79,7 @@ func (r *Renderer) renderContainerStruct(b *bytes.Buffer, ctx *genContext, hasPa
 	return nil
 }
 
-func (r *Renderer) renderBuildFunctions(b *bytes.Buffer, ctx *genContext) error {
+func (r *ContainerRenderer) renderBuildFunctions(b *bytes.Buffer, ctx *genContext) error {
 	// Render build functions for each service
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
@@ -87,7 +93,7 @@ func (r *Renderer) renderBuildFunctions(b *bytes.Buffer, ctx *genContext) error 
 	return nil
 }
 
-func (r *Renderer) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, tagGetterNames []string) error {
+func (r *ContainerRenderer) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, tagGetterNames []string) error {
 	// Render private getters
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
@@ -131,18 +137,18 @@ func (r *Renderer) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, tagGe
 	return nil
 }
 
-func (r *Renderer) renderBuild(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+func (r *ContainerRenderer) renderBuild(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	renderer := selectBuildRenderer(svc)
 	return renderer.render(b, r, ctx, svc)
 }
 
-func (r *Renderer) renderPrivateGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+func (r *ContainerRenderer) renderPrivateGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	resType := svc.GetterType()
 	renderer := selectPrivateGetterRenderer(svc, resType)
 	return renderer.render(b, r, ctx, svc)
 }
 
-func (r *Renderer) renderGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+func (r *ContainerRenderer) renderGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.getterName
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", r.containerName, getter, r.imports.typeString(svc.GetterType()))
 	fmt.Fprintf(b, "\tc.mu.Lock()\n")
@@ -204,7 +210,7 @@ func tagPriority(svc *serviceDef, tag string) int {
 	return 0
 }
 
-func (r *Renderer) renderPrivateTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
+func (r *ContainerRenderer) renderPrivateTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
 	if tag.ElementType == nil {
 		return fmt.Errorf("tag %q element type is required for tag getter", tagName)
 	}
@@ -226,7 +232,7 @@ func (r *Renderer) renderPrivateTagGetter(b *bytes.Buffer, ctx *genContext, tagN
 	return nil
 }
 
-func (r *Renderer) renderTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
+func (r *ContainerRenderer) renderTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
 	getter := r.getters.PublicTag(tagName)
 	privateGetter := r.getters.PrivateTag(tagName)
 	elemType := r.imports.typeString(tag.ElementType)
@@ -239,7 +245,7 @@ func (r *Renderer) renderTagGetter(b *bytes.Buffer, ctx *genContext, tagName str
 	return nil
 }
 
-func (r *Renderer) constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsErr bool) ([]string, string, error) {
+func (r *ContainerRenderer) constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsErr bool) ([]string, string, error) {
 	var stmts []string
 	var args []string
 	for i, arg := range svc.constructor.argDefs {
@@ -276,7 +282,7 @@ func (r *Renderer) constructorCall(ctx *genContext, svc *serviceDef, innerVar st
 	return stmts, call, nil
 }
 
-func (r *Renderer) buildArg(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
+func (r *ContainerRenderer) buildArg(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
 	builder := getArgumentBuilder(arg.Kind)
 	buildCtx := &argBuildContext{
 		rnd:        r,
@@ -291,6 +297,47 @@ func (r *Renderer) buildArg(ctx *genContext, svc *serviceDef, arg *ir.Argument, 
 	return builder.build(buildCtx)
 }
 
-func (r *Renderer) getterBuildExpr(svc *serviceDef) string {
+func (r *ContainerRenderer) getterBuildExpr(svc *serviceDef) string {
 	return "c." + r.ident.Build(svc.id) + "()"
+}
+
+func (r *ContainerRenderer) collectTagGetterNames(ctx *genContext) []string {
+	tagNames := map[string]bool{}
+	for name, tag := range ctx.tags {
+		if tag != nil && tag.Public {
+			tagNames[name] = true
+		}
+	}
+	for _, svc := range ctx.services {
+		for _, arg := range svc.constructor.argDefs {
+			if arg.Kind == ir.TaggedArg && arg.Tag != nil {
+				tagNames[arg.Tag.Name] = true
+			}
+		}
+	}
+
+	return xmaps.OrderedKeys(tagNames)
+}
+
+func (r *ContainerRenderer) Render(cfg *di.Config, ctx *genContext, body *bytes.Buffer) error {
+	r.imports.ReserveAliases("sync", "fmt")
+
+	// Assign getter names and populate serviceDef fields
+	tagGetterNames := r.collectTagGetterNames(ctx)
+	r.assignNames(ctx, tagGetterNames)
+
+	hasParams := len(cfg.Parameters) > 0
+	if err := r.renderContainerStruct(body, ctx, hasParams); err != nil {
+		return err
+	}
+
+	if err := r.renderBuildFunctions(body, ctx); err != nil {
+		return err
+	}
+
+	if err := r.renderGetterFunctions(body, ctx, tagGetterNames); err != nil {
+		return err
+	}
+
+	return nil
 }

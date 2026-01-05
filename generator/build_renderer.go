@@ -9,8 +9,8 @@ import (
 
 // buildFunctionRenderer renders a build function for a service.
 type buildFunctionRenderer interface {
-	buildSignature(rnd *Renderer, svc *serviceDef) (signature, innerVar string)
-	render(b *bytes.Buffer, rnd *Renderer, ctx *genContext, svc *serviceDef) error
+	buildSignature(rnd *ContainerRenderer, svc *serviceDef) (signature, innerVar string)
+	render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error
 }
 
 // selectBuildRenderer chooses the appropriate renderer based on service properties.
@@ -34,14 +34,14 @@ func buildNeedsErrorHandling(svc *serviceDef) bool {
 // regularBuildRenderer renders a standard build function.
 type regularBuildRenderer struct{}
 
-func (r *regularBuildRenderer) buildSignature(rnd *Renderer, svc *serviceDef) (string, string) {
+func (r *regularBuildRenderer) buildSignature(rnd *ContainerRenderer, svc *serviceDef) (string, string) {
 	name := rnd.ident.Build(svc.id)
 	retType := rnd.imports.typeString(svc.typeName)
 	signature := fmt.Sprintf("func (c *%s) %s() (%s, error)", rnd.containerName, name, retType)
 	return signature, ""
 }
 
-func (r *regularBuildRenderer) render(b *bytes.Buffer, rnd *Renderer, ctx *genContext, svc *serviceDef) error {
+func (r *regularBuildRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error {
 	signature, innerVar := r.buildSignature(rnd, svc)
 	retType := rnd.imports.typeString(svc.typeName)
 	returnsErr := buildNeedsErrorHandling(svc)

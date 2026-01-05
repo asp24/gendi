@@ -10,7 +10,7 @@ import (
 
 // argBuildContext bundles parameters for building constructor arguments.
 type argBuildContext struct {
-	rnd        *Renderer
+	rnd        *ContainerRenderer
 	genCtx     *genContext
 	service    *serviceDef
 	argument   *ir.Argument

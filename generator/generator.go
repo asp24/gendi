@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
-	"sort"
 
 	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/ir"
 )
 
 type Generator struct {
@@ -19,61 +17,23 @@ func New(cfg *di.Config, opts Options) *Generator {
 	return &Generator{cfg: cfg, options: opts}
 }
 
-func collectTagGetterNames(ctx *genContext) []string {
-	tagNames := map[string]bool{}
-	for name, tag := range ctx.tags {
-		if tag != nil && tag.Public {
-			tagNames[name] = true
-		}
-	}
-	for _, svc := range ctx.services {
-		if svc == nil {
-			continue
-		}
-		for _, arg := range svc.constructor.argDefs {
-			if arg.Kind == ir.TaggedArg && arg.Tag != nil {
-				tagNames[arg.Tag.Name] = true
-			}
-		}
-	}
-	items := make([]string, 0, len(tagNames))
-	for name := range tagNames {
-		items = append(items, name)
-	}
-	sort.Strings(items)
-	return items
-}
-
-func (g *Generator) render(ctx *genContext, rnd *Renderer) ([]byte, error) {
-	// Assign getter names and populate serviceDef fields
-	tagGetterNames := collectTagGetterNames(ctx)
-	rnd.assignNames(ctx, tagGetterNames)
-
+func (g *Generator) render(ctx *genContext, cRenderer *ContainerRenderer) ([]byte, error) {
 	body := &bytes.Buffer{}
 
 	// Render main code sections
-	if err := (&RendererParameters{importManager: rnd.imports}).Render(g.cfg.Parameters, body); err != nil {
+	if err := (&RendererParameters{importManager: cRenderer.imports}).Render(g.cfg.Parameters, body); err != nil {
 		return nil, err
 	}
 
-	rnd.imports.ReserveAliases("sync", "fmt")
-
-	hasParams := len(g.cfg.Parameters) > 0
-	if err := rnd.renderContainerStruct(body, ctx, hasParams); err != nil {
-		return nil, err
-	}
-	if err := rnd.renderBuildFunctions(body, ctx); err != nil {
-		return nil, err
-	}
-	if err := rnd.renderGetterFunctions(body, ctx, tagGetterNames); err != nil {
+	if err := cRenderer.Render(g.cfg, ctx, body); err != nil {
 		return nil, err
 	}
 
 	// Assemble final output with header
-	return g.assembleOutput(body, rnd), nil
+	return g.assembleOutput(body, cRenderer), nil
 }
 
-func (g *Generator) assembleOutput(body *bytes.Buffer, rnd *Renderer) []byte {
+func (g *Generator) assembleOutput(body *bytes.Buffer, cRenderer *ContainerRenderer) []byte {
 	out := &bytes.Buffer{}
 
 	// Build tags
@@ -87,7 +47,7 @@ func (g *Generator) assembleOutput(body *bytes.Buffer, rnd *Renderer) []byte {
 	fmt.Fprintf(out, "package %s\n\n", g.options.Package)
 
 	extraImports := []string{"sync", "fmt", "github.com/asp24/gendi/parameters"}
-	out.WriteString(rnd.imports.renderImports(extraImports))
+	out.WriteString(cRenderer.imports.renderImports(extraImports))
 	out.Write(body.Bytes())
 
 	return out.Bytes()
@@ -108,10 +68,10 @@ func (g *Generator) Generate() ([]byte, error) {
 	ident := &identGenerator{}
 	getters := newGetterRegistry(ident)
 	imports := NewImportManager(g.options.OutputPkgPath)
-	rnd := NewRenderer(imports, ident, getters, g.options.Container)
+	cRenderer := NewContainerRenderer(imports, ident, getters, g.options.Container)
 
 	// Render code
-	code, err := g.render(ctx, rnd)
+	code, err := g.render(ctx, cRenderer)
 	if err != nil {
 		return nil, err
 	}
