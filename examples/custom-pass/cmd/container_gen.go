@@ -25,10 +25,10 @@ type Container struct {
 	params                       parameters.Provider
 	svc_stdlib_slog_handler_text slog.Handler
 	svc_stdlib_slog              *slog.Logger
-	svc_user_repo                *app.UserRepoImpl
-	svc_user_handler             app.HTTPHandler
 	svc_product_repo             *app.ProductRepoImpl
 	svc_product_handler          app.HTTPHandler
+	svc_user_repo                *app.UserRepoImpl
+	svc_user_handler             app.HTTPHandler
 	svc_server                   *app.Server
 }
 
@@ -65,6 +65,46 @@ func (c *Container) buildStdlibSlog() (*slog.Logger, error) {
 	return stdlib.NewSlogLogger(arg0_stdlib_slog_handler), nil
 }
 
+func (c *Container) buildProductHandlerLogger() (*slog.Logger, error) {
+	var zero *slog.Logger
+	recv_product_handler_logger, err := c.getLogger()
+	if err != nil {
+		return zero, fmt.Errorf("service %q receiver %q: %w", "product.handler.logger", "logger", err)
+	}
+	return recv_product_handler_logger.With("channel", "product"), nil
+}
+
+func (c *Container) buildProductRepo() (*app.ProductRepoImpl, error) {
+	var zero *app.ProductRepoImpl
+	param0_db_dsn, err := c.params.GetString("db_dsn")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "product.repo", '\x00', "db_dsn", err)
+	}
+	return app.NewProductRepository(param0_db_dsn), nil
+}
+
+func (c *Container) buildProductHandler() (app.HTTPHandler, error) {
+	var zero app.HTTPHandler
+	arg0_product_handler_logger, err := c.getProductHandlerLogger()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "product.handler", '\x00', err)
+	}
+	arg1_product_repo, err := c.getProductRepo()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "product.handler", '\x01', err)
+	}
+	return app.NewProductHandler(arg0_product_handler_logger, arg1_product_repo), nil
+}
+
+func (c *Container) buildServerLogger() (*slog.Logger, error) {
+	var zero *slog.Logger
+	recv_server_logger, err := c.getLogger()
+	if err != nil {
+		return zero, fmt.Errorf("service %q receiver %q: %w", "server.logger", "logger", err)
+	}
+	return recv_server_logger.With("channel", "http"), nil
+}
+
 func (c *Container) buildUserHandlerLogger() (*slog.Logger, error) {
 	var zero *slog.Logger
 	recv_user_handler_logger, err := c.getLogger()
@@ -94,46 +134,6 @@ func (c *Container) buildUserHandler() (app.HTTPHandler, error) {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "user.handler", '\x01', err)
 	}
 	return app.NewUserHandler(arg0_user_handler_logger, arg1_user_repo), nil
-}
-
-func (c *Container) buildProductRepo() (*app.ProductRepoImpl, error) {
-	var zero *app.ProductRepoImpl
-	param0_db_dsn, err := c.params.GetString("db_dsn")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "product.repo", '\x00', "db_dsn", err)
-	}
-	return app.NewProductRepository(param0_db_dsn), nil
-}
-
-func (c *Container) buildProductHandlerLogger() (*slog.Logger, error) {
-	var zero *slog.Logger
-	recv_product_handler_logger, err := c.getLogger()
-	if err != nil {
-		return zero, fmt.Errorf("service %q receiver %q: %w", "product.handler.logger", "logger", err)
-	}
-	return recv_product_handler_logger.With("channel", "product"), nil
-}
-
-func (c *Container) buildProductHandler() (app.HTTPHandler, error) {
-	var zero app.HTTPHandler
-	arg0_product_handler_logger, err := c.getProductHandlerLogger()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "product.handler", '\x00', err)
-	}
-	arg1_product_repo, err := c.getProductRepo()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "product.handler", '\x01', err)
-	}
-	return app.NewProductHandler(arg0_product_handler_logger, arg1_product_repo), nil
-}
-
-func (c *Container) buildServerLogger() (*slog.Logger, error) {
-	var zero *slog.Logger
-	recv_server_logger, err := c.getLogger()
-	if err != nil {
-		return zero, fmt.Errorf("service %q receiver %q: %w", "server.logger", "logger", err)
-	}
-	return recv_server_logger.With("channel", "http"), nil
 }
 
 func (c *Container) buildServer() (*app.Server, error) {
@@ -196,6 +196,50 @@ func (c *Container) getLogger() (*slog.Logger, error) {
 	return c.getStdlibSlog()
 }
 
+func (c *Container) getProductHandlerLogger() (*slog.Logger, error) {
+	var zero *slog.Logger
+	res, err := c.buildProductHandlerLogger()
+	if err != nil {
+		return zero, err
+	}
+	return res, nil
+}
+
+func (c *Container) getProductRepo() (*app.ProductRepoImpl, error) {
+	var zero *app.ProductRepoImpl
+	if c.svc_product_repo != nil {
+		return c.svc_product_repo, nil
+	}
+	res, err := c.buildProductRepo()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_product_repo = res
+	return res, nil
+}
+
+func (c *Container) getProductHandler() (app.HTTPHandler, error) {
+	var zero app.HTTPHandler
+	if c.svc_product_handler != nil {
+		return c.svc_product_handler, nil
+	}
+	res, err := c.buildProductHandler()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_product_handler = res
+	return res, nil
+}
+
+func (c *Container) getServerLogger() (*slog.Logger, error) {
+	var zero *slog.Logger
+	res, err := c.buildServerLogger()
+	if err != nil {
+		return zero, err
+	}
+	return res, nil
+}
+
 func (c *Container) getUserHandlerLogger() (*slog.Logger, error) {
 	var zero *slog.Logger
 	res, err := c.buildUserHandlerLogger()
@@ -228,50 +272,6 @@ func (c *Container) getUserHandler() (app.HTTPHandler, error) {
 		return zero, err
 	}
 	c.svc_user_handler = res
-	return res, nil
-}
-
-func (c *Container) getProductRepo() (*app.ProductRepoImpl, error) {
-	var zero *app.ProductRepoImpl
-	if c.svc_product_repo != nil {
-		return c.svc_product_repo, nil
-	}
-	res, err := c.buildProductRepo()
-	if err != nil {
-		return zero, err
-	}
-	c.svc_product_repo = res
-	return res, nil
-}
-
-func (c *Container) getProductHandlerLogger() (*slog.Logger, error) {
-	var zero *slog.Logger
-	res, err := c.buildProductHandlerLogger()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
-}
-
-func (c *Container) getProductHandler() (app.HTTPHandler, error) {
-	var zero app.HTTPHandler
-	if c.svc_product_handler != nil {
-		return c.svc_product_handler, nil
-	}
-	res, err := c.buildProductHandler()
-	if err != nil {
-		return zero, err
-	}
-	c.svc_product_handler = res
-	return res, nil
-}
-
-func (c *Container) getServerLogger() (*slog.Logger, error) {
-	var zero *slog.Logger
-	res, err := c.buildServerLogger()
-	if err != nil {
-		return zero, err
-	}
 	return res, nil
 }
 

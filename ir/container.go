@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/asp24/gendi/typeres"
+	"github.com/asp24/gendi/xmaps"
 )
 
 // Container is the fully resolved intermediate representation of a DI container.
@@ -56,8 +57,8 @@ func (c *Container) ServicesPostOrder() iter.Seq[*Service] {
 			return yield(svc)
 		}
 
-		for _, svc := range c.Services {
-			if !visit(svc) {
+		for _, id := range xmaps.OrderedKeys(c.Services) {
+			if !visit(c.Services[id]) {
 				return
 			}
 		}
