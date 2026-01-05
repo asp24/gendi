@@ -30,6 +30,10 @@ func (s *serviceDef) HasConstructor() bool {
 	return s.constructor.kind != ""
 }
 
+func (s *serviceDef) GetterType() types.Type {
+	return s.typeName
+}
+
 type constructorDef struct {
 	kind         string // func|method
 	funcObj      *types.Func
@@ -39,11 +43,4 @@ type constructorDef struct {
 	result       types.Type
 	returnsError bool
 	argDefs      []*ir.Argument
-}
-
-func getterType(svc *serviceDef) types.Type {
-	if svc == nil {
-		return types.Typ[types.Invalid]
-	}
-	return svc.typeName
 }

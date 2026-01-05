@@ -30,7 +30,7 @@ type aliasGetterRenderer struct{}
 
 func (g *aliasGetterRenderer) render(b *bytes.Buffer, rnd *Renderer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
-	resType := getterType(svc)
+	resType := svc.GetterType()
 	getterTypeStr := rnd.imports.typeString(resType)
 
 	target := ctx.services[svc.aliasTarget]
@@ -50,7 +50,7 @@ type sharedPtrGetterRenderer struct{}
 
 func (g *sharedPtrGetterRenderer) render(b *bytes.Buffer, rnd *Renderer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
-	resType := getterType(svc)
+	resType := svc.GetterType()
 	getterTypeStr := rnd.imports.typeString(resType)
 	fieldName := rnd.ident.Field(svc.id)
 
@@ -72,7 +72,7 @@ type sharedValueGetterRenderer struct{}
 
 func (g *sharedValueGetterRenderer) render(b *bytes.Buffer, rnd *Renderer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
-	resType := getterType(svc)
+	resType := svc.GetterType()
 	getterTypeStr := rnd.imports.typeString(resType)
 	fieldName := rnd.ident.Field(svc.id)
 
@@ -97,7 +97,7 @@ type nonSharedGetterRenderer struct{}
 
 func (g *nonSharedGetterRenderer) render(b *bytes.Buffer, rnd *Renderer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
-	resType := getterType(svc)
+	resType := svc.GetterType()
 	getterTypeStr := rnd.imports.typeString(resType)
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", rnd.containerName, getter, getterTypeStr)

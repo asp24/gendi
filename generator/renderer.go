@@ -49,10 +49,9 @@ func (r *Renderer) renderContainerStruct(b *bytes.Buffer, ctx *genContext, hasPa
 		if svc.aliasTarget != "" || !svc.shared {
 			continue
 		}
-		resType := getterType(svc)
-		nilable := isNilable(resType)
+		resType := svc.GetterType()
 		fmt.Fprintf(b, "\t%s %s\n", r.ident.Field(svc.id), r.imports.typeString(resType))
-		if !nilable {
+		if !isNilable(resType) {
 			fmt.Fprintf(b, "\t%sInit bool\n", r.ident.Field(svc.id))
 		}
 	}
@@ -138,14 +137,14 @@ func (r *Renderer) renderBuild(b *bytes.Buffer, ctx *genContext, svc *serviceDef
 }
 
 func (r *Renderer) renderPrivateGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
-	resType := getterType(svc)
+	resType := svc.GetterType()
 	renderer := selectPrivateGetterRenderer(svc, resType)
 	return renderer.render(b, r, ctx, svc)
 }
 
 func (r *Renderer) renderGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.getterName
-	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", r.containerName, getter, r.imports.typeString(getterType(svc)))
+	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", r.containerName, getter, r.imports.typeString(svc.GetterType()))
 	fmt.Fprintf(b, "\tc.mu.Lock()\n")
 	fmt.Fprintf(b, "\tdefer c.mu.Unlock()\n")
 	fmt.Fprintf(b, "\treturn c.%s()\n", svc.privateGetterName)
