@@ -2,26 +2,30 @@ package generator
 
 import "strings"
 
-// identGenerator generates Go identifiers for generated code.
-type identGenerator struct{}
+// IdentGenerator generates Go identifiers for generated code.
+type IdentGenerator struct{}
+
+func NewIdentGenerator() *IdentGenerator {
+	return &IdentGenerator{}
+}
 
 // Field returns the field identifier for a service.
-func (ig *identGenerator) Field(id string) string {
+func (ig *IdentGenerator) Field(id string) string {
 	return "svc_" + ig.sanitize(id)
 }
 
 // Var returns a variable identifier with a prefix.
-func (ig *identGenerator) Var(prefix, id string) string {
+func (ig *IdentGenerator) Var(prefix, id string) string {
 	return prefix + "_" + ig.sanitize(id)
 }
 
 // Build returns the build function name for a service.
-func (ig *identGenerator) Build(id string) string {
+func (ig *IdentGenerator) Build(id string) string {
 	return "build" + ig.toCamel(id)
 }
 
 // Getter returns a getter method name (e.g., "GetMyService" or "getMyService").
-func (ig *identGenerator) Getter(id string, public bool) string {
+func (ig *IdentGenerator) Getter(id string, public bool) string {
 	if public {
 		return "Get" + ig.toCamel(id)
 	}
@@ -29,7 +33,7 @@ func (ig *identGenerator) Getter(id string, public bool) string {
 }
 
 // TagGetter returns a tag getter method name.
-func (ig *identGenerator) TagGetter(name string, public bool) string {
+func (ig *IdentGenerator) TagGetter(name string, public bool) string {
 	if public {
 		return "GetTaggedWith" + ig.toCamel(name)
 	}
@@ -37,7 +41,7 @@ func (ig *identGenerator) TagGetter(name string, public bool) string {
 }
 
 // toCamel converts a string to CamelCase.
-func (ig *identGenerator) toCamel(id string) string {
+func (ig *IdentGenerator) toCamel(id string) string {
 	parts := strings.FieldsFunc(id, func(r rune) bool {
 		return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9')
 	})
@@ -54,7 +58,7 @@ func (ig *identGenerator) toCamel(id string) string {
 }
 
 // sanitize converts a string to a valid Go identifier.
-func (ig *identGenerator) sanitize(id string) string {
+func (ig *IdentGenerator) sanitize(id string) string {
 	var b strings.Builder
 	for _, r := range id {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {

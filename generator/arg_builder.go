@@ -34,7 +34,7 @@ func (b *serviceRefBuilder) build(ctx *argBuildContext) (string, []string, error
 		return "", nil, fmt.Errorf("unknown service %q", ctx.argument.Service.ID)
 	}
 	call := fmt.Sprintf("c.%s()", dep.privateGetterName)
-	depVar := ctx.rnd.ident.Var(fmt.Sprintf("arg%d", ctx.argIndex), dep.id)
+	depVar := ctx.rnd.identGenerator.Var(fmt.Sprintf("arg%d", ctx.argIndex), dep.id)
 	if ctx.returnsErr {
 		stmts := []string{
 			fmt.Sprintf("%s, err := %s", depVar, call),
@@ -54,7 +54,7 @@ func (b *paramRefBuilder) build(ctx *argBuildContext) (string, []string, error) 
 	if method == "" {
 		return "", nil, fmt.Errorf("unknown parameter %q", ctx.argument.Parameter.Name)
 	}
-	paramVar := ctx.rnd.ident.Var(fmt.Sprintf("param%d", ctx.argIndex), ctx.argument.Parameter.Name)
+	paramVar := ctx.rnd.identGenerator.Var(fmt.Sprintf("param%d", ctx.argIndex), ctx.argument.Parameter.Name)
 	stmts := []string{
 		// Note: No need to check c.params == nil because the constructor ensures params is never nil
 		fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, ctx.argument.Parameter.Name),
@@ -65,7 +65,7 @@ func (b *paramRefBuilder) build(ctx *argBuildContext) (string, []string, error) 
 	paramType := ctx.argument.Parameter.Type
 	if named, ok := paramType.(*types.Named); ok {
 		// Named type - need to convert from underlying type
-		typeStr := ctx.rnd.imports.typeString(named)
+		typeStr := ctx.rnd.importManager.typeString(named)
 		return fmt.Sprintf("%s(%s)", typeStr, paramVar), stmts, nil
 	}
 
@@ -77,7 +77,7 @@ type taggedBuilder struct{}
 
 func (b *taggedBuilder) generateIdentical(varName string, ctx *argBuildContext) (string, []string, error) {
 	tagName := ctx.argument.Tag.Name
-	getter := ctx.rnd.getters.PrivateTag(tagName)
+	getter := ctx.rnd.getterRegistry.PrivateTag(tagName)
 
 	call := fmt.Sprintf("c.%s()", getter)
 	var stmts []string
@@ -94,12 +94,12 @@ func (b *taggedBuilder) generateIdentical(varName string, ctx *argBuildContext) 
 func (b *taggedBuilder) generateCasted(varName string, paramElem types.Type, ctx *argBuildContext) (string, []string, error) {
 	var stmts []string
 
-	convType := "[]" + ctx.rnd.imports.typeString(paramElem)
+	convType := "[]" + ctx.rnd.importManager.typeString(paramElem)
 	stmts = append(stmts, fmt.Sprintf("var %s %s", varName, convType))
 	stmts = append(stmts, "{")
 
 	tagName := ctx.argument.Tag.Name
-	taggedCallVar, callStmts, err := b.generateIdentical(ctx.rnd.ident.Var("tagged", tagName), ctx)
+	taggedCallVar, callStmts, err := b.generateIdentical(ctx.rnd.identGenerator.Var("tagged", tagName), ctx)
 	if err != nil {
 		return "", nil, err
 	}
@@ -122,7 +122,7 @@ func tagElementType(ctx *genContext, tag string) types.Type {
 
 func (b *taggedBuilder) build(ctx *argBuildContext) (string, []string, error) {
 	tagName := ctx.argument.Tag.Name
-	getter := ctx.rnd.getters.PrivateTag(tagName)
+	getter := ctx.rnd.getterRegistry.PrivateTag(tagName)
 	if getter == "" {
 		return "", nil, fmt.Errorf("tag %q: missing private getter", tagName)
 	}
@@ -134,7 +134,7 @@ func (b *taggedBuilder) build(ctx *argBuildContext) (string, []string, error) {
 	}
 
 	paramElem := paramSlice.Elem()
-	varName := ctx.rnd.ident.Var(fmt.Sprintf("arg%d_tagged", ctx.argIndex), tagName)
+	varName := ctx.rnd.identGenerator.Var(fmt.Sprintf("arg%d_tagged", ctx.argIndex), tagName)
 
 	if types.Identical(elemType, paramElem) {
 		return b.generateIdentical(varName, ctx)

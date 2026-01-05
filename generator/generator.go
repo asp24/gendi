@@ -23,7 +23,7 @@ func (g *Generator) render(ctx *genContext, cRenderer *ContainerRenderer) ([]byt
 	body := &bytes.Buffer{}
 
 	// Render main code sections
-	if err := (&RendererParameters{importManager: cRenderer.imports}).Render(g.cfg.Parameters, body); err != nil {
+	if err := (&RendererParameters{importManager: cRenderer.importManager}).Render(g.cfg.Parameters, body); err != nil {
 		return nil, err
 	}
 
@@ -49,7 +49,7 @@ func (g *Generator) assembleOutput(body *bytes.Buffer, cRenderer *ContainerRende
 	fmt.Fprintf(out, "package %s\n\n", g.options.Package)
 
 	extraImports := []string{"sync", "fmt", "github.com/asp24/gendi/parameters"}
-	out.WriteString(cRenderer.imports.renderImports(extraImports))
+	out.WriteString(cRenderer.importManager.renderImports(extraImports))
 	out.Write(body.Bytes())
 
 	return out.Bytes()
@@ -93,10 +93,10 @@ func (g *Generator) Generate() ([]byte, error) {
 		return nil, err
 	}
 
-	ident := &identGenerator{}
-	getters := newGetterRegistry(ident)
-	imports := NewImportManager(g.options.OutputPkgPath)
-	cRenderer := NewContainerRenderer(imports, ident, getters, g.options.Container)
+	identGenerator := NewIdentGenerator()
+	getterRegistry := NewGetterRegistry(identGenerator)
+	importManager := NewImportManager(g.options.OutputPkgPath)
+	cRenderer := NewContainerRenderer(importManager, identGenerator, getterRegistry, g.options.Container)
 
 	// Render code
 	code, err := g.render(ctx, cRenderer)

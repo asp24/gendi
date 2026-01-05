@@ -31,7 +31,7 @@ type aliasGetterRenderer struct{}
 func (g *aliasGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
 	resType := svc.GetterType()
-	getterTypeStr := rnd.imports.typeString(resType)
+	getterTypeStr := rnd.importManager.typeString(resType)
 
 	target := ctx.services[svc.aliasTarget]
 	if target == nil {
@@ -51,8 +51,8 @@ type sharedPtrGetterRenderer struct{}
 func (g *sharedPtrGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
 	resType := svc.GetterType()
-	getterTypeStr := rnd.imports.typeString(resType)
-	fieldName := rnd.ident.Field(svc.id)
+	getterTypeStr := rnd.importManager.typeString(resType)
+	fieldName := rnd.identGenerator.Field(svc.id)
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", rnd.containerName, getter, getterTypeStr)
 	fmt.Fprintf(b, "\tvar zero %s\n", getterTypeStr)
@@ -73,8 +73,8 @@ type sharedValueGetterRenderer struct{}
 func (g *sharedValueGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
 	resType := svc.GetterType()
-	getterTypeStr := rnd.imports.typeString(resType)
-	fieldName := rnd.ident.Field(svc.id)
+	getterTypeStr := rnd.importManager.typeString(resType)
+	fieldName := rnd.identGenerator.Field(svc.id)
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", rnd.containerName, getter, getterTypeStr)
 	fmt.Fprintf(b, "\tvar zero %s\n", getterTypeStr)
@@ -98,7 +98,7 @@ type nonSharedGetterRenderer struct{}
 func (g *nonSharedGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
 	resType := svc.GetterType()
-	getterTypeStr := rnd.imports.typeString(resType)
+	getterTypeStr := rnd.importManager.typeString(resType)
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", rnd.containerName, getter, getterTypeStr)
 	fmt.Fprintf(b, "\tvar zero %s\n", getterTypeStr)

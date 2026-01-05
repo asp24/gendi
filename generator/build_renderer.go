@@ -35,15 +35,15 @@ func buildNeedsErrorHandling(svc *serviceDef) bool {
 type regularBuildRenderer struct{}
 
 func (r *regularBuildRenderer) buildSignature(rnd *ContainerRenderer, svc *serviceDef) (string, string) {
-	name := rnd.ident.Build(svc.id)
-	retType := rnd.imports.typeString(svc.typeName)
+	name := rnd.identGenerator.Build(svc.id)
+	retType := rnd.importManager.typeString(svc.typeName)
 	signature := fmt.Sprintf("func (c *%s) %s() (%s, error)", rnd.containerName, name, retType)
 	return signature, ""
 }
 
 func (r *regularBuildRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error {
 	signature, innerVar := r.buildSignature(rnd, svc)
-	retType := rnd.imports.typeString(svc.typeName)
+	retType := rnd.importManager.typeString(svc.typeName)
 	returnsErr := buildNeedsErrorHandling(svc)
 
 	fmt.Fprintf(b, "%s {\n", signature)
