@@ -20,8 +20,8 @@ type Container struct {
 	mu                     sync.Mutex
 	params                 parameters.Provider
 	onMustCallFailed       func(serviceName string, err error)
-	svc_notifier_sms       *app.SMSNotifier
 	svc_notifier_email     *app.EmailNotifier
+	svc_notifier_sms       *app.SMSNotifier
 	svc_notifier_aggregate *app.AggregateNotifier
 	svc_handler            *app.Handler
 }
@@ -79,10 +79,6 @@ func (c *Container) buildFactory() (*app.Factory, error) {
 	return app.NewFactory(arg0_logger), nil
 }
 
-func (c *Container) buildNotifierSms() (*app.SMSNotifier, error) {
-	return app.NewSMSNotifier(), nil
-}
-
 func (c *Container) buildMailerRetryInner() (app.Mailer, error) {
 	var zero app.Mailer
 	param0_mail_host, err := c.params.GetString("mail_host")
@@ -125,6 +121,10 @@ func (c *Container) buildNotifierEmail() (*app.EmailNotifier, error) {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "notifier.email", '\x00', err)
 	}
 	return app.NewEmailNotifier(arg0_mailer), nil
+}
+
+func (c *Container) buildNotifierSms() (*app.SMSNotifier, error) {
+	return app.NewSMSNotifier(), nil
 }
 
 func (c *Container) buildNotifierAggregate() (*app.AggregateNotifier, error) {
@@ -180,19 +180,6 @@ func (c *Container) getFactory() (*app.Factory, error) {
 	return res, nil
 }
 
-func (c *Container) getNotifierSms() (*app.SMSNotifier, error) {
-	var zero *app.SMSNotifier
-	if c.svc_notifier_sms != nil {
-		return c.svc_notifier_sms, nil
-	}
-	res, err := c.buildNotifierSms()
-	if err != nil {
-		return zero, err
-	}
-	c.svc_notifier_sms = res
-	return res, nil
-}
-
 func (c *Container) getMailerRetryInner() (app.Mailer, error) {
 	var zero app.Mailer
 	res, err := c.buildMailerRetryInner()
@@ -234,6 +221,19 @@ func (c *Container) getNotifierEmail() (*app.EmailNotifier, error) {
 		return zero, err
 	}
 	c.svc_notifier_email = res
+	return res, nil
+}
+
+func (c *Container) getNotifierSms() (*app.SMSNotifier, error) {
+	var zero *app.SMSNotifier
+	if c.svc_notifier_sms != nil {
+		return c.svc_notifier_sms, nil
+	}
+	res, err := c.buildNotifierSms()
+	if err != nil {
+		return zero, err
+	}
+	c.svc_notifier_sms = res
 	return res, nil
 }
 

@@ -1,10 +1,13 @@
 package ir
 
 import (
+	"cmp"
 	"fmt"
 	"go/types"
+	"slices"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/xmaps"
 )
 
 // dependencyResolver builds service dependency graph and links tagged services
@@ -18,7 +21,8 @@ func (r *dependencyResolver) resolve(_ *di.Config, container *Container) error {
 	}
 
 	// Then build dependency graph
-	for _, svc := range container.Services {
+	for _, id := range xmaps.OrderedKeys(container.Services) {
+		svc := container.Services[id]
 		if svc.IsAlias() {
 			svc.Dependencies = []*Service{svc.Alias}
 			continue
@@ -53,13 +57,18 @@ func (r *dependencyResolver) resolve(_ *di.Config, container *Container) error {
 		for _, dep := range deps {
 			svc.Dependencies = append(svc.Dependencies, dep)
 		}
+
+		slices.SortFunc(svc.Dependencies, func(a, b *Service) int {
+			return cmp.Compare(a.ID, b.ID)
+		})
 	}
 	return nil
 }
 
 // resolveTaggedServices links services to their tags and validates type compatibility
 func (r *dependencyResolver) resolveTaggedServices(container *Container) error {
-	for _, svc := range container.Services {
+	for _, id := range xmaps.OrderedKeys(container.Services) {
+		svc := container.Services[id]
 		for _, st := range svc.Tags {
 			// Validate service type is assignable to tag's ElementType (if known)
 			if st.Tag.ElementType != nil && svc.Type != nil {
