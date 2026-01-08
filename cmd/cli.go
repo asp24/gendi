@@ -11,32 +11,6 @@ import (
 	"github.com/asp24/gendi/yaml"
 )
 
-// Config holds CLI configuration
-type Config struct {
-	ConfigPath       string
-	GeneratorOptions generator.Options
-}
-
-// Finalize validates and finalizes the configuration
-func (c *Config) Finalize() error {
-	if c.ConfigPath == "" {
-		return fmt.Errorf("config is required")
-	}
-
-	return c.GeneratorOptions.Finalize()
-}
-
-// BindFlags binds command-line flags to the config
-func BindFlags(flags *flag.FlagSet, cfg *Config) {
-	flags.StringVar(&cfg.ConfigPath, "config", "", "Root YAML configuration file")
-	flags.StringVar(&cfg.GeneratorOptions.Out, "out", "", "Output directory or file")
-	flags.StringVar(&cfg.GeneratorOptions.Package, "pkg", "", "Go package name")
-	flags.StringVar(&cfg.GeneratorOptions.Container, "container", "Container", "Container struct name")
-	flags.BoolVar(&cfg.GeneratorOptions.Strict, "strict", true, "Enable strict validation")
-	flags.StringVar(&cfg.GeneratorOptions.BuildTags, "build-tags", "", "Go build tags")
-	flags.BoolVar(&cfg.GeneratorOptions.Verbose, "verbose", false, "Verbose logging")
-}
-
 // WriteTargetFile writes data to the specified file path
 func WriteTargetFile(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -49,15 +23,7 @@ func WriteTargetFile(path string, data []byte) error {
 	return nil
 }
 
-// Run executes the full gendi workflow with optional compiler passes
-func Run(flags *flag.FlagSet, passes []di.Pass) error {
-	var cfg Config
-	BindFlags(flags, &cfg)
-
-	if err := flags.Parse(os.Args[1:]); err != nil {
-		return fmt.Errorf("parse flags: %w", err)
-	}
-
+func Generate(cfg Config, passes []di.Pass) error {
 	if err := cfg.Finalize(); err != nil {
 		return fmt.Errorf("config finalize: %w", err)
 	}
@@ -89,4 +55,16 @@ func Run(flags *flag.FlagSet, passes []di.Pass) error {
 	}
 
 	return nil
+}
+
+// Run executes the full gendi workflow with optional compiler passes
+func Run(flags *flag.FlagSet, passes []di.Pass) error {
+	var cfg Config
+	cfg.RegisterFlags(flags)
+
+	if err := flags.Parse(os.Args[1:]); err != nil {
+		return fmt.Errorf("parse flags: %w", err)
+	}
+
+	return Generate(cfg, passes)
 }
