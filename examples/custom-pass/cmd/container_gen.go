@@ -23,6 +23,7 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 type Container struct {
 	mu                           sync.Mutex
 	params                       parameters.Provider
+	onMustCallFailed             func(serviceName string, err error)
 	svc_stdlib_slog_handler_text slog.Handler
 	svc_stdlib_slog              *slog.Logger
 	svc_product_repo             *app.ProductRepoImpl
@@ -32,11 +33,26 @@ type Container struct {
 	svc_server                   *app.Server
 }
 
-func NewContainer(params parameters.Provider) *Container {
+type ContainerOption func(*Container)
+
+func WithErrorHandler(handler func(serviceName string, err error)) ContainerOption {
+	return func(c *Container) {
+		c.onMustCallFailed = handler
+	}
+}
+
+func NewContainer(params parameters.Provider, opts ...ContainerOption) *Container {
 	if params == nil {
 		params = DefaultParameters
 	}
-	return &Container{params: params}
+	c := &Container{
+		params:           params,
+		onMustCallFailed: func(string, error) {},
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
 }
 
 func (c *Container) buildStdlibStderr() (io.Writer, error) {
@@ -307,4 +323,13 @@ func (c *Container) GetServer() (*app.Server, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.getServer()
+}
+
+func (c *Container) MustServer() *app.Server {
+	res, err := c.GetServer()
+	if err != nil {
+		c.onMustCallFailed("server", err)
+		panic(err)
+	}
+	return res
 }

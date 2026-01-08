@@ -19,17 +19,33 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 type Container struct {
 	mu                     sync.Mutex
 	params                 parameters.Provider
+	onMustCallFailed       func(serviceName string, err error)
 	svc_notifier_sms       *app.SMSNotifier
 	svc_notifier_email     *app.EmailNotifier
 	svc_notifier_aggregate *app.AggregateNotifier
 	svc_handler            *app.Handler
 }
 
-func NewContainer(params parameters.Provider) *Container {
+type ContainerOption func(*Container)
+
+func WithErrorHandler(handler func(serviceName string, err error)) ContainerOption {
+	return func(c *Container) {
+		c.onMustCallFailed = handler
+	}
+}
+
+func NewContainer(params parameters.Provider, opts ...ContainerOption) *Container {
 	if params == nil {
 		params = DefaultParameters
 	}
-	return &Container{params: params}
+	c := &Container{
+		params:           params,
+		onMustCallFailed: func(string, error) {},
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
 }
 
 func (c *Container) buildDb() (*app.DB, error) {
@@ -266,14 +282,23 @@ func (c *Container) getTaggedWithNotifier() ([]app.Notifier, error) {
 	return items, nil
 }
 
+func (c *Container) GetTaggedWithNotifier() ([]app.Notifier, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.getTaggedWithNotifier()
+}
+
 func (c *Container) GetHandler() (*app.Handler, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.getHandler()
 }
 
-func (c *Container) GetTaggedWithNotifier() ([]app.Notifier, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.getTaggedWithNotifier()
+func (c *Container) MustHandler() *app.Handler {
+	res, err := c.GetHandler()
+	if err != nil {
+		c.onMustCallFailed("handler", err)
+		panic(err)
+	}
+	return res
 }

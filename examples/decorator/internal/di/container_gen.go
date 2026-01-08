@@ -11,15 +11,31 @@ import (
 type Container struct {
 	mu                                   sync.Mutex
 	params                               parameters.Provider
+	onMustCallFailed                     func(serviceName string, err error)
 	svc_payment_provider_with_comission  *app.PaymentProviderCommissionDecorator
 	svc_payment_provider_with_comission2 *app.PaymentProviderCommissionDecorator
 }
 
-func NewContainer(params parameters.Provider) *Container {
+type ContainerOption func(*Container)
+
+func WithErrorHandler(handler func(serviceName string, err error)) ContainerOption {
+	return func(c *Container) {
+		c.onMustCallFailed = handler
+	}
+}
+
+func NewContainer(params parameters.Provider, opts ...ContainerOption) *Container {
 	if params == nil {
 		params = parameters.ProviderNullInstance
 	}
-	return &Container{params: params}
+	c := &Container{
+		params:           params,
+		onMustCallFailed: func(string, error) {},
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
 }
 
 func (c *Container) buildPaymentProviderDummy() (*app.PaymentProviderDummy, error) {
@@ -98,14 +114,23 @@ func (c *Container) getTaggedWithJob() ([]app.Job, error) {
 	return items, nil
 }
 
+func (c *Container) GetTaggedWithJob() ([]app.Job, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.getTaggedWithJob()
+}
+
 func (c *Container) GetPaymentProvider() (*app.PaymentProviderCommissionDecorator, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.getPaymentProvider()
 }
 
-func (c *Container) GetTaggedWithJob() ([]app.Job, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.getTaggedWithJob()
+func (c *Container) MustPaymentProvider() *app.PaymentProviderCommissionDecorator {
+	res, err := c.GetPaymentProvider()
+	if err != nil {
+		c.onMustCallFailed("payment.provider", err)
+		panic(err)
+	}
+	return res
 }

@@ -16,6 +16,7 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 type Container struct {
 	mu                          sync.Mutex
 	params                      parameters.Provider
+	onMustCallFailed            func(serviceName string, err error)
 	svc_logger                  *app.Logger
 	svc_provider_paypal         *app.PaymentProvider
 	svc_provider_stripe         *app.PaymentProvider
@@ -23,11 +24,26 @@ type Container struct {
 	svc_timer                   *app.Timer
 }
 
-func NewContainer(params parameters.Provider) *Container {
+type ContainerOption func(*Container)
+
+func WithErrorHandler(handler func(serviceName string, err error)) ContainerOption {
+	return func(c *Container) {
+		c.onMustCallFailed = handler
+	}
+}
+
+func NewContainer(params parameters.Provider, opts ...ContainerOption) *Container {
 	if params == nil {
 		params = DefaultParameters
 	}
-	return &Container{params: params}
+	c := &Container{
+		params:           params,
+		onMustCallFailed: func(string, error) {},
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
 }
 
 func (c *Container) buildLogger() (*app.Logger, error) {
@@ -197,14 +213,41 @@ func (c *Container) GetServiceDecoratorInner() (*app.Service, error) {
 	return c.getServiceDecoratorInner()
 }
 
+func (c *Container) MustServiceDecoratorInner() *app.Service {
+	res, err := c.GetServiceDecoratorInner()
+	if err != nil {
+		c.onMustCallFailed("service.decorator.inner", err)
+		panic(err)
+	}
+	return res
+}
+
 func (c *Container) GetService() (*app.Service, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.getService()
 }
 
+func (c *Container) MustService() *app.Service {
+	res, err := c.GetService()
+	if err != nil {
+		c.onMustCallFailed("service", err)
+		panic(err)
+	}
+	return res
+}
+
 func (c *Container) GetTimer() (*app.Timer, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.getTimer()
+}
+
+func (c *Container) MustTimer() *app.Timer {
+	res, err := c.GetTimer()
+	if err != nil {
+		c.onMustCallFailed("timer", err)
+		panic(err)
+	}
+	return res
 }

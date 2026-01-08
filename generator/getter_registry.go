@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/asp24/gendi/ir"
 	"github.com/asp24/gendi/xmaps"
@@ -26,6 +27,21 @@ func NewGetterRegistry(identGenerator *IdentGenerator) *GetterRegistry {
 		publicTag:      make(map[string]string),
 		privateTag:     make(map[string]string),
 	}
+}
+
+// uniqueName generates a unique name by appending numbers if needed.
+func (gr *GetterRegistry) uniqueName(base string, used map[string]bool) string {
+	name := base
+	if used[name] {
+		for i := 2; ; i++ {
+			candidate := fmt.Sprintf("%s%d", base, i)
+			if !used[candidate] {
+				name = candidate
+				break
+			}
+		}
+	}
+	return name
 }
 
 // Assign assigns unique getter names for all services and tags.
@@ -92,17 +108,9 @@ func (gr *GetterRegistry) PrivateTag(name string) string {
 	return gr.privateTag[name]
 }
 
-// uniqueName generates a unique name by appending numbers if needed.
-func (gr *GetterRegistry) uniqueName(base string, used map[string]bool) string {
-	name := base
-	if used[name] {
-		for i := 2; ; i++ {
-			candidate := fmt.Sprintf("%s%d", base, i)
-			if !used[candidate] {
-				name = candidate
-				break
-			}
-		}
-	}
-	return name
+// MustService returns the Must* getter name for a public service.
+// It transforms the public getter name (e.g., "GetService") to "MustService".
+func (gr *GetterRegistry) MustService(id string) string {
+	publicGetter := gr.PublicService(id)
+	return "Must" + strings.TrimPrefix(publicGetter, "Get")
 }

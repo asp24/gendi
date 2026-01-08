@@ -49,6 +49,7 @@ func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *genConte
 	fmt.Fprintf(b, "type %s struct {\n", r.containerName)
 	fmt.Fprintf(b, "\tmu sync.Mutex\n")
 	fmt.Fprintf(b, "\tparams parameters.Provider\n")
+	fmt.Fprintf(b, "\tonMustCallFailed func(serviceName string, err error)\n")
 
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
@@ -63,7 +64,18 @@ func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *genConte
 	}
 	b.WriteString("}\n\n")
 
-	fmt.Fprintf(b, "func New%s(params parameters.Provider) *%s {\n", r.containerName, r.containerName)
+	// ContainerOption type
+	fmt.Fprintf(b, "type %sOption func(*%s)\n\n", r.containerName, r.containerName)
+
+	// WithErrorHandler function
+	fmt.Fprintf(b, "func WithErrorHandler(handler func(serviceName string, err error)) %sOption {\n", r.containerName)
+	fmt.Fprintf(b, "\treturn func(c *%s) {\n", r.containerName)
+	fmt.Fprintf(b, "\t\tc.onMustCallFailed = handler\n")
+	fmt.Fprintf(b, "\t}\n")
+	fmt.Fprintf(b, "}\n\n")
+
+	// NewContainer constructor with options
+	fmt.Fprintf(b, "func New%s(params parameters.Provider, opts ...%sOption) *%s {\n", r.containerName, r.containerName, r.containerName)
 	fmt.Fprintf(b, "\tif params == nil {\n")
 
 	if hasParams {
@@ -73,7 +85,14 @@ func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *genConte
 	}
 
 	fmt.Fprintf(b, "\t}\n")
-	fmt.Fprintf(b, "\treturn &%s{params: params}\n", r.containerName)
+	fmt.Fprintf(b, "\tc := &%s{\n", r.containerName)
+	fmt.Fprintf(b, "\t\tparams: params,\n")
+	fmt.Fprintf(b, "\t\tonMustCallFailed: func(string, error) {},\n")
+	fmt.Fprintf(b, "\t}\n")
+	fmt.Fprintf(b, "\tfor _, opt := range opts {\n")
+	fmt.Fprintf(b, "\t\topt(c)\n")
+	fmt.Fprintf(b, "\t}\n")
+	fmt.Fprintf(b, "\treturn c\n")
 	b.WriteString("}\n\n")
 
 	return nil
@@ -111,9 +130,15 @@ func (r *ContainerRenderer) renderGetterFunctions(b *bytes.Buffer, ctx *genConte
 		if err := r.renderPrivateTagGetter(b, ctx, name, tag); err != nil {
 			return err
 		}
+		if !tag.Public {
+			continue
+		}
+		if err := r.renderTagGetter(b, ctx, name, tag); err != nil {
+			return err
+		}
 	}
 
-	// Render public getters
+	// Render public getters and Must* methods
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
 		if !svc.public {
@@ -122,18 +147,11 @@ func (r *ContainerRenderer) renderGetterFunctions(b *bytes.Buffer, ctx *genConte
 		if err := r.renderGetter(b, ctx, svc); err != nil {
 			return err
 		}
-	}
-
-	// Render public tag getters
-	for _, name := range tagGetterNames {
-		tag := ctx.tags[name]
-		if tag == nil || !tag.Public {
-			continue
-		}
-		if err := r.renderTagGetter(b, ctx, name, tag); err != nil {
+		if err := r.renderMustGetter(b, ctx, svc); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -154,6 +172,22 @@ func (r *ContainerRenderer) renderGetter(b *bytes.Buffer, ctx *genContext, svc *
 	fmt.Fprintf(b, "\tc.mu.Lock()\n")
 	fmt.Fprintf(b, "\tdefer c.mu.Unlock()\n")
 	fmt.Fprintf(b, "\treturn c.%s()\n", svc.privateGetterName)
+	b.WriteString("}\n\n")
+	return nil
+}
+
+func (r *ContainerRenderer) renderMustGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+	getter := r.getterRegistry.PublicService(svc.id)
+	mustGetter := r.getterRegistry.MustService(svc.id)
+	typeStr := r.importManager.typeString(svc.GetterType())
+
+	fmt.Fprintf(b, "func (c *%s) %s() %s {\n", r.containerName, mustGetter, typeStr)
+	fmt.Fprintf(b, "\tres, err := c.%s()\n", getter)
+	fmt.Fprintf(b, "\tif err != nil {\n")
+	fmt.Fprintf(b, "\t\tc.onMustCallFailed(%q, err)\n", svc.id)
+	fmt.Fprintf(b, "\t\tpanic(err)\n")
+	fmt.Fprintf(b, "\t}\n")
+	fmt.Fprintf(b, "\treturn res\n")
 	b.WriteString("}\n\n")
 	return nil
 }
