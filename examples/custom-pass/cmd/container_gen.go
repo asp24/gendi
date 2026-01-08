@@ -81,15 +81,6 @@ func (c *Container) buildStdlibSlog() (*slog.Logger, error) {
 	return stdlib.NewSlogLogger(arg0_stdlib_slog_handler), nil
 }
 
-func (c *Container) buildProductHandlerLogger() (*slog.Logger, error) {
-	var zero *slog.Logger
-	recv_product_handler_logger, err := c.getLogger()
-	if err != nil {
-		return zero, fmt.Errorf("service %q receiver %q: %w", "product.handler.logger", "logger", err)
-	}
-	return recv_product_handler_logger.With("channel", "product"), nil
-}
-
 func (c *Container) buildProductRepo() (*app.ProductRepoImpl, error) {
 	var zero *app.ProductRepoImpl
 	param0_db_dsn, err := c.params.GetString("db_dsn")
@@ -97,6 +88,15 @@ func (c *Container) buildProductRepo() (*app.ProductRepoImpl, error) {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "product.repo", '\x00', "db_dsn", err)
 	}
 	return app.NewProductRepository(param0_db_dsn), nil
+}
+
+func (c *Container) buildProductHandlerLogger() (*slog.Logger, error) {
+	var zero *slog.Logger
+	recv_product_handler_logger, err := c.getLogger()
+	if err != nil {
+		return zero, fmt.Errorf("service %q receiver %q: %w", "product.handler.logger", "logger", err)
+	}
+	return recv_product_handler_logger.With("channel", "product"), nil
 }
 
 func (c *Container) buildProductHandler() (app.HTTPHandler, error) {
@@ -212,15 +212,6 @@ func (c *Container) getLogger() (*slog.Logger, error) {
 	return c.getStdlibSlog()
 }
 
-func (c *Container) getProductHandlerLogger() (*slog.Logger, error) {
-	var zero *slog.Logger
-	res, err := c.buildProductHandlerLogger()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
-}
-
 func (c *Container) getProductRepo() (*app.ProductRepoImpl, error) {
 	var zero *app.ProductRepoImpl
 	if c.svc_product_repo != nil {
@@ -231,6 +222,15 @@ func (c *Container) getProductRepo() (*app.ProductRepoImpl, error) {
 		return zero, err
 	}
 	c.svc_product_repo = res
+	return res, nil
+}
+
+func (c *Container) getProductHandlerLogger() (*slog.Logger, error) {
+	var zero *slog.Logger
+	res, err := c.buildProductHandlerLogger()
+	if err != nil {
+		return zero, err
+	}
 	return res, nil
 }
 
