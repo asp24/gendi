@@ -1,5 +1,7 @@
 /.gocache
 /.vscode
 /.idea
+./advanced
+./basic
 go.sum
 justfile

@@ -35,14 +35,16 @@ func NewContainerRenderer(
 	}
 }
 
-func (r *ContainerRenderer) assignNames(ctx *genContext, tagGetterNames []string) {
-	r.getterRegistry.Assign(ctx.orderedServiceIDs, ctx.services, ctx.tags, tagGetterNames)
+func (r *ContainerRenderer) assignNames(ctx *genContext, tagGetterNames []string) error {
+	if err := r.getterRegistry.Assign(ctx.orderedServiceIDs, ctx.services, ctx.tags, tagGetterNames); err != nil {
+		return err
+	}
+
 	for id := range ctx.services {
-		if ctx.services[id].public {
-			ctx.services[id].getterName = r.getterRegistry.PublicService(id)
-		}
 		ctx.services[id].privateGetterName = r.getterRegistry.PrivateService(id)
 	}
+
+	return nil
 }
 
 func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *genContext, hasParams bool) error {
@@ -167,8 +169,10 @@ func (r *ContainerRenderer) renderPrivateGetter(b *bytes.Buffer, ctx *genContext
 }
 
 func (r *ContainerRenderer) renderGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
-	getter := svc.getterName
-	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", r.containerName, getter, r.importManager.typeString(svc.GetterType()))
+	getter := r.getterRegistry.PublicService(svc.id)
+	typeStr := r.importManager.typeString(svc.GetterType())
+
+	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", r.containerName, getter, typeStr)
 	fmt.Fprintf(b, "\tc.mu.Lock()\n")
 	fmt.Fprintf(b, "\tdefer c.mu.Unlock()\n")
 	fmt.Fprintf(b, "\treturn c.%s()\n", svc.privateGetterName)
@@ -356,9 +360,10 @@ func (r *ContainerRenderer) collectTagGetterNames(ctx *genContext) []string {
 func (r *ContainerRenderer) Render(cfg *di.Config, ctx *genContext, body *bytes.Buffer) error {
 	r.importManager.ReserveAliases("sync", "fmt")
 
-	// Assign getter names and populate serviceDef fields
 	tagGetterNames := r.collectTagGetterNames(ctx)
-	r.assignNames(ctx, tagGetterNames)
+	if err := r.assignNames(ctx, tagGetterNames); err != nil {
+		return fmt.Errorf("assign names: %w", err)
+	}
 
 	hasParams := len(cfg.Parameters) > 0
 	if err := r.renderContainerStruct(body, ctx, hasParams); err != nil {

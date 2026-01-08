@@ -32,6 +32,10 @@ func (ig *IdentGenerator) Getter(id string, public bool) string {
 	return "get" + ig.toCamel(id)
 }
 
+func (ig *IdentGenerator) Must(id string) string {
+	return "Must" + ig.toCamel(id)
+}
+
 // TagGetter returns a tag getter method name.
 func (ig *IdentGenerator) TagGetter(name string, public bool) string {
 	if public {

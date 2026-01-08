@@ -11,7 +11,6 @@ type serviceDef struct {
 	typeName          types.Type
 	declaredType      types.Type
 	constructor       constructorDef
-	getterName        string
 	privateGetterName string
 	public            bool
 	shared            bool
