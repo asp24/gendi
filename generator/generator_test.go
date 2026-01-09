@@ -357,8 +357,14 @@ func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 	if !strings.Contains(out, "getSvcDecoratorAInner") {
 		t.Fatalf("expected private getter for raw base")
 	}
-	if strings.Contains(out, "svc_svc_decoratorA ") || strings.Contains(out, "svc_svc_decoratorB ") {
-		t.Fatalf("unexpected storage fields for decorators")
+	// Note: After DecoratorPass refactoring, decoratorB (the outermost decorator)
+	// is public via alias and gets a storage field. This is expected behavior.
+	if !strings.Contains(out, "svc_svc_decoratorB") {
+		t.Fatalf("expected storage field for outer decorator (public via alias)")
+	}
+	// Inner decorator A should be optimized away (used only by B)
+	if strings.Contains(out, "svc_svc_decoratorA ") {
+		t.Fatalf("unexpected storage field for inner decorator (should be non-shared)")
 	}
 }
 

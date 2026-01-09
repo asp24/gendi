@@ -72,8 +72,15 @@ func (g *Generator) render(ctx *genContext, pRenderer *ParametersRenderer, cRend
 
 // Generate produces the container code.
 // Options must be finalized before calling New() (via Options.Finalize()).
-// Config should already have passes applied (via di.ApplyPasses()).
+// Internal passes are applied automatically
 func (g *Generator) Generate() ([]byte, error) {
+	// Apply internal passes (idempotent - decorators already expanded will be skipped)
+	cfg, err := di.ApplyInternalPasses(g.cfg)
+	if err != nil {
+		return nil, err
+	}
+	g.cfg = cfg
+
 	typeResolver, err := g.createTypeResolver(g.cfg)
 	if err != nil {
 		return nil, err

@@ -14,14 +14,14 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 })
 
 type Container struct {
-	mu                          sync.Mutex
-	params                      parameters.Provider
-	onMustCallFailed            func(serviceName string, err error)
-	svc_logger                  *app.Logger
-	svc_provider_paypal         *app.PaymentProvider
-	svc_provider_stripe         *app.PaymentProvider
-	svc_service_decorator_inner *app.Service
-	svc_timer                   *app.Timer
+	mu                    sync.Mutex
+	params                parameters.Provider
+	onMustCallFailed      func(serviceName string, err error)
+	svc_logger            *app.Logger
+	svc_provider_paypal   *app.PaymentProvider
+	svc_provider_stripe   *app.PaymentProvider
+	svc_service_decorator *app.Service
+	svc_timer             *app.Timer
 }
 
 type ContainerOption func(*Container)
@@ -155,23 +155,23 @@ func (c *Container) getRepo() (*app.Repo, error) {
 
 func (c *Container) getServiceDecoratorInner() (*app.Service, error) {
 	var zero *app.Service
-	if c.svc_service_decorator_inner != nil {
-		return c.svc_service_decorator_inner, nil
-	}
 	res, err := c.buildServiceDecoratorInner()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_service_decorator_inner = res
 	return res, nil
 }
 
 func (c *Container) getServiceDecorator() (*app.Service, error) {
 	var zero *app.Service
+	if c.svc_service_decorator != nil {
+		return c.svc_service_decorator, nil
+	}
 	res, err := c.buildServiceDecorator()
 	if err != nil {
 		return zero, err
 	}
+	c.svc_service_decorator = res
 	return res, nil
 }
 
@@ -205,21 +205,6 @@ func (c *Container) getTaggedWithPaymentProvider() ([]*app.PaymentProvider, erro
 	}
 	items = append(items, tagged_provider_paypal)
 	return items, nil
-}
-
-func (c *Container) GetServiceDecoratorInner() (*app.Service, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.getServiceDecoratorInner()
-}
-
-func (c *Container) MustServiceDecoratorInner() *app.Service {
-	res, err := c.GetServiceDecoratorInner()
-	if err != nil {
-		c.onMustCallFailed("service.decorator.inner", err)
-		panic(err)
-	}
-	return res
 }
 
 func (c *Container) GetService() (*app.Service, error) {

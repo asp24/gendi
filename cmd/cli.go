@@ -33,7 +33,6 @@ func Generate(cfg Config, passes []di.Pass) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// Apply compiler passes
 	diCfg, err = di.ApplyPasses(diCfg, passes)
 	if err != nil {
 		return fmt.Errorf("apply passes: %w", err)

@@ -24,7 +24,7 @@ func (r *argumentResolver) resolve(container *Container, svcID string, idx int, 
 		irArg.Service = dep
 
 	case di.ArgInner:
-		irArg.Kind = InnerArg
+		return nil, fmt.Errorf("service %q arg[%d]: @.inner should have been resolved by DecoratorPass", svcID, idx)
 
 	case di.ArgParam:
 		param, ok := container.Parameters[arg.Value]

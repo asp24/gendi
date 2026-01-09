@@ -52,9 +52,7 @@ func (b *Builder) Build(cfg *di.Config) (*Container, error) {
 	if err := (&constructorResolver{resolver: b.resolver}).resolve(cfg, result); err != nil {
 		return nil, err
 	}
-	if err := (&decoratorResolver{}).resolve(cfg, result); err != nil {
-		return nil, err
-	}
+	// Decorator resolution moved to DecoratorPass (config-level transformation)
 	if err := (&dependencyResolver{}).resolve(cfg, result); err != nil {
 		return nil, err
 	}
