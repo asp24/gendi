@@ -89,7 +89,7 @@ type ServiceTag struct {
 type Service struct {
 	Type               string
 	Constructor        Constructor
-	Shared             *bool
+	Shared             bool
 	Public             bool
 	Decorates          string
 	DecorationPriority int

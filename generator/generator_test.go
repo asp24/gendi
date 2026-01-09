@@ -318,6 +318,7 @@ func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
 				},
 				Public: true,
+				Shared: true,
 			},
 			"svc.decoratorA": {
 				Constructor: di.Constructor{
@@ -328,6 +329,7 @@ func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 				},
 				Decorates:          "svc",
 				DecorationPriority: 10,
+				Shared:             true,
 			},
 			"svc.decoratorB": {
 				Constructor: di.Constructor{
@@ -338,6 +340,7 @@ func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 				},
 				Decorates:          "svc",
 				DecorationPriority: 20,
+				Shared:             true,
 			},
 		},
 	}

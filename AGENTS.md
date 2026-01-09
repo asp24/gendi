@@ -17,6 +17,7 @@
 - Use standard Go formatting (`gofmt`) and idiomatic Go naming (CamelCase for exported symbols, lower-case for package names).
 - Keep files and tests in the same package when possible; use `*_test.go` naming for tests.
 - Generated files follow `*_gen.go` naming (e.g., `container_gen.go`) and should not be edited by hand.
+- Prefer early-return 
 
 ## Testing Guidelines
 - Tests live in `internal/generator/` with golden-style expectations (see `generator_test.go`).
@@ -24,6 +25,7 @@
 - Run `go test ./...` locally before submitting changes.
 
 ## Commit & Pull Request Guidelines
+- Always ask before commit
 - Commit messages in this repo are short, imperative, and unscoped (e.g., “Tests”, “Rename project to gendi”).
 - PRs should include a concise summary, the reasoning behind changes, and any updates to examples or docs when behavior changes.
 

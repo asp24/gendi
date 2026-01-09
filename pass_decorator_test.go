@@ -152,19 +152,16 @@ func TestDecoratorPassChain(t *testing.T) {
 }
 
 func TestDecoratorPassSharedPropagation(t *testing.T) {
-	nonShared := false
-	shared := true
-
 	cfg := &Config{
 		Services: map[string]Service{
 			"base": {
-				Shared: &nonShared,
+				Shared: false,
 				Constructor: Constructor{
 					Func: "app.NewBase",
 				},
 			},
 			"decorator": {
-				Shared:             &shared,
+				Shared:             true,
 				Decorates:          "base",
 				DecorationPriority: 10,
 				Constructor: Constructor{
@@ -185,12 +182,12 @@ func TestDecoratorPassSharedPropagation(t *testing.T) {
 	for id, svc := range result.Services {
 		if id == "decorator.inner" {
 			// Inner should keep its original non-shared value
-			if svc.Shared != nil && *svc.Shared {
+			if svc.Shared {
 				t.Fatalf("expected inner service to remain non-shared")
 			}
 		} else {
 			// Decorator and base (alias) should be shared
-			if svc.Shared == nil || !*svc.Shared {
+			if !svc.Shared {
 				t.Fatalf("expected service %q to be shared", id)
 			}
 		}

@@ -176,8 +176,8 @@ func TestServiceDefaults(t *testing.T) {
 				t.Fatalf("convertService failed: %v", err)
 			}
 
-			if !boolPtrEqual(svc.Shared, tt.expectedShared) {
-				t.Errorf("expected shared=%v, got %v", boolPtrStr(tt.expectedShared), boolPtrStr(svc.Shared))
+			if svc.Shared != resolveBoolPtr(tt.expectedShared) {
+				t.Errorf("expected shared=%v, got %v", resolveBoolPtr(tt.expectedShared), svc.Shared)
 			}
 
 			if svc.Public != tt.expectedPublic {
@@ -395,6 +395,13 @@ func TestValidateDefaultsRejectsInvalidFields(t *testing.T) {
 // Helper functions
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+func resolveBoolPtr(b *bool) bool {
+	if b == nil {
+		return true // Default shared is true
+	}
+	return *b
 }
 
 func boolPtrEqual(a, b *bool) bool {

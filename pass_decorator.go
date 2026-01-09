@@ -9,13 +9,14 @@ import (
 // This is an internal mandatory pass that runs before user passes.
 //
 // Transformation example:
-//   Input:
-//     base: { constructor: ... }
-//     dec: { decorates: "base", args: ["@.inner"] }
-//   Output:
-//     dec.inner: { constructor: <original base constructor> }
-//     dec: { args: ["@dec.inner"] }
-//     base: { alias: "dec" }
+//
+//	Input:
+//	  base: { constructor: ... }
+//	  dec: { decorates: "base", args: ["@.inner"] }
+//	Output:
+//	  dec.inner: { constructor: <original base constructor> }
+//	  dec: { args: ["@dec.inner"] }
+//	  base: { alias: "dec" }
 type DecoratorPass struct{}
 
 func (p *DecoratorPass) Name() string {
@@ -111,19 +112,20 @@ func (p *DecoratorPass) expandOne(cfg *Config, baseID, decoratorID string) error
 	// Determine inner service (reuse existing alias or create new)
 	innerID, innerSvc := p.resolveInnerService(cfg, baseSvc, decoratorID)
 
+	// Propagate shared flag: if either base or decorator is shared, the result is shared
+	isShared := baseSvc.Shared || decoratorSvc.Shared
+
 	// Transform base into alias to current decorator
 	aliasService := Service{
 		Alias:  decoratorID,
-		Shared: copyBoolPtr(baseSvc.Shared),
+		Shared: isShared,
 		Public: baseSvc.Public, // Preserve public flag
 	}
 
 	// Rewrite @.inner args in decorator
 	decoratorSvc.Constructor.Args = p.rewriteInnerArgs(decoratorSvc.Constructor.Args, innerID)
-	decoratorSvc.Decorates = "" // Clear decoration marker
-
-	// Propagate shared flag (only to decorator and alias, NOT inner)
-	p.propagateShared(&decoratorSvc, &aliasService)
+	decoratorSvc.Decorates = ""    // Clear decoration marker
+	decoratorSvc.Shared = isShared // Apply propagated shared flag
 
 	// Update config (need to write back all modified services)
 	cfg.Services[innerID] = innerSvc
@@ -145,11 +147,9 @@ func (p *DecoratorPass) resolveInnerService(cfg *Config, baseSvc Service, decora
 	innerSvc := Service{
 		Type:        baseSvc.Type,
 		Constructor: baseSvc.Constructor,
-		Shared:      copyBoolPtr(baseSvc.Shared),
+		Shared:      baseSvc.Shared,
 		Public:      false, // Inner services are never public
-		Alias:       "",
-		Decorates:   "",
-		Tags:        nil, // No tags on inner
+		Tags:        nil,   // No tags on inner
 	}
 	// Store the new inner service
 	cfg.Services[innerID] = innerSvc
@@ -169,43 +169,4 @@ func (p *DecoratorPass) rewriteInnerArgs(args []Argument, innerServiceID string)
 		}
 	}
 	return result
-}
-
-func (p *DecoratorPass) propagateShared(services ...*Service) {
-	// Collect explicit shared values (bool OR checks like IR logic)
-	var explicitShared *bool
-	for _, svc := range services {
-		if svc.Shared == nil {
-			continue
-		}
-		if explicitShared == nil {
-			// First explicit value
-			val := *svc.Shared
-			explicitShared = &val
-			continue
-		}
-		// OR with existing value
-		if *svc.Shared {
-			sharedTrue := true
-			explicitShared = &sharedTrue
-		}
-	}
-
-	// If no explicit shared value, leave all as is (default behavior from IR)
-	if explicitShared == nil {
-		return
-	}
-
-	// Propagate explicit shared value to all services
-	for _, svc := range services {
-		svc.Shared = copyBoolPtr(explicitShared)
-	}
-}
-
-func copyBoolPtr(p *bool) *bool {
-	if p == nil {
-		return nil
-	}
-	v := *p
-	return &v
 }
