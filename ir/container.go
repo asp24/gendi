@@ -175,6 +175,7 @@ type ConstructorKind int
 const (
 	FuncConstructor ConstructorKind = iota
 	MethodConstructor
+	SliceConstructor
 )
 
 // Argument is a resolved constructor argument.

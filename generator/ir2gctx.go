@@ -33,6 +33,9 @@ func (b *IRConverter) convertConstructor(irCons *ir.Constructor) constructorDef 
 	if irCons.Kind == ir.FuncConstructor {
 		result.kind = "func"
 		return result
+	} else if irCons.Kind == ir.SliceConstructor {
+		result.kind = "slice"
+		return result
 	}
 
 	result.kind = "method"

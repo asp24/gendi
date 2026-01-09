@@ -4,13 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"go/types"
-	"sort"
-	"strconv"
 	"strings"
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/ir"
-	"github.com/asp24/gendi/xmaps"
 )
 
 // ContainerRenderer contains tools for rendering generated code.
@@ -114,28 +111,11 @@ func (r *ContainerRenderer) renderBuildFunctions(b *bytes.Buffer, ctx *genContex
 	return nil
 }
 
-func (r *ContainerRenderer) renderGetterFunctions(b *bytes.Buffer, ctx *genContext, tagGetterNames []string) error {
+func (r *ContainerRenderer) renderGetterFunctions(b *bytes.Buffer, ctx *genContext) error {
 	// Render private getters
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
 		if err := r.renderPrivateGetter(b, ctx, svc); err != nil {
-			return err
-		}
-	}
-
-	// Render private tag getters
-	for _, name := range tagGetterNames {
-		tag := ctx.tags[name]
-		if tag == nil {
-			continue
-		}
-		if err := r.renderPrivateTagGetter(b, ctx, name, tag); err != nil {
-			return err
-		}
-		if !tag.Public {
-			continue
-		}
-		if err := r.renderTagGetter(b, ctx, name, tag); err != nil {
 			return err
 		}
 	}
@@ -196,93 +176,6 @@ func (r *ContainerRenderer) renderMustGetter(b *bytes.Buffer, ctx *genContext, s
 	return nil
 }
 
-func taggedServices(ctx *genContext, tag string) []*serviceDef {
-	var items []*serviceDef
-	for id, svc := range ctx.services {
-		for _, t := range svc.tags {
-			if t.Tag.Name == tag {
-				items = append(items, ctx.services[id])
-			}
-		}
-	}
-	sortByPriority := false
-	if def, ok := ctx.tags[tag]; ok && def.SortBy == "priority" {
-		sortByPriority = true
-	}
-	if sortByPriority {
-		sort.Slice(items, func(i, j int) bool {
-			pi, pj := tagPriority(items[i], tag), tagPriority(items[j], tag)
-			if pi == pj {
-				return items[i].id < items[j].id
-			}
-			return pi > pj
-		})
-	} else {
-		sort.Slice(items, func(i, j int) bool {
-			return items[i].id < items[j].id
-		})
-	}
-	return items
-}
-
-func tagPriority(svc *serviceDef, tag string) int {
-	for _, t := range svc.tags {
-		if t.Tag.Name != tag {
-			continue
-		}
-		if v, ok := t.Attributes["priority"]; ok {
-			switch val := v.(type) {
-			case int:
-				return val
-			case int64:
-				return int(val)
-			case float64:
-				return int(val)
-			case string:
-				if parsed, err := strconv.Atoi(val); err == nil {
-					return parsed
-				}
-			}
-		}
-	}
-	return 0
-}
-
-func (r *ContainerRenderer) renderPrivateTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
-	if tag.ElementType == nil {
-		return fmt.Errorf("tag %q element type is required for tag getter", tagName)
-	}
-	getter := r.getterRegistry.PrivateTag(tagName)
-	elemType := r.importManager.typeString(tag.ElementType)
-	sliceType := "[]" + elemType
-	items := taggedServices(ctx, tagName)
-
-	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", r.containerName, getter, sliceType)
-	fmt.Fprintf(b, "\titems := make(%s, 0, %d)\n", sliceType, len(items))
-	for _, svc := range items {
-		varName := r.identGenerator.Var("tagged", svc.id)
-		fmt.Fprintf(b, "\t%s, err := c.%s()\n", varName, svc.privateGetterName)
-		fmt.Fprintf(b, "\tif err != nil {\n\t\treturn nil, err\n\t}\n")
-		fmt.Fprintf(b, "\titems = append(items, %s)\n", varName)
-	}
-	fmt.Fprintf(b, "\treturn items, nil\n")
-	b.WriteString("}\n\n")
-	return nil
-}
-
-func (r *ContainerRenderer) renderTagGetter(b *bytes.Buffer, ctx *genContext, tagName string, tag *ir.Tag) error {
-	getter := r.getterRegistry.PublicTag(tagName)
-	privateGetter := r.getterRegistry.PrivateTag(tagName)
-	elemType := r.importManager.typeString(tag.ElementType)
-	sliceType := "[]" + elemType
-	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", r.containerName, getter, sliceType)
-	fmt.Fprintf(b, "\tc.mu.Lock()\n")
-	fmt.Fprintf(b, "\tdefer c.mu.Unlock()\n")
-	fmt.Fprintf(b, "\treturn c.%s()\n", privateGetter)
-	b.WriteString("}\n\n")
-	return nil
-}
-
 func (r *ContainerRenderer) constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsErr bool) ([]string, string, error) {
 	var stmts []string
 	var args []string
@@ -303,6 +196,10 @@ func (r *ContainerRenderer) constructorCall(ctx *genContext, svc *serviceDef, in
 	if svc.constructor.kind == "func" {
 		funcName := r.importManager.funcNameWithTypeArgs(svc.constructor.funcObj, svc.constructor.typeArgs)
 		call = fmt.Sprintf("%s(%s)", funcName, strings.Join(args, ", "))
+	} else if svc.constructor.kind == "slice" {
+		// Slice literal: []T{arg1, arg2}
+		elemType := r.importManager.typeString(svc.constructor.result.Underlying().(*types.Slice).Elem())
+		call = fmt.Sprintf("[]%s{%s}", elemType, strings.Join(args, ", "))
 	} else {
 		recv := svc.constructor.methodRecvID
 		recvGetter := ctx.services[recv].privateGetterName
@@ -339,29 +236,11 @@ func (r *ContainerRenderer) getterBuildExpr(svc *serviceDef) string {
 	return "c." + r.identGenerator.Build(svc.id) + "()"
 }
 
-func (r *ContainerRenderer) collectTagGetterNames(ctx *genContext) []string {
-	tagNames := map[string]bool{}
-	for name, tag := range ctx.tags {
-		if tag != nil && tag.Public {
-			tagNames[name] = true
-		}
-	}
-	for _, svc := range ctx.services {
-		for _, arg := range svc.constructor.argDefs {
-			if arg.Kind == ir.TaggedArg && arg.Tag != nil {
-				tagNames[arg.Tag.Name] = true
-			}
-		}
-	}
-
-	return xmaps.OrderedKeys(tagNames)
-}
-
 func (r *ContainerRenderer) Render(cfg *di.Config, ctx *genContext, body *bytes.Buffer) error {
 	r.importManager.ReserveAliases("sync", "fmt")
 
-	tagGetterNames := r.collectTagGetterNames(ctx)
-	if err := r.assignNames(ctx, tagGetterNames); err != nil {
+	// We don't need tag getters anymore because tags are converted to services
+	if err := r.assignNames(ctx, nil); err != nil {
 		return fmt.Errorf("assign names: %w", err)
 	}
 
@@ -374,7 +253,7 @@ func (r *ContainerRenderer) Render(cfg *di.Config, ctx *genContext, body *bytes.
 		return err
 	}
 
-	if err := r.renderGetterFunctions(body, ctx, tagGetterNames); err != nil {
+	if err := r.renderGetterFunctions(body, ctx); err != nil {
 		return err
 	}
 
