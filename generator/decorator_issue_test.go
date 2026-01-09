@@ -37,8 +37,8 @@ func TestDecoratorOnAlias(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, testOptions(t))
-	code, err := gen.Generate()
+	gen := New(testOptions(t))
+	code, err := gen.Generate(cfg)
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
 	}
@@ -83,8 +83,8 @@ func TestDecoratorWithPublicTagHasPrivateGetter(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, testOptions(t))
-	code, err := gen.Generate()
+	gen := New(testOptions(t))
+	code, err := gen.Generate(cfg)
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
 	}
@@ -125,8 +125,8 @@ func TestDecoratorSharesStorageWithBase(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, testOptions(t))
-	code, err := gen.Generate()
+	gen := New(testOptions(t))
+	code, err := gen.Generate(cfg)
 	if err != nil {
 		t.Fatalf("generate failed: %v", err)
 	}

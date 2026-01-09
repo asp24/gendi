@@ -31,8 +31,8 @@ func TestMustGettersGenerated(t *testing.T) {
 		},
 	}
 
-	gen := New(cfg, testOptions(t))
-	code, err := gen.Generate()
+	gen := New(testOptions(t))
+	code, err := gen.Generate(cfg)
 	if err != nil {
 		t.Fatalf("Generate failed: %v", err)
 	}
