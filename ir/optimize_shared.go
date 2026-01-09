@@ -8,20 +8,6 @@ import (
 
 type sharedOptimizer struct{}
 
-func (p *sharedOptimizer) hasPublicTagOrTagInjection(tags []*ServiceTag) bool {
-	for _, t := range tags {
-		if t.Tag.Public {
-			return true
-		}
-
-		if len(t.Tag.Services) > 0 {
-			return true
-		}
-	}
-
-	return false
-}
-
 // resolve identifies shared services that are used by exactly one other shared service
 // and marks them as non-shared.
 //
@@ -72,10 +58,9 @@ func (p *sharedOptimizer) optimize(container *Container, svc *Service, usage map
 		return
 	}
 
-	// Candidate must not be referenced by tags.
-	if p.hasPublicTagOrTagInjection(svc.Tags) {
-		return
-	}
+	// Note: After tag desugaring, tag relationships are expressed through the dependency graph.
+	// Desugared tag services (!tagged:*) are non-shared, so services used by tags won't be
+	// incorrectly optimized since the parent (tag service) is non-shared.
 
 	// Check usage
 	parents := usage[svc.ID]

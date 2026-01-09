@@ -57,6 +57,11 @@ func (b *Builder) Build(cfg *di.Config) (*Container, error) {
 		return nil, err
 	}
 
+	// Phase 2.5: Desugar tags into services
+	if err := (&tagDesugarPhase{resolver: b.resolver}).desugar(cfg, result); err != nil {
+		return nil, err
+	}
+
 	// Phase 3: Validate and analyze
 	if err := (&validator{}).validate(cfg, result); err != nil {
 		return nil, err

@@ -15,7 +15,7 @@ func TestPruneUnreachableRemovesServices(t *testing.T) {
 			privateSvc.ID: privateSvc,
 			sharedDep.ID:  sharedDep,
 		},
-		Tags: map[string]*Tag{},
+		tags: map[string]*Tag{},
 	}
 
 	pruneUnreachable(nil, container)
@@ -48,7 +48,7 @@ func TestPruneUnreachableFiltersTagServices(t *testing.T) {
 			publicSvc.ID:  publicSvc,
 			privateSvc.ID: privateSvc,
 		},
-		Tags: map[string]*Tag{
+		tags: map[string]*Tag{
 			tag.Name: tag,
 		},
 	}

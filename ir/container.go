@@ -14,14 +14,14 @@ import (
 type Container struct {
 	Services   map[string]*Service
 	Parameters map[string]*Parameter
-	Tags       map[string]*Tag
+	tags       map[string]*Tag
 }
 
 func NewContainer() *Container {
 	return &Container{
 		Services:   make(map[string]*Service),
 		Parameters: make(map[string]*Parameter),
-		Tags:       make(map[string]*Tag),
+		tags:       make(map[string]*Tag),
 	}
 }
 

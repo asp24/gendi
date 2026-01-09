@@ -5,6 +5,7 @@ import (
 	"fmt"
 	app "github.com/asp24/gendi/examples/advanced/app"
 	"github.com/asp24/gendi/parameters"
+	stdlib "github.com/asp24/gendi/stdlib"
 	"sync"
 )
 
@@ -47,37 +48,6 @@ func NewContainer(params parameters.Provider, opts ...ContainerOption) *Containe
 		opt(c)
 	}
 	return c
-}
-
-func (c *Container) buildDb() (*app.DB, error) {
-	var zero *app.DB
-	param0_dsn, err := c.params.GetString("dsn")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "db", '\x00', "dsn", err)
-	}
-	res, err := app.NewDB(param0_dsn)
-	if err != nil {
-		return zero, fmt.Errorf("service %q constructor: %w", "db", err)
-	}
-	return res, nil
-}
-
-func (c *Container) buildLogger() (*app.Logger, error) {
-	var zero *app.Logger
-	param0_log_prefix, err := c.params.GetString("log_prefix")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "logger", '\x00', "log_prefix", err)
-	}
-	return app.NewLogger(param0_log_prefix), nil
-}
-
-func (c *Container) buildFactory() (*app.Factory, error) {
-	var zero *app.Factory
-	arg0_logger, err := c.getLogger()
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "factory", '\x00', err)
-	}
-	return app.NewFactory(arg0_logger), nil
 }
 
 func (c *Container) buildMailerRetryInner() (app.Mailer, error) {
@@ -128,13 +98,57 @@ func (c *Container) buildNotifierSms() (*app.SMSNotifier, error) {
 	return app.NewSMSNotifier(), nil
 }
 
+func (c *Container) buildTaggedWithNotifier() ([]app.Notifier, error) {
+	var zero []app.Notifier
+	arg0_notifier_email, err := c.getNotifierEmail()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.notifier", '\x00', err)
+	}
+	arg1_notifier_sms, err := c.getNotifierSms()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.notifier", '\x01', err)
+	}
+	return stdlib.MakeSlice[app.Notifier](arg0_notifier_email, arg1_notifier_sms), nil
+}
+
+func (c *Container) buildDb() (*app.DB, error) {
+	var zero *app.DB
+	param0_dsn, err := c.params.GetString("dsn")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "db", '\x00', "dsn", err)
+	}
+	res, err := app.NewDB(param0_dsn)
+	if err != nil {
+		return zero, fmt.Errorf("service %q constructor: %w", "db", err)
+	}
+	return res, nil
+}
+
+func (c *Container) buildLogger() (*app.Logger, error) {
+	var zero *app.Logger
+	param0_log_prefix, err := c.params.GetString("log_prefix")
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "logger", '\x00', "log_prefix", err)
+	}
+	return app.NewLogger(param0_log_prefix), nil
+}
+
+func (c *Container) buildFactory() (*app.Factory, error) {
+	var zero *app.Factory
+	arg0_logger, err := c.getLogger()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "factory", '\x00', err)
+	}
+	return app.NewFactory(arg0_logger), nil
+}
+
 func (c *Container) buildNotifierAggregate() (*app.AggregateNotifier, error) {
 	var zero *app.AggregateNotifier
-	arg0_tagged_notifier, err := c.getTaggedWithNotifier()
+	arg0___tagged_with_notifier, err := c.getTaggedWithNotifier()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "notifier.aggregate", '\x00', "notifier", err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "notifier.aggregate", '\x00', err)
 	}
-	return app.NewAggregateNotifier(arg0_tagged_notifier), nil
+	return app.NewAggregateNotifier(arg0___tagged_with_notifier), nil
 }
 
 func (c *Container) buildHandler() (*app.Handler, error) {
@@ -152,33 +166,6 @@ func (c *Container) buildHandler() (*app.Handler, error) {
 		return zero, fmt.Errorf("service %q receiver %q: %w", "handler", "factory", err)
 	}
 	return recv_handler.NewHandler(arg0_db, arg1_notifier), nil
-}
-
-func (c *Container) getDb() (*app.DB, error) {
-	var zero *app.DB
-	res, err := c.buildDb()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
-}
-
-func (c *Container) getLogger() (*app.Logger, error) {
-	var zero *app.Logger
-	res, err := c.buildLogger()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
-}
-
-func (c *Container) getFactory() (*app.Factory, error) {
-	var zero *app.Factory
-	res, err := c.buildFactory()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
 }
 
 func (c *Container) getMailerRetryInner() (app.Mailer, error) {
@@ -242,6 +229,42 @@ func (c *Container) getNotifierSms() (*app.SMSNotifier, error) {
 	return res, nil
 }
 
+func (c *Container) getTaggedWithNotifier() ([]app.Notifier, error) {
+	var zero []app.Notifier
+	res, err := c.buildTaggedWithNotifier()
+	if err != nil {
+		return zero, err
+	}
+	return res, nil
+}
+
+func (c *Container) getDb() (*app.DB, error) {
+	var zero *app.DB
+	res, err := c.buildDb()
+	if err != nil {
+		return zero, err
+	}
+	return res, nil
+}
+
+func (c *Container) getLogger() (*app.Logger, error) {
+	var zero *app.Logger
+	res, err := c.buildLogger()
+	if err != nil {
+		return zero, err
+	}
+	return res, nil
+}
+
+func (c *Container) getFactory() (*app.Factory, error) {
+	var zero *app.Factory
+	res, err := c.buildFactory()
+	if err != nil {
+		return zero, err
+	}
+	return res, nil
+}
+
 func (c *Container) getNotifierAggregate() (*app.AggregateNotifier, error) {
 	var zero *app.AggregateNotifier
 	if c.svc_notifier_aggregate != nil {
@@ -272,25 +295,19 @@ func (c *Container) getHandler() (*app.Handler, error) {
 	return res, nil
 }
 
-func (c *Container) getTaggedWithNotifier() ([]app.Notifier, error) {
-	items := make([]app.Notifier, 0, 2)
-	tagged_notifier_email, err := c.getNotifierEmail()
-	if err != nil {
-		return nil, err
-	}
-	items = append(items, tagged_notifier_email)
-	tagged_notifier_sms, err := c.getNotifierSms()
-	if err != nil {
-		return nil, err
-	}
-	items = append(items, tagged_notifier_sms)
-	return items, nil
-}
-
 func (c *Container) GetTaggedWithNotifier() ([]app.Notifier, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.getTaggedWithNotifier()
+}
+
+func (c *Container) MustTaggedWithNotifier() []app.Notifier {
+	res, err := c.GetTaggedWithNotifier()
+	if err != nil {
+		c.onMustCallFailed("__tagged_with.notifier", err)
+		panic(err)
+	}
+	return res
 }
 
 func (c *Container) GetHandler() (*app.Handler, error) {

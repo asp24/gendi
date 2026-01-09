@@ -2,47 +2,7 @@ package generator
 
 import (
 	"testing"
-
-	"github.com/asp24/gendi/ir"
 )
-
-func TestGetterRegistry_Assign_TagAndServiceNameCollision(t *testing.T) {
-	ig := NewIdentGenerator()
-	gr := NewGetterRegistry(ig)
-
-	// Create a scenario where a tag name could collide with a service getter
-	services := map[string]*serviceDef{
-		"handlers": {
-			id:     "handlers",
-			public: true,
-		},
-	}
-
-	tags := map[string]*ir.Tag{
-		"handlers": {
-			Name:   "handlers",
-			Public: true,
-		},
-	}
-
-	orderedIDs := []string{"handlers"}
-	err := gr.Assign(orderedIDs, services, tags, nil)
-
-	// Should detect collision between service getter and tag getter
-	if err != nil {
-		t.Logf("Got expected error for service/tag collision: %v", err)
-	} else {
-		// Check if they got different names despite same base name
-		serviceGetter := gr.PublicService("handlers")
-		tagGetter := gr.PublicTag("handlers")
-		t.Logf("Service 'handlers' getter: %s", serviceGetter)
-		t.Logf("Tag 'handlers' getter: %s", tagGetter)
-
-		if serviceGetter == tagGetter {
-			t.Error("Service and tag getters should not collide")
-		}
-	}
-}
 
 func TestGetterRegistry_UniqueNameGeneration(t *testing.T) {
 	gr := NewGetterRegistry(nil)
@@ -83,7 +43,7 @@ func TestGetterRegistry_Assign_RealCollision_ServiceNames(t *testing.T) {
 	}
 
 	orderedIDs := []string{"getService", "get_service"}
-	err := gr.Assign(orderedIDs, services, nil, nil)
+	err := gr.Assign(orderedIDs, services)
 
 	if err == nil {
 		t.Error("Expected error due to getter name collision between 'getService' and 'get_service'")
@@ -120,7 +80,7 @@ func TestGetterRegistry_Assign_RealCollision_MustGetter(t *testing.T) {
 	}
 
 	orderedIDs := []string{"getMust", "get_must"}
-	err := gr.Assign(orderedIDs, services, nil, nil)
+	err := gr.Assign(orderedIDs, services)
 
 	if err == nil {
 		t.Error("Expected error due to getter name collision")
@@ -146,7 +106,7 @@ func TestGetterRegistry_Assign_NoCollision_PrivateServices(t *testing.T) {
 	}
 
 	orderedIDs := []string{"getService", "get_service"}
-	err := gr.Assign(orderedIDs, services, nil, nil)
+	err := gr.Assign(orderedIDs, services)
 
 	if err != nil {
 		t.Fatalf("Private services should not error on collision, got: %v", err)

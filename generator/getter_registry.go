@@ -2,20 +2,18 @@ package generator
 
 import (
 	"fmt"
-
-	"github.com/asp24/gendi/ir"
-	"github.com/asp24/gendi/xmaps"
 )
 
-// GetterRegistry manages unique getter names for services and tags.
+// GetterRegistry manages unique getter names for services.
+// Note: After tag desugaring, tags become regular services and are handled
+// by the service getter methods. The IdentGenerator.Getter method detects
+// !tagged: prefix services and generates appropriate TagGetter style names.
 type GetterRegistry struct {
 	identGenerator *IdentGenerator
 
 	publicService     map[string]string
 	mustPublicService map[string]string
 	privateService    map[string]string
-	publicTag         map[string]string
-	privateTag        map[string]string
 }
 
 // NewGetterRegistry creates a new getter registry.
@@ -25,8 +23,6 @@ func NewGetterRegistry(identGenerator *IdentGenerator) *GetterRegistry {
 		publicService:     make(map[string]string),
 		mustPublicService: make(map[string]string),
 		privateService:    make(map[string]string),
-		publicTag:         make(map[string]string),
-		privateTag:        make(map[string]string),
 	}
 }
 
@@ -52,8 +48,8 @@ func (gr *GetterRegistry) assignOrError(name string, used map[string]bool) error
 	return nil
 }
 
-// Assign assigns unique getter names for all services and tags.
-func (gr *GetterRegistry) Assign(orderedServiceIDs []string, services map[string]*serviceDef, tags map[string]*ir.Tag, privateTagNames []string) error {
+// Assign assigns unique getter names for all services.
+func (gr *GetterRegistry) Assign(orderedServiceIDs []string, services map[string]*serviceDef) error {
 	// Assign public getter names
 	used := map[string]bool{}
 	for _, id := range orderedServiceIDs {
@@ -80,20 +76,6 @@ func (gr *GetterRegistry) Assign(orderedServiceIDs []string, services map[string
 		}
 	}
 
-	// Assign public tag getter names
-	for _, name := range xmaps.OrderedKeys(tags) {
-		if !tags[name].Public {
-			continue
-		}
-
-		getter := gr.identGenerator.TagGetter(name, true)
-		if err := gr.assignOrError(getter, used); err != nil {
-			return err
-		}
-
-		gr.publicTag[name] = getter
-	}
-
 	// Assign private getter names
 	privateUsed := map[string]bool{}
 	for _, id := range orderedServiceIDs {
@@ -101,14 +83,6 @@ func (gr *GetterRegistry) Assign(orderedServiceIDs []string, services map[string
 		name := gr.uniqueName(base, privateUsed)
 		privateUsed[name] = true
 		gr.privateService[id] = name
-	}
-
-	// Assign private tag getter names
-	for _, name := range privateTagNames {
-		base := gr.identGenerator.TagGetter(name, false)
-		getter := gr.uniqueName(base, privateUsed)
-		privateUsed[getter] = true
-		gr.privateTag[name] = getter
 	}
 
 	return nil
@@ -128,14 +102,4 @@ func (gr *GetterRegistry) PrivateService(id string) string {
 // It transforms the public getter name (e.g., "GetService") to "MustService".
 func (gr *GetterRegistry) MustService(id string) string {
 	return gr.mustPublicService[id]
-}
-
-// PublicTag returns the public getter name for a tag.
-func (gr *GetterRegistry) PublicTag(name string) string {
-	return gr.publicTag[name]
-}
-
-// PrivateTag returns the private getter name for a tag.
-func (gr *GetterRegistry) PrivateTag(name string) string {
-	return gr.privateTag[name]
 }

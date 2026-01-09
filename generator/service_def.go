@@ -9,24 +9,17 @@ import (
 type serviceDef struct {
 	id                string
 	typeName          types.Type
-	declaredType      types.Type
 	constructor       constructorDef
 	privateGetterName string
 	public            bool
 	shared            bool
 	canError          bool
 	aliasTarget       string
-	tags              []*ir.ServiceTag
 }
 
 // IsAlias returns true if this service is an alias to another service.
 func (s *serviceDef) IsAlias() bool {
 	return s.aliasTarget != ""
-}
-
-// HasConstructor returns true if this service defines a constructor.
-func (s *serviceDef) HasConstructor() bool {
-	return s.constructor.kind != ""
 }
 
 func (s *serviceDef) GetterType() types.Type {

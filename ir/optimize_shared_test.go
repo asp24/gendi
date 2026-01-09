@@ -69,21 +69,30 @@ func TestOptimizeShared(t *testing.T) {
 			},
 		},
 		{
-			name: "does not optimize tagged service",
+			name: "does not optimize service used by non-shared desugared tag service",
 			setup: func(c *Container) {
+				// After tag desugaring, a tag becomes a non-shared service "!tagged:X"
+				// Services used by non-shared parent should not be optimized
 				s := &Service{
 					ID:     "S",
 					Shared: true,
 					Public: false,
-					Tags:   []*ServiceTag{{Tag: &Tag{Public: true}}},
 				}
-				p := &Service{ID: "P", Shared: true, Dependencies: []*Service{s}}
+				// Desugared tag service - always non-shared
+				tagSvc := &Service{
+					ID:           "!tagged:myTag",
+					Shared:       false, // Desugared tags are always non-shared
+					Public:       true,
+					Dependencies: []*Service{s},
+				}
 				c.Services["S"] = s
-				c.Services["P"] = p
+				c.Services["!tagged:myTag"] = tagSvc
 			},
 			validate: func(t *testing.T, c *Container) {
+				// S is used by !tagged:myTag which is non-shared
+				// So S should remain shared (optimization not applied)
 				if !c.Services["S"].Shared {
-					t.Error("S should remain shared")
+					t.Error("S should remain shared because parent is non-shared")
 				}
 			},
 		},
