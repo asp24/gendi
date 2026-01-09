@@ -176,7 +176,7 @@ func (r *ContainerRenderer) renderMustGetter(b *bytes.Buffer, ctx *genContext, s
 	return nil
 }
 
-func (r *ContainerRenderer) constructorCall(ctx *genContext, svc *serviceDef, innerVar string, returnsErr bool) ([]string, string, error) {
+func (r *ContainerRenderer) constructorCall(ctx *genContext, svc *serviceDef, returnsErr bool) ([]string, string, error) {
 	var stmts []string
 	var args []string
 	for i, arg := range svc.constructor.argDefs {
@@ -184,7 +184,7 @@ func (r *ContainerRenderer) constructorCall(ctx *genContext, svc *serviceDef, in
 		if i < len(svc.constructor.params) {
 			paramType = svc.constructor.params[i]
 		}
-		argExpr, argStmts, err := r.buildArg(ctx, svc, arg, innerVar, returnsErr, i, paramType)
+		argExpr, argStmts, err := r.buildArg(ctx, svc, arg, returnsErr, i, paramType)
 		if err != nil {
 			return nil, "", err
 		}
@@ -213,14 +213,13 @@ func (r *ContainerRenderer) constructorCall(ctx *genContext, svc *serviceDef, in
 	return stmts, call, nil
 }
 
-func (r *ContainerRenderer) buildArg(ctx *genContext, svc *serviceDef, arg *ir.Argument, innerVar string, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
+func (r *ContainerRenderer) buildArg(ctx *genContext, svc *serviceDef, arg *ir.Argument, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
 	builder := getArgumentBuilder(arg.Kind)
 	buildCtx := &argBuildContext{
 		rnd:        r,
 		genCtx:     ctx,
 		service:    svc,
 		argument:   arg,
-		innerVar:   innerVar,
 		returnsErr: returnsErr,
 		argIndex:   argIndex,
 		paramType:  paramType,

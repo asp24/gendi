@@ -15,7 +15,6 @@ type argBuildContext struct {
 	genCtx     *genContext
 	service    *serviceDef
 	argument   *ir.Argument
-	innerVar   string
 	returnsErr bool
 	argIndex   int
 	paramType  types.Type
