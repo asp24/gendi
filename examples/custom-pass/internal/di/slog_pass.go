@@ -26,8 +26,6 @@ func (s *SLogPass) getTagAttributes(svc *di.Service) (map[string]any, bool) {
 }
 
 func (s *SLogPass) Process(cfg *di.Config) (*di.Config, error) {
-	boolFalse := false
-
 	for id, svc := range cfg.Services {
 		tagAttributes, ok := s.getTagAttributes(&svc)
 		if !ok {
@@ -51,7 +49,7 @@ func (s *SLogPass) Process(cfg *di.Config) (*di.Config, error) {
 					{Kind: di.ArgLiteral, Literal: di.NewStringLiteral(channelNameStr)},
 				},
 			},
-			Shared: &boolFalse,
+			Shared: false,
 		}
 		namedLoggerSvcName := id + ".logger"
 

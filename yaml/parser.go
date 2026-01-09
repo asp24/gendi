@@ -96,9 +96,14 @@ func (p *Parser) convertService(raw *RawService, defaults *ServiceDefaults) (di.
 
 func (p *Parser) convertServiceWithPackage(raw *RawService, defaults *ServiceDefaults, thisPackage string) (di.Service, error) {
 	// Apply defaults if not explicitly set
-	shared := raw.Shared
-	if shared == nil && defaults != nil && defaults.Shared != nil {
-		shared = defaults.Shared
+	defaultShared := true
+	if defaults != nil && defaults.Shared != nil {
+		defaultShared = *defaults.Shared
+	}
+
+	shared := defaultShared
+	if raw.Shared != nil {
+		shared = *raw.Shared
 	}
 
 	public := raw.Public

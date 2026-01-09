@@ -23,6 +23,15 @@ func ApplyPasses(cfg *Config, passes []Pass) (*Config, error) {
 	return result, nil
 }
 
+// ApplyInternalPasses applies mandatory internal transformation passes.
+// These passes desugar high-level config constructs (like decorators) into
+// simpler primitives before IR building.
+func ApplyInternalPasses(cfg *Config) (*Config, error) {
+	return ApplyPasses(cfg, []Pass{
+		&DecoratorPass{},
+	})
+}
+
 // Config is the root configuration for the DI container.
 // This is a resolved configuration with no import directives.
 type Config struct {
@@ -80,7 +89,7 @@ type ServiceTag struct {
 type Service struct {
 	Type               string
 	Constructor        Constructor
-	Shared             *bool
+	Shared             bool
 	Public             bool
 	Decorates          string
 	DecorationPriority int

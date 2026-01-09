@@ -195,7 +195,6 @@ type ArgumentKind int
 const (
 	LiteralArg ArgumentKind = iota
 	ServiceRefArg
-	InnerArg
 	ParamRefArg
 	TaggedArg
 )

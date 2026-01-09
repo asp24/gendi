@@ -318,6 +318,7 @@ func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
 				},
 				Public: true,
+				Shared: true,
 			},
 			"svc.decoratorA": {
 				Constructor: di.Constructor{
@@ -328,6 +329,7 @@ func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 				},
 				Decorates:          "svc",
 				DecorationPriority: 10,
+				Shared:             true,
 			},
 			"svc.decoratorB": {
 				Constructor: di.Constructor{
@@ -338,6 +340,7 @@ func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 				},
 				Decorates:          "svc",
 				DecorationPriority: 20,
+				Shared:             true,
 			},
 		},
 	}
@@ -357,8 +360,14 @@ func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 	if !strings.Contains(out, "getSvcDecoratorAInner") {
 		t.Fatalf("expected private getter for raw base")
 	}
-	if strings.Contains(out, "svc_svc_decoratorA ") || strings.Contains(out, "svc_svc_decoratorB ") {
-		t.Fatalf("unexpected storage fields for decorators")
+	// Note: After DecoratorPass refactoring, decoratorB (the outermost decorator)
+	// is public via alias and gets a storage field. This is expected behavior.
+	if !strings.Contains(out, "svc_svc_decoratorB") {
+		t.Fatalf("expected storage field for outer decorator (public via alias)")
+	}
+	// Inner decorator A should be optimized away (used only by B)
+	if strings.Contains(out, "svc_svc_decoratorA ") {
+		t.Fatalf("unexpected storage field for inner decorator (should be non-shared)")
 	}
 }
 

@@ -21,17 +21,9 @@ func (p *servicePhase) build(cfg *di.Config, container *Container) error {
 			return fmt.Errorf("service ID %q cannot be whitespace-only", id)
 		}
 
-		shared := true
-		if svc.Shared != nil {
-			shared = *svc.Shared
-		}
-		if svc.Alias != "" {
-			shared = false
-		}
-
 		irSvc := &Service{
 			ID:     id,
-			Shared: shared,
+			Shared: svc.Shared && svc.Alias == "",
 			Public: svc.Public,
 			Tags:   []*ServiceTag{},
 		}

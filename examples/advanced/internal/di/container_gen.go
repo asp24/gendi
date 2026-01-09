@@ -20,6 +20,7 @@ type Container struct {
 	mu                     sync.Mutex
 	params                 parameters.Provider
 	onMustCallFailed       func(serviceName string, err error)
+	svc_mailer_prefix      *app.MailerPrefixDecorator
 	svc_notifier_email     *app.EmailNotifier
 	svc_notifier_sms       *app.SMSNotifier
 	svc_notifier_aggregate *app.AggregateNotifier
@@ -200,10 +201,14 @@ func (c *Container) getMailerRetry() (*app.MailerRetryDecorator, error) {
 
 func (c *Container) getMailerPrefix() (*app.MailerPrefixDecorator, error) {
 	var zero *app.MailerPrefixDecorator
+	if c.svc_mailer_prefix != nil {
+		return c.svc_mailer_prefix, nil
+	}
 	res, err := c.buildMailerPrefix()
 	if err != nil {
 		return zero, err
 	}
+	c.svc_mailer_prefix = res
 	return res, nil
 }
 

@@ -108,7 +108,7 @@ func TestDecoratorSharesStorageWithBase(t *testing.T) {
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
 				},
 				Public: true,
-				Shared: ptr(true),
+				Shared: true,
 			},
 			"svc.decorator": {
 				Constructor: di.Constructor{
@@ -120,7 +120,7 @@ func TestDecoratorSharesStorageWithBase(t *testing.T) {
 				Decorates:          "svc",
 				DecorationPriority: 10,
 				Public:             true,
-				Shared:             ptr(true),
+				Shared:             true,
 			},
 		},
 	}
