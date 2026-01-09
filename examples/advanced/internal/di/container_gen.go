@@ -18,14 +18,12 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 })
 
 type Container struct {
-	mu                     sync.Mutex
-	params                 parameters.Provider
-	onMustCallFailed       func(serviceName string, err error)
-	svc_mailer_prefix      *app.MailerPrefixDecorator
-	svc_notifier_email     *app.EmailNotifier
-	svc_notifier_sms       *app.SMSNotifier
-	svc_notifier_aggregate *app.AggregateNotifier
-	svc_handler            *app.Handler
+	mu                 sync.Mutex
+	params             parameters.Provider
+	onMustCallFailed   func(serviceName string, err error)
+	svc_notifier_email *app.EmailNotifier
+	svc_notifier_sms   *app.SMSNotifier
+	svc_handler        *app.Handler
 }
 
 type ContainerOption func(*Container)
@@ -188,14 +186,10 @@ func (c *Container) getMailerRetry() (*app.MailerRetryDecorator, error) {
 
 func (c *Container) getMailerPrefix() (*app.MailerPrefixDecorator, error) {
 	var zero *app.MailerPrefixDecorator
-	if c.svc_mailer_prefix != nil {
-		return c.svc_mailer_prefix, nil
-	}
 	res, err := c.buildMailerPrefix()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_mailer_prefix = res
 	return res, nil
 }
 
@@ -267,14 +261,10 @@ func (c *Container) getFactory() (*app.Factory, error) {
 
 func (c *Container) getNotifierAggregate() (*app.AggregateNotifier, error) {
 	var zero *app.AggregateNotifier
-	if c.svc_notifier_aggregate != nil {
-		return c.svc_notifier_aggregate, nil
-	}
 	res, err := c.buildNotifierAggregate()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_notifier_aggregate = res
 	return res, nil
 }
 

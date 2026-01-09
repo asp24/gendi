@@ -69,30 +69,25 @@ func TestOptimizeShared(t *testing.T) {
 			},
 		},
 		{
-			name: "does not optimize service used by non-shared desugared tag service",
+			name: "keeps dependency shared when direct parent is public non-shared",
 			setup: func(c *Container) {
-				// After tag desugaring, a tag becomes a non-shared service "!tagged:X"
-				// Services used by non-shared parent should not be optimized
 				s := &Service{
 					ID:     "S",
 					Shared: true,
 					Public: false,
 				}
-				// Desugared tag service - always non-shared
-				tagSvc := &Service{
+				publicParent := &Service{
 					ID:           "!tagged:myTag",
-					Shared:       false, // Desugared tags are always non-shared
+					Shared:       false,
 					Public:       true,
 					Dependencies: []*Service{s},
 				}
 				c.Services["S"] = s
-				c.Services["!tagged:myTag"] = tagSvc
+				c.Services["!tagged:myTag"] = publicParent
 			},
 			validate: func(t *testing.T, c *Container) {
-				// S is used by !tagged:myTag which is non-shared
-				// So S should remain shared (optimization not applied)
 				if !c.Services["S"].Shared {
-					t.Error("S should remain shared because parent is non-shared")
+					t.Error("S should remain shared because its only parent is public non-shared")
 				}
 			},
 		},
@@ -114,6 +109,33 @@ func TestOptimizeShared(t *testing.T) {
 			validate: func(t *testing.T, c *Container) {
 				if !c.Services["S"].Shared {
 					t.Error("S should remain shared")
+				}
+			},
+		},
+		{
+			name: "keeps parent shared when it feeds a multi-dependency service",
+			setup: func(c *Container) {
+				cSvc := &Service{ID: "C", Shared: true, Public: false}
+				b := &Service{ID: "B", Shared: true, Public: false, Dependencies: []*Service{cSvc}}
+				other := &Service{ID: "X", Shared: true, Public: false}
+				p := &Service{
+					ID:           "P",
+					Shared:       false,
+					Public:       false,
+					Dependencies: []*Service{b, other},
+				}
+
+				c.Services["C"] = cSvc
+				c.Services["B"] = b
+				c.Services["X"] = other
+				c.Services["P"] = p
+			},
+			validate: func(t *testing.T, c *Container) {
+				if c.Services["C"].Shared {
+					t.Error("C should be non-shared")
+				}
+				if !c.Services["B"].Shared {
+					t.Error("B should remain shared because its parent fans out")
 				}
 			},
 		},

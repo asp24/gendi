@@ -18,8 +18,6 @@ type Container struct {
 	mu                    sync.Mutex
 	params                parameters.Provider
 	onMustCallFailed      func(serviceName string, err error)
-	svc_provider_stripe   *app.PaymentProvider
-	svc_provider_paypal   *app.PaymentProvider
 	svc_logger            *app.Logger
 	svc_service_decorator *app.Service
 	svc_timer             *app.Timer
@@ -121,27 +119,19 @@ func (c *Container) buildTimer() (*app.Timer, error) {
 
 func (c *Container) getProviderStripe() (*app.PaymentProvider, error) {
 	var zero *app.PaymentProvider
-	if c.svc_provider_stripe != nil {
-		return c.svc_provider_stripe, nil
-	}
 	res, err := c.buildProviderStripe()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_provider_stripe = res
 	return res, nil
 }
 
 func (c *Container) getProviderPaypal() (*app.PaymentProvider, error) {
 	var zero *app.PaymentProvider
-	if c.svc_provider_paypal != nil {
-		return c.svc_provider_paypal, nil
-	}
 	res, err := c.buildProviderPaypal()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_provider_paypal = res
 	return res, nil
 }
 

@@ -21,14 +21,11 @@ var DefaultParameters = parameters.NewProviderMap(map[string]any{
 })
 
 type Container struct {
-	mu                           sync.Mutex
-	params                       parameters.Provider
-	onMustCallFailed             func(serviceName string, err error)
-	svc_stdlib_slog_handler_text slog.Handler
-	svc_stdlib_slog              *slog.Logger
-	svc_product_handler          app.HTTPHandler
-	svc_user_handler             app.HTTPHandler
-	svc_server                   *app.Server
+	mu               sync.Mutex
+	params           parameters.Provider
+	onMustCallFailed func(serviceName string, err error)
+	svc_stdlib_slog  *slog.Logger
+	svc_server       *app.Server
 }
 
 type ContainerOption func(*Container)
@@ -191,14 +188,10 @@ func (c *Container) getStdlibSlogWriter() (io.Writer, error) {
 
 func (c *Container) getStdlibSlogHandlerText() (slog.Handler, error) {
 	var zero slog.Handler
-	if c.svc_stdlib_slog_handler_text != nil {
-		return c.svc_stdlib_slog_handler_text, nil
-	}
 	res, err := c.buildStdlibSlogHandlerText()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_stdlib_slog_handler_text = res
 	return res, nil
 }
 
@@ -243,14 +236,10 @@ func (c *Container) getProductRepo() (*app.ProductRepoImpl, error) {
 
 func (c *Container) getProductHandler() (app.HTTPHandler, error) {
 	var zero app.HTTPHandler
-	if c.svc_product_handler != nil {
-		return c.svc_product_handler, nil
-	}
 	res, err := c.buildProductHandler()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_product_handler = res
 	return res, nil
 }
 
@@ -274,14 +263,10 @@ func (c *Container) getUserRepo() (*app.UserRepoImpl, error) {
 
 func (c *Container) getUserHandler() (app.HTTPHandler, error) {
 	var zero app.HTTPHandler
-	if c.svc_user_handler != nil {
-		return c.svc_user_handler, nil
-	}
 	res, err := c.buildUserHandler()
 	if err != nil {
 		return zero, err
 	}
-	c.svc_user_handler = res
 	return res, nil
 }
 
