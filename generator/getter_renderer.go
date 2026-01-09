@@ -53,11 +53,10 @@ func (g *sharedPtrGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer
 	fieldName := rnd.identGenerator.Field(svc.id)
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", rnd.containerName, getter, getterTypeStr)
-	fmt.Fprintf(b, "\tvar zero %s\n", getterTypeStr)
 	fmt.Fprintf(b, "\tif c.%s != nil {\n\t\treturn c.%s, nil\n\t}\n", fieldName, fieldName)
 	fmt.Fprintf(b, "\tres, err := %s\n", rnd.getterBuildExpr(svc))
 	fmt.Fprintf(b, "\tif err != nil {\n")
-	fmt.Fprintf(b, "\t\treturn zero, err\n\t}\n")
+	fmt.Fprintf(b, "\t\treturn nil, err\n\t}\n")
 	fmt.Fprintf(b, "\tc.%s = res\n", fieldName)
 	fmt.Fprintf(b, "\treturn res, nil\n")
 	b.WriteString("}\n\n")
@@ -97,10 +96,7 @@ func (g *nonSharedGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer
 	getterTypeStr := rnd.importManager.typeString(svc.GetterType())
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", rnd.containerName, getter, getterTypeStr)
-	fmt.Fprintf(b, "\tvar zero %s\n", getterTypeStr)
-	fmt.Fprintf(b, "\tres, err := %s\n", rnd.getterBuildExpr(svc))
-	fmt.Fprintf(b, "\tif err != nil {\n\t\treturn zero, err\n\t}\n")
-	fmt.Fprintf(b, "\treturn res, nil\n")
+	fmt.Fprintf(b, "\treturn %s\n", rnd.getterBuildExpr(svc))
 	b.WriteString("}\n\n")
 	return nil
 }

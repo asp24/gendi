@@ -75,47 +75,35 @@ func (c *Container) buildTaggedWithJob() ([]app.Job, error) {
 }
 
 func (c *Container) getPaymentProviderDummy() (*app.PaymentProviderDummy, error) {
-	var zero *app.PaymentProviderDummy
-	res, err := c.buildPaymentProviderDummy()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildPaymentProviderDummy()
 }
 
 func (c *Container) getPaymentProviderWithComission() (*app.PaymentProviderCommissionDecorator, error) {
-	var zero *app.PaymentProviderCommissionDecorator
 	if c.svc_payment_provider_with_comission != nil {
 		return c.svc_payment_provider_with_comission, nil
 	}
 	res, err := c.buildPaymentProviderWithComission()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_payment_provider_with_comission = res
 	return res, nil
 }
 
 func (c *Container) getPaymentProviderWithComission2() (*app.PaymentProviderCommissionDecorator, error) {
-	var zero *app.PaymentProviderCommissionDecorator
 	if c.svc_payment_provider_with_comission2 != nil {
 		return c.svc_payment_provider_with_comission2, nil
 	}
 	res, err := c.buildPaymentProviderWithComission2()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_payment_provider_with_comission2 = res
 	return res, nil
 }
 
 func (c *Container) getTaggedWithJob() ([]app.Job, error) {
-	var zero []app.Job
-	res, err := c.buildTaggedWithJob()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildTaggedWithJob()
 }
 
 func (c *Container) getPaymentProvider() (*app.PaymentProviderCommissionDecorator, error) {

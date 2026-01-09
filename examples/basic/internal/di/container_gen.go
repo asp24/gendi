@@ -118,71 +118,44 @@ func (c *Container) buildTimer() (*app.Timer, error) {
 }
 
 func (c *Container) getProviderStripe() (*app.PaymentProvider, error) {
-	var zero *app.PaymentProvider
-	res, err := c.buildProviderStripe()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildProviderStripe()
 }
 
 func (c *Container) getProviderPaypal() (*app.PaymentProvider, error) {
-	var zero *app.PaymentProvider
-	res, err := c.buildProviderPaypal()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildProviderPaypal()
 }
 
 func (c *Container) getTaggedWithPaymentProvider() ([]*app.PaymentProvider, error) {
-	var zero []*app.PaymentProvider
-	res, err := c.buildTaggedWithPaymentProvider()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildTaggedWithPaymentProvider()
 }
 
 func (c *Container) getLogger() (*app.Logger, error) {
-	var zero *app.Logger
 	if c.svc_logger != nil {
 		return c.svc_logger, nil
 	}
 	res, err := c.buildLogger()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_logger = res
 	return res, nil
 }
 
 func (c *Container) getRepo() (*app.Repo, error) {
-	var zero *app.Repo
-	res, err := c.buildRepo()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildRepo()
 }
 
 func (c *Container) getServiceDecoratorInner() (*app.Service, error) {
-	var zero *app.Service
-	res, err := c.buildServiceDecoratorInner()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildServiceDecoratorInner()
 }
 
 func (c *Container) getServiceDecorator() (*app.Service, error) {
-	var zero *app.Service
 	if c.svc_service_decorator != nil {
 		return c.svc_service_decorator, nil
 	}
 	res, err := c.buildServiceDecorator()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_service_decorator = res
 	return res, nil
@@ -193,13 +166,12 @@ func (c *Container) getService() (*app.Service, error) {
 }
 
 func (c *Container) getTimer() (*app.Timer, error) {
-	var zero *app.Timer
 	if c.svc_timer != nil {
 		return c.svc_timer, nil
 	}
 	res, err := c.buildTimer()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_timer = res
 	return res, nil

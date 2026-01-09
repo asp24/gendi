@@ -167,30 +167,15 @@ func (c *Container) buildHandler() (*app.Handler, error) {
 }
 
 func (c *Container) getMailerRetryInner() (app.Mailer, error) {
-	var zero app.Mailer
-	res, err := c.buildMailerRetryInner()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildMailerRetryInner()
 }
 
 func (c *Container) getMailerRetry() (*app.MailerRetryDecorator, error) {
-	var zero *app.MailerRetryDecorator
-	res, err := c.buildMailerRetry()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildMailerRetry()
 }
 
 func (c *Container) getMailerPrefix() (*app.MailerPrefixDecorator, error) {
-	var zero *app.MailerPrefixDecorator
-	res, err := c.buildMailerPrefix()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildMailerPrefix()
 }
 
 func (c *Container) getMailer() (*app.MailerPrefixDecorator, error) {
@@ -198,74 +183,47 @@ func (c *Container) getMailer() (*app.MailerPrefixDecorator, error) {
 }
 
 func (c *Container) getNotifierEmail() (*app.EmailNotifier, error) {
-	var zero *app.EmailNotifier
 	if c.svc_notifier_email != nil {
 		return c.svc_notifier_email, nil
 	}
 	res, err := c.buildNotifierEmail()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_notifier_email = res
 	return res, nil
 }
 
 func (c *Container) getNotifierSms() (*app.SMSNotifier, error) {
-	var zero *app.SMSNotifier
 	if c.svc_notifier_sms != nil {
 		return c.svc_notifier_sms, nil
 	}
 	res, err := c.buildNotifierSms()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_notifier_sms = res
 	return res, nil
 }
 
 func (c *Container) getTaggedWithNotifier() ([]app.Notifier, error) {
-	var zero []app.Notifier
-	res, err := c.buildTaggedWithNotifier()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildTaggedWithNotifier()
 }
 
 func (c *Container) getDb() (*app.DB, error) {
-	var zero *app.DB
-	res, err := c.buildDb()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildDb()
 }
 
 func (c *Container) getLogger() (*app.Logger, error) {
-	var zero *app.Logger
-	res, err := c.buildLogger()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildLogger()
 }
 
 func (c *Container) getFactory() (*app.Factory, error) {
-	var zero *app.Factory
-	res, err := c.buildFactory()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildFactory()
 }
 
 func (c *Container) getNotifierAggregate() (*app.AggregateNotifier, error) {
-	var zero *app.AggregateNotifier
-	res, err := c.buildNotifierAggregate()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildNotifierAggregate()
 }
 
 func (c *Container) getNotifier() (*app.AggregateNotifier, error) {
@@ -273,13 +231,12 @@ func (c *Container) getNotifier() (*app.AggregateNotifier, error) {
 }
 
 func (c *Container) getHandler() (*app.Handler, error) {
-	var zero *app.Handler
 	if c.svc_handler != nil {
 		return c.svc_handler, nil
 	}
 	res, err := c.buildHandler()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_handler = res
 	return res, nil

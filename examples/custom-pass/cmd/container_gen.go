@@ -174,12 +174,7 @@ func (c *Container) buildServer() (*app.Server, error) {
 }
 
 func (c *Container) getStdlibStderr() (io.Writer, error) {
-	var zero io.Writer
-	res, err := c.buildStdlibStderr()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildStdlibStderr()
 }
 
 func (c *Container) getStdlibSlogWriter() (io.Writer, error) {
@@ -187,12 +182,7 @@ func (c *Container) getStdlibSlogWriter() (io.Writer, error) {
 }
 
 func (c *Container) getStdlibSlogHandlerText() (slog.Handler, error) {
-	var zero slog.Handler
-	res, err := c.buildStdlibSlogHandlerText()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildStdlibSlogHandlerText()
 }
 
 func (c *Container) getStdlibSlogHandler() (slog.Handler, error) {
@@ -200,13 +190,12 @@ func (c *Container) getStdlibSlogHandler() (slog.Handler, error) {
 }
 
 func (c *Container) getStdlibSlog() (*slog.Logger, error) {
-	var zero *slog.Logger
 	if c.svc_stdlib_slog != nil {
 		return c.svc_stdlib_slog, nil
 	}
 	res, err := c.buildStdlibSlog()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_stdlib_slog = res
 	return res, nil
@@ -217,85 +206,44 @@ func (c *Container) getLogger() (*slog.Logger, error) {
 }
 
 func (c *Container) getProductHandlerLogger() (*slog.Logger, error) {
-	var zero *slog.Logger
-	res, err := c.buildProductHandlerLogger()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildProductHandlerLogger()
 }
 
 func (c *Container) getProductRepo() (*app.ProductRepoImpl, error) {
-	var zero *app.ProductRepoImpl
-	res, err := c.buildProductRepo()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildProductRepo()
 }
 
 func (c *Container) getProductHandler() (app.HTTPHandler, error) {
-	var zero app.HTTPHandler
-	res, err := c.buildProductHandler()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildProductHandler()
 }
 
 func (c *Container) getUserHandlerLogger() (*slog.Logger, error) {
-	var zero *slog.Logger
-	res, err := c.buildUserHandlerLogger()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildUserHandlerLogger()
 }
 
 func (c *Container) getUserRepo() (*app.UserRepoImpl, error) {
-	var zero *app.UserRepoImpl
-	res, err := c.buildUserRepo()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildUserRepo()
 }
 
 func (c *Container) getUserHandler() (app.HTTPHandler, error) {
-	var zero app.HTTPHandler
-	res, err := c.buildUserHandler()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildUserHandler()
 }
 
 func (c *Container) getTaggedWithHttpHandler() ([]app.HTTPHandler, error) {
-	var zero []app.HTTPHandler
-	res, err := c.buildTaggedWithHttpHandler()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildTaggedWithHttpHandler()
 }
 
 func (c *Container) getServerLogger() (*slog.Logger, error) {
-	var zero *slog.Logger
-	res, err := c.buildServerLogger()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildServerLogger()
 }
 
 func (c *Container) getServer() (*app.Server, error) {
-	var zero *app.Server
 	if c.svc_server != nil {
 		return c.svc_server, nil
 	}
 	res, err := c.buildServer()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_server = res
 	return res, nil
