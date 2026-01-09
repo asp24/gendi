@@ -13,7 +13,6 @@ type serviceDef struct {
 	privateGetterName string
 	public            bool
 	shared            bool
-	canError          bool
 	aliasTarget       string
 }
 

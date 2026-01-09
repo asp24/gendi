@@ -67,8 +67,6 @@ func (b *Builder) Build(cfg *di.Config) (*Container, error) {
 		return nil, err
 	}
 
-	(&errorPropagator{}).propagate(cfg, result)
-
 	// Phase 4: Optimizations
 	pruneUnreachable(cfg, result)
 	_ = (&sharedOptimizer{}).resolve(cfg, result)

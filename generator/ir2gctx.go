@@ -49,7 +49,6 @@ func (b *IRConverter) convertService(irSvc *ir.Service, cfg *di.Config) *service
 		typeName: irSvc.Type,
 		public:   irSvc.Public,
 		shared:   irSvc.Shared,
-		canError: irSvc.CanError,
 	}
 
 	if irSvc.IsAlias() {

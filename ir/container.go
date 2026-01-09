@@ -108,9 +108,7 @@ type Service struct {
 	Tags []*ServiceTag
 
 	// Computed
-	Dependencies  []*Service // Direct dependencies (resolved)
-	CanError      bool       // Whether getter can return error
-	BuildCanError bool       // Whether build function can return error
+	Dependencies []*Service // Direct dependencies (resolved)
 }
 
 // IsAlias returns true if this service is an alias.
