@@ -1,6 +1,8 @@
 package yaml
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	di "github.com/asp24/gendi"
@@ -635,5 +637,128 @@ func TestThisSubstitutionInTypeAndFunc(t *testing.T) {
 	expectedFunc := "github.com/example/app.NewLogger"
 	if svc.Constructor.Func != expectedFunc {
 		t.Errorf("expected constructor func '%s', got '%s'", expectedFunc, svc.Constructor.Func)
+	}
+}
+
+func TestThisSubstitutionInTagElementType(t *testing.T) {
+	// Create a temp directory with go.mod
+	tempDir := t.TempDir()
+	modFile := filepath.Join(tempDir, "go.mod")
+	if err := os.WriteFile(modFile, []byte("module github.com/example/app\n\ngo 1.21\n"), 0o644); err != nil {
+		t.Fatalf("failed to write go.mod: %v", err)
+	}
+
+	raw := &RawConfig{
+		Tags: map[string]RawTag{
+			"notifier": {
+				ElementType: "$this.Notifier",
+				Public:      true,
+			},
+		},
+	}
+	p := NewParser()
+	cfg, err := p.convertConfigWithDir(raw, tempDir)
+	if err != nil {
+		t.Fatalf("convertConfigWithDir failed: %v", err)
+	}
+
+	tag, ok := cfg.Tags["notifier"]
+	if !ok {
+		t.Fatal("tag 'notifier' not found")
+	}
+
+	expected := "github.com/example/app.Notifier"
+	if tag.ElementType != expected {
+		t.Errorf("expected element_type '%s', got '%s'", expected, tag.ElementType)
+	}
+}
+
+func TestThisSubstitutionInTagElementTypePointer(t *testing.T) {
+	// Create a temp directory with go.mod
+	tempDir := t.TempDir()
+	modFile := filepath.Join(tempDir, "go.mod")
+	if err := os.WriteFile(modFile, []byte("module github.com/example/app\n\ngo 1.21\n"), 0o644); err != nil {
+		t.Fatalf("failed to write go.mod: %v", err)
+	}
+
+	raw := &RawConfig{
+		Tags: map[string]RawTag{
+			"handler": {
+				ElementType: "*$this.Handler",
+			},
+		},
+	}
+	p := NewParser()
+	cfg, err := p.convertConfigWithDir(raw, tempDir)
+	if err != nil {
+		t.Fatalf("convertConfigWithDir failed: %v", err)
+	}
+
+	tag, ok := cfg.Tags["handler"]
+	if !ok {
+		t.Fatal("tag 'handler' not found")
+	}
+
+	expected := "*github.com/example/app.Handler"
+	if tag.ElementType != expected {
+		t.Errorf("expected element_type '%s', got '%s'", expected, tag.ElementType)
+	}
+}
+
+func TestThisSubstitutionInTagElementTypeSlice(t *testing.T) {
+	// Create a temp directory with go.mod
+	tempDir := t.TempDir()
+	modFile := filepath.Join(tempDir, "go.mod")
+	if err := os.WriteFile(modFile, []byte("module github.com/example/app\n\ngo 1.21\n"), 0o644); err != nil {
+		t.Fatalf("failed to write go.mod: %v", err)
+	}
+
+	raw := &RawConfig{
+		Tags: map[string]RawTag{
+			"middleware": {
+				ElementType: "[]$this.Middleware",
+			},
+		},
+	}
+	p := NewParser()
+	cfg, err := p.convertConfigWithDir(raw, tempDir)
+	if err != nil {
+		t.Fatalf("convertConfigWithDir failed: %v", err)
+	}
+
+	tag, ok := cfg.Tags["middleware"]
+	if !ok {
+		t.Fatal("tag 'middleware' not found")
+	}
+
+	expected := "[]github.com/example/app.Middleware"
+	if tag.ElementType != expected {
+		t.Errorf("expected element_type '%s', got '%s'", expected, tag.ElementType)
+	}
+}
+
+func TestThisSubstitutionInTagElementTypeNoPackage(t *testing.T) {
+	// When no package is provided, $this should remain unchanged
+	raw := &RawConfig{
+		Tags: map[string]RawTag{
+			"notifier": {
+				ElementType: "$this.Notifier",
+			},
+		},
+	}
+	p := NewParser()
+	cfg, err := p.convertConfigWithDir(raw, "")
+	if err != nil {
+		t.Fatalf("convertConfigWithDir failed: %v", err)
+	}
+
+	tag, ok := cfg.Tags["notifier"]
+	if !ok {
+		t.Fatal("tag 'notifier' not found")
+	}
+
+	// Should remain unchanged when configDir is empty
+	if tag.ElementType != "$this.Notifier" {
+		t.Errorf("expected element_type '$this.Notifier', got '%s'", tag.ElementType)
 	}
 }

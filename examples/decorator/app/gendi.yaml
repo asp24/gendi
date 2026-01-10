@@ -1,7 +1,7 @@
 tags:
   job:
     public: true
-    element_type: "github.com/asp24/gendi/examples/decorator/app.Job"
+    element_type: "$this.Job"
 
 services:
   payment.provider_dummy:

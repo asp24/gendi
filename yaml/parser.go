@@ -55,8 +55,13 @@ func (p *Parser) convertConfigWithDir(raw *RawConfig, configDir string) (*di.Con
 
 	// Convert tags
 	for name, tag := range raw.Tags {
+		elementType := tag.ElementType
+		// Substitute $this with the resolved package path
+		if thisPackage != "" && strings.Contains(elementType, "$this.") {
+			elementType = strings.ReplaceAll(elementType, "$this.", thisPackage+".")
+		}
 		cfg.Tags[name] = di.Tag{
-			ElementType: tag.ElementType,
+			ElementType: elementType,
 			SortBy:      tag.SortBy,
 			Public:      tag.Public,
 		}
