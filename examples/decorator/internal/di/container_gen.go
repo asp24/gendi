@@ -5,7 +5,6 @@ import (
 	"fmt"
 	app "github.com/asp24/gendi/examples/decorator/app"
 	"github.com/asp24/gendi/parameters"
-	stdlib "github.com/asp24/gendi/stdlib"
 	"sync"
 )
 
@@ -71,7 +70,7 @@ func (c *Container) buildTaggedWithJob() ([]app.Job, error) {
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.job", '\x01', err)
 	}
-	return stdlib.MakeSlice[app.Job](arg0_payment_provider_with_comission, arg1_payment_provider_with_comission2), nil
+	return []app.Job{arg0_payment_provider_with_comission, arg1_payment_provider_with_comission2}, nil
 }
 
 func (c *Container) getPaymentProviderDummy() (*app.PaymentProviderDummy, error) {

@@ -85,6 +85,10 @@ func (g *Generator) Generate(cfg *di.Config) ([]byte, error) {
 	identGenerator := NewIdentGenerator()
 	getterRegistry := NewGetterRegistry(identGenerator)
 	importManager := NewImportManager(g.options.OutputPkgPath)
+	inliner := NewInlinerComposite(
+		NewInlinerMakeSlice(importManager),
+		NewInlinerMakeChan(importManager),
+	)
 
 	body := &bytes.Buffer{}
 	// Render
@@ -93,7 +97,7 @@ func (g *Generator) Generate(cfg *di.Config) ([]byte, error) {
 		return nil, err
 	}
 
-	cRenderer := NewContainerRenderer(importManager, identGenerator, getterRegistry, g.options.Container)
+	cRenderer := NewContainerRenderer(importManager, identGenerator, getterRegistry, inliner, g.options.Container)
 	if err := cRenderer.Render(cfg, ctx, body); err != nil {
 		return nil, err
 	}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	app "github.com/asp24/gendi/examples/basic/app"
 	"github.com/asp24/gendi/parameters"
-	stdlib "github.com/asp24/gendi/stdlib"
 	"sync"
 )
 
@@ -63,7 +62,7 @@ func (c *Container) buildTaggedWithPaymentProvider() ([]*app.PaymentProvider, er
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.payment.provider", '\x01', err)
 	}
-	return stdlib.MakeSlice[*app.PaymentProvider](arg0_provider_stripe, arg1_provider_paypal), nil
+	return []*app.PaymentProvider{arg0_provider_stripe, arg1_provider_paypal}, nil
 }
 
 func (c *Container) buildLogger() (*app.Logger, error) {

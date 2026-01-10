@@ -122,6 +122,12 @@ func TestPublicTagGetter(t *testing.T) {
 	if !strings.Contains(out, "getBase") {
 		t.Fatalf("expected tagged service to be reachable")
 	}
+	if strings.Contains(out, "stdlib.MakeSlice") {
+		t.Fatalf("expected stdlib.MakeSlice to be inlined")
+	}
+	if !strings.Contains(out, "[]app.Service{") {
+		t.Fatalf("expected tag constructor to use slice literal")
+	}
 }
 
 func TestTaggedInjectionConversion(t *testing.T) {

@@ -15,6 +15,7 @@ type ContainerRenderer struct {
 	importManager  *ImportManager
 	identGenerator *IdentGenerator
 	getterRegistry *GetterRegistry
+	inliner        Inliner
 	containerName  string
 }
 
@@ -22,12 +23,14 @@ func NewContainerRenderer(
 	imports *ImportManager,
 	ident *IdentGenerator,
 	getters *GetterRegistry,
+	inliner Inliner,
 	containerName string,
 ) *ContainerRenderer {
 	return &ContainerRenderer{
 		importManager:  imports,
 		identGenerator: ident,
 		getterRegistry: getters,
+		inliner:        inliner,
 		containerName:  containerName,
 	}
 }
@@ -179,10 +182,11 @@ func (r *ContainerRenderer) renderMustGetter(b *bytes.Buffer, ctx *genContext, s
 func (r *ContainerRenderer) constructorCall(ctx *genContext, svc *serviceDef, returnsErr bool) ([]string, string, error) {
 	var stmts []string
 	var args []string
-	for i, arg := range svc.constructor.argDefs {
+	cons := svc.constructor
+	for i, arg := range cons.argDefs {
 		var paramType types.Type = types.Typ[types.Invalid]
-		if i < len(svc.constructor.params) {
-			paramType = svc.constructor.params[i]
+		if i < len(cons.params) {
+			paramType = cons.params[i]
 		}
 		argExpr, argStmts, err := r.buildArg(ctx, svc, arg, returnsErr, i, paramType)
 		if err != nil {
@@ -192,25 +196,30 @@ func (r *ContainerRenderer) constructorCall(ctx *genContext, svc *serviceDef, re
 		args = append(args, argExpr)
 	}
 
-	var call string
-	if svc.constructor.kind == "func" {
-		funcName := r.importManager.funcNameWithTypeArgs(svc.constructor.funcObj, svc.constructor.typeArgs)
-		call = fmt.Sprintf("%s(%s)", funcName, strings.Join(args, ", "))
-	} else {
-		recv := svc.constructor.methodRecvID
-		recvGetter := ctx.services[recv].privateGetterName
-		recvExpr := fmt.Sprintf("c.%s()", recvGetter)
-		recvVar := r.identGenerator.Var("recv", svc.id)
-		if returnsErr {
-			stmts = append(stmts, fmt.Sprintf("%s, err := %s", recvVar, recvExpr))
-			stmts = append(stmts, serviceReceiverError(svc.id, recv))
-		} else {
-			stmts = append(stmts, fmt.Sprintf("%s, _ := %s", recvVar, recvExpr))
+	if cons.kind == "func" {
+		ok, call := r.inliner.TryInline(cons, args)
+		if ok {
+			return stmts, call, nil
 		}
-		recvExpr = recvVar
-		call = fmt.Sprintf("%s.%s(%s)", recvExpr, svc.constructor.funcObj.Name(), strings.Join(args, ", "))
+
+		funcName := r.importManager.funcNameWithTypeArgs(cons.funcObj, cons.typeArgs)
+
+		return stmts, fmt.Sprintf("%s(%s)", funcName, strings.Join(args, ", ")), nil
 	}
-	return stmts, call, nil
+
+	recv := cons.methodRecvID
+	recvGetter := ctx.services[recv].privateGetterName
+	recvExpr := fmt.Sprintf("c.%s()", recvGetter)
+	recvVar := r.identGenerator.Var("recv", svc.id)
+	if returnsErr {
+		stmts = append(stmts, fmt.Sprintf("%s, err := %s", recvVar, recvExpr))
+		stmts = append(stmts, serviceReceiverError(svc.id, recv))
+	} else {
+		stmts = append(stmts, fmt.Sprintf("%s, _ := %s", recvVar, recvExpr))
+	}
+	recvExpr = recvVar
+
+	return stmts, fmt.Sprintf("%s.%s(%s)", recvExpr, cons.funcObj.Name(), strings.Join(args, ", ")), nil
 }
 
 func (r *ContainerRenderer) buildArg(ctx *genContext, svc *serviceDef, arg *ir.Argument, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {

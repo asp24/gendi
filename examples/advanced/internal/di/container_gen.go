@@ -5,7 +5,6 @@ import (
 	"fmt"
 	app "github.com/asp24/gendi/examples/advanced/app"
 	"github.com/asp24/gendi/parameters"
-	stdlib "github.com/asp24/gendi/stdlib"
 	"sync"
 )
 
@@ -106,7 +105,7 @@ func (c *Container) buildTaggedWithNotifier() ([]app.Notifier, error) {
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.notifier", '\x01', err)
 	}
-	return stdlib.MakeSlice[app.Notifier](arg0_notifier_email, arg1_notifier_sms), nil
+	return []app.Notifier{arg0_notifier_email, arg1_notifier_sms}, nil
 }
 
 func (c *Container) buildDb() (*app.DB, error) {

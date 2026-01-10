@@ -148,7 +148,7 @@ func (c *Container) buildTaggedWithHttpHandler() ([]app.HTTPHandler, error) {
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.http.handler", '\x01', err)
 	}
-	return stdlib.MakeSlice[app.HTTPHandler](arg0_product_handler, arg1_user_handler), nil
+	return []app.HTTPHandler{arg0_product_handler, arg1_user_handler}, nil
 }
 
 func (c *Container) buildServerLogger() (*slog.Logger, error) {
