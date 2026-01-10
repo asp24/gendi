@@ -41,14 +41,14 @@ func (r *argumentResolver) resolve(container *Container, svcID string, idx int, 
 		}
 
 	case di.ArgTagged:
-		tag, ok := container.Tags[arg.Value]
+		tag, ok := container.tags[arg.Value]
 		if !ok {
 			// Create tag on-demand - infer ElementType from parameter
 			tag = &Tag{
 				Name:     arg.Value,
 				Services: []*Service{},
 			}
-			container.Tags[arg.Value] = tag
+			container.tags[arg.Value] = tag
 		}
 
 		// Infer or validate ElementType from parameter type

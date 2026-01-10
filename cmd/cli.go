@@ -38,8 +38,8 @@ func Generate(cfg Config, passes []di.Pass) error {
 		return fmt.Errorf("apply passes: %w", err)
 	}
 
-	gen := generator.New(diCfg, cfg.GeneratorOptions)
-	code, err := gen.Generate()
+	gen := generator.New(cfg.GeneratorOptions)
+	code, err := gen.Generate(diCfg)
 	if err != nil {
 		return fmt.Errorf("generate: %w", err)
 	}

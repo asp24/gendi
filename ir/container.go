@@ -14,14 +14,14 @@ import (
 type Container struct {
 	Services   map[string]*Service
 	Parameters map[string]*Parameter
-	Tags       map[string]*Tag
+	tags       map[string]*Tag
 }
 
 func NewContainer() *Container {
 	return &Container{
 		Services:   make(map[string]*Service),
 		Parameters: make(map[string]*Parameter),
-		Tags:       make(map[string]*Tag),
+		tags:       make(map[string]*Tag),
 	}
 }
 
@@ -108,9 +108,7 @@ type Service struct {
 	Tags []*ServiceTag
 
 	// Computed
-	Dependencies  []*Service // Direct dependencies (resolved)
-	CanError      bool       // Whether getter can return error
-	BuildCanError bool       // Whether build function can return error
+	Dependencies []*Service // Direct dependencies (resolved)
 }
 
 // IsAlias returns true if this service is an alias.

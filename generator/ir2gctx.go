@@ -49,14 +49,6 @@ func (b *IRConverter) convertService(irSvc *ir.Service, cfg *di.Config) *service
 		typeName: irSvc.Type,
 		public:   irSvc.Public,
 		shared:   irSvc.Shared,
-		canError: irSvc.CanError,
-		tags:     irSvc.Tags,
-	}
-
-	if cfg, ok := cfg.Services[irSvc.ID]; ok && cfg.Type != "" {
-		if declType, err := b.typeResolver.LookupType(cfg.Type); err == nil {
-			svcDef.declaredType = declType
-		}
 	}
 
 	if irSvc.IsAlias() {
@@ -81,7 +73,6 @@ func (b *IRConverter) convertToGenContext(irContainer *ir.Container, cfg *di.Con
 	ctx := &genContext{
 		services:          services,
 		orderedServiceIDs: irContainer.ServiceIDsPostOrder(),
-		tags:              irContainer.Tags,
 		outputPkgPath:     b.options.OutputPkgPath,
 		paramGetters:      irContainer.ParamGetters(),
 	}

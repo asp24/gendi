@@ -5,6 +5,7 @@ import (
 	"fmt"
 	app "github.com/asp24/gendi/examples/decorator/app"
 	"github.com/asp24/gendi/parameters"
+	stdlib "github.com/asp24/gendi/stdlib"
 	"sync"
 )
 
@@ -60,64 +61,68 @@ func (c *Container) buildPaymentProviderWithComission2() (*app.PaymentProviderCo
 	return app.NewPaymentProviderCommissionDecorator(arg0_payment_provider_with_comission, 2), nil
 }
 
-func (c *Container) getPaymentProviderDummy() (*app.PaymentProviderDummy, error) {
-	var zero *app.PaymentProviderDummy
-	res, err := c.buildPaymentProviderDummy()
+func (c *Container) buildTaggedWithJob() ([]app.Job, error) {
+	var zero []app.Job
+	arg0_payment_provider_with_comission, err := c.getPaymentProviderWithComission()
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.job", '\x00', err)
 	}
-	return res, nil
+	arg1_payment_provider_with_comission2, err := c.getPaymentProviderWithComission2()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.job", '\x01', err)
+	}
+	return stdlib.MakeSlice[app.Job](arg0_payment_provider_with_comission, arg1_payment_provider_with_comission2), nil
+}
+
+func (c *Container) getPaymentProviderDummy() (*app.PaymentProviderDummy, error) {
+	return c.buildPaymentProviderDummy()
 }
 
 func (c *Container) getPaymentProviderWithComission() (*app.PaymentProviderCommissionDecorator, error) {
-	var zero *app.PaymentProviderCommissionDecorator
 	if c.svc_payment_provider_with_comission != nil {
 		return c.svc_payment_provider_with_comission, nil
 	}
 	res, err := c.buildPaymentProviderWithComission()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_payment_provider_with_comission = res
 	return res, nil
 }
 
 func (c *Container) getPaymentProviderWithComission2() (*app.PaymentProviderCommissionDecorator, error) {
-	var zero *app.PaymentProviderCommissionDecorator
 	if c.svc_payment_provider_with_comission2 != nil {
 		return c.svc_payment_provider_with_comission2, nil
 	}
 	res, err := c.buildPaymentProviderWithComission2()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_payment_provider_with_comission2 = res
 	return res, nil
+}
+
+func (c *Container) getTaggedWithJob() ([]app.Job, error) {
+	return c.buildTaggedWithJob()
 }
 
 func (c *Container) getPaymentProvider() (*app.PaymentProviderCommissionDecorator, error) {
 	return c.getPaymentProviderWithComission2()
 }
 
-func (c *Container) getTaggedWithJob() ([]app.Job, error) {
-	items := make([]app.Job, 0, 2)
-	tagged_payment_provider_with_comission, err := c.getPaymentProviderWithComission()
-	if err != nil {
-		return nil, err
-	}
-	items = append(items, tagged_payment_provider_with_comission)
-	tagged_payment_provider_with_comission2, err := c.getPaymentProviderWithComission2()
-	if err != nil {
-		return nil, err
-	}
-	items = append(items, tagged_payment_provider_with_comission2)
-	return items, nil
-}
-
 func (c *Container) GetTaggedWithJob() ([]app.Job, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.getTaggedWithJob()
+}
+
+func (c *Container) MustTaggedWithJob() []app.Job {
+	res, err := c.GetTaggedWithJob()
+	if err != nil {
+		c.onMustCallFailed("__tagged_with.job", err)
+		panic(err)
+	}
+	return res
 }
 
 func (c *Container) GetPaymentProvider() (*app.PaymentProviderCommissionDecorator, error) {

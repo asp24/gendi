@@ -48,6 +48,28 @@ func collectPackagePaths(cfg *di.Config) ([]string, error) {
 			addAll(pkgs)
 		}
 	}
+
+	// Check if there are tags or tagged arguments - need stdlib for MakeSlice
+	hasTagsOrTaggedArgs := len(cfg.Tags) > 0
+	if !hasTagsOrTaggedArgs {
+		for _, svc := range cfg.Services {
+			if len(svc.Tags) > 0 {
+				hasTagsOrTaggedArgs = true
+				break
+			}
+			for _, arg := range svc.Constructor.Args {
+				if arg.Kind == di.ArgTagged {
+					hasTagsOrTaggedArgs = true
+					break
+				}
+			}
+		}
+	}
+	if hasTagsOrTaggedArgs {
+		// Tag desugaring uses stdlib.MakeSlice
+		add("github.com/asp24/gendi/stdlib")
+	}
+
 	for _, tag := range cfg.Tags {
 		if tag.ElementType != "" {
 			pkgs := collectTypePackages(tag.ElementType)

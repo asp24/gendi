@@ -107,7 +107,7 @@ func TestServicePhaseCreatesTagsOnDemand(t *testing.T) {
 	}
 
 	// Check that tag was created
-	tag, ok := container.Tags["undeclared.tag"]
+	tag, ok := container.tags["undeclared.tag"]
 	if !ok {
 		t.Fatal("expected tag 'undeclared.tag' to be created on demand")
 	}

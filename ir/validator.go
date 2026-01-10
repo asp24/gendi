@@ -22,15 +22,11 @@ func (v *validator) validate(_ *di.Config, container *Container) error {
 	return nil
 }
 
-// validatePublicServices ensures at least one public service exists
+// validatePublicServices ensures at least one public service exists.
+// Note: After tag desugaring, public tags become public services with !tagged: prefix.
 func (v *validator) validatePublicServices(container *Container) error {
 	for _, svc := range container.Services {
 		if svc.Public {
-			return nil
-		}
-	}
-	for _, tag := range container.Tags {
-		if tag.Public {
 			return nil
 		}
 	}

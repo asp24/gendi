@@ -9,7 +9,7 @@ import (
 
 // buildFunctionRenderer renders a build function for a service.
 type buildFunctionRenderer interface {
-	buildSignature(rnd *ContainerRenderer, svc *serviceDef) (signature, innerVar string)
+	buildSignature(rnd *ContainerRenderer, svc *serviceDef) (signature string)
 	render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error
 }
 
@@ -34,15 +34,15 @@ func buildNeedsErrorHandling(svc *serviceDef) bool {
 // regularBuildRenderer renders a standard build function.
 type regularBuildRenderer struct{}
 
-func (r *regularBuildRenderer) buildSignature(rnd *ContainerRenderer, svc *serviceDef) (string, string) {
+func (r *regularBuildRenderer) buildSignature(rnd *ContainerRenderer, svc *serviceDef) string {
 	name := rnd.identGenerator.Build(svc.id)
 	retType := rnd.importManager.typeString(svc.typeName)
 	signature := fmt.Sprintf("func (c *%s) %s() (%s, error)", rnd.containerName, name, retType)
-	return signature, ""
+	return signature
 }
 
 func (r *regularBuildRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error {
-	signature, innerVar := r.buildSignature(rnd, svc)
+	signature := r.buildSignature(rnd, svc)
 	retType := rnd.importManager.typeString(svc.typeName)
 	returnsErr := buildNeedsErrorHandling(svc)
 
@@ -51,7 +51,7 @@ func (r *regularBuildRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, c
 		fmt.Fprintf(b, "\tvar zero %s\n", retType)
 	}
 
-	stmts, callExpr, err := rnd.constructorCall(ctx, svc, innerVar, returnsErr)
+	stmts, callExpr, err := rnd.constructorCall(ctx, svc, returnsErr)
 	if err != nil {
 		return err
 	}

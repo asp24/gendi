@@ -4,11 +4,14 @@ import (
 	di "github.com/asp24/gendi"
 )
 
-// pruneUnreachable removes services not reachable from public services or tags.
+// pruneUnreachable removes services not reachable from public services.
+// Note: After tag desugaring, public tags become public services with !tagged: prefix,
+// so we only need to check Services, not tags.
 func pruneUnreachable(_ *di.Config, container *Container) {
 	reachable := map[string]bool{}
 	var queue []*Service
 
+	// Start from all public services (including desugared public tags)
 	for _, svc := range container.Services {
 		if svc != nil && svc.Public {
 			if !reachable[svc.ID] {
@@ -17,19 +20,8 @@ func pruneUnreachable(_ *di.Config, container *Container) {
 			}
 		}
 	}
-	for _, tag := range container.Tags {
-		if tag == nil || !tag.Public {
-			continue
-		}
-		for _, svc := range tag.Services {
-			if svc == nil || reachable[svc.ID] {
-				continue
-			}
-			reachable[svc.ID] = true
-			queue = append(queue, svc)
-		}
-	}
 
+	// BFS to find all reachable services
 	for len(queue) > 0 {
 		svc := queue[0]
 		queue = queue[1:]
@@ -45,22 +37,10 @@ func pruneUnreachable(_ *di.Config, container *Container) {
 		}
 	}
 
+	// Remove unreachable services
 	for id := range container.Services {
 		if !reachable[id] {
 			delete(container.Services, id)
 		}
-	}
-
-	for _, tag := range container.Tags {
-		if tag == nil {
-			continue
-		}
-		out := tag.Services[:0]
-		for _, svc := range tag.Services {
-			if svc != nil && reachable[svc.ID] {
-				out = append(out, svc)
-			}
-		}
-		tag.Services = out
 	}
 }

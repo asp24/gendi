@@ -146,15 +146,14 @@ func serviceParamError(serviceID string, argIndex int, paramName string) string 
 		Build()
 }
 
-func serviceTagError(serviceID string, argIndex int, tagName string) string {
-	return NewErrorSnippet(serviceID).
-		WithContext("arg[%d]", argIndex).
-		WithContext("tag %q", tagName).
-		Build()
-}
-
 func serviceReceiverError(serviceID, receiverID string) string {
 	return NewErrorSnippet(serviceID).
 		WithContext("receiver %q", receiverID).
 		Build()
+}
+
+// serviceArgErrorIndented returns an indented error snippet for use in nested blocks
+func serviceArgErrorIndented(serviceID string, argIndex int) string {
+	return fmt.Sprintf("\tif err != nil { return nil, fmt.Errorf(\"service %%q arg[%%d]: %%w\", %q, %d, err) }",
+		serviceID, argIndex)
 }

@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"go/types"
+	"strings"
 
 	"github.com/asp24/gendi/ir"
 	"github.com/asp24/gendi/typeres"
@@ -14,7 +15,6 @@ type argBuildContext struct {
 	genCtx     *genContext
 	service    *serviceDef
 	argument   *ir.Argument
-	innerVar   string
 	returnsErr bool
 	argIndex   int
 	paramType  types.Type
@@ -33,6 +33,14 @@ func (b *serviceRefBuilder) build(ctx *argBuildContext) (string, []string, error
 	if dep == nil {
 		return "", nil, fmt.Errorf("unknown service %q", ctx.argument.Service.ID)
 	}
+
+	// Check if slice type conversion is needed
+	// This happens when a desugared tag service returns []T but the parameter expects []R
+	// where T is assignable to R (e.g., *A to interface{})
+	if needsSliceConversion(dep.typeName, ctx.paramType) {
+		return b.buildWithSliceConversion(ctx, dep)
+	}
+
 	call := fmt.Sprintf("c.%s()", dep.privateGetterName)
 	depVar := ctx.rnd.identGenerator.Var(fmt.Sprintf("arg%d", ctx.argIndex), dep.id)
 	if ctx.returnsErr {
@@ -44,6 +52,55 @@ func (b *serviceRefBuilder) build(ctx *argBuildContext) (string, []string, error
 	}
 	stmts := []string{fmt.Sprintf("%s, _ := %s", depVar, call)}
 	return depVar, stmts, nil
+}
+
+// needsSliceConversion checks if slice element type conversion is needed
+func needsSliceConversion(svcType, paramType types.Type) bool {
+	svcSlice, svcOk := svcType.Underlying().(*types.Slice)
+	paramSlice, paramOk := paramType.Underlying().(*types.Slice)
+	if !svcOk || !paramOk {
+		return false
+	}
+	// Different element types but svc element assignable to param element
+	svcElem := svcSlice.Elem()
+	paramElem := paramSlice.Elem()
+	return !types.Identical(svcElem, paramElem) && types.AssignableTo(svcElem, paramElem)
+}
+
+// buildWithSliceConversion generates code for slice type conversion
+func (b *serviceRefBuilder) buildWithSliceConversion(ctx *argBuildContext, dep *serviceDef) (string, []string, error) {
+	paramSlice := ctx.paramType.Underlying().(*types.Slice)
+	paramElemType := ctx.rnd.importManager.typeString(paramSlice.Elem())
+	destType := "[]" + paramElemType
+
+	// For desugared tag services, use tag name for variable naming
+	varSuffix := dep.id
+	if strings.HasPrefix(dep.id, ir.TagServicePrefix) {
+		varSuffix = strings.TrimPrefix(dep.id, ir.TagServicePrefix)
+	}
+
+	srcVar := ctx.rnd.identGenerator.Var("tagged", varSuffix)
+	destVar := ctx.rnd.identGenerator.Var(fmt.Sprintf("arg%d_tagged", ctx.argIndex), varSuffix)
+	call := fmt.Sprintf("c.%s()", dep.privateGetterName)
+
+	var stmts []string
+	stmts = append(stmts, fmt.Sprintf("var %s %s", destVar, destType))
+	stmts = append(stmts, "{")
+
+	if ctx.returnsErr {
+		stmts = append(stmts, fmt.Sprintf("\t%s, err := %s", srcVar, call))
+		stmts = append(stmts, serviceArgErrorIndented(ctx.service.id, ctx.argIndex))
+	} else {
+		stmts = append(stmts, fmt.Sprintf("\t%s, _ := %s", srcVar, call))
+	}
+
+	stmts = append(stmts, fmt.Sprintf("\t%s = make(%s, len(%s))", destVar, destType, srcVar))
+	stmts = append(stmts, fmt.Sprintf("\tfor idx, item := range %s {", srcVar))
+	stmts = append(stmts, fmt.Sprintf("\t\t%s[idx] = item", destVar))
+	stmts = append(stmts, "\t}")
+	stmts = append(stmts, "}")
+
+	return destVar, stmts, nil
 }
 
 // paramRefBuilder handles parameter reference arguments
@@ -72,77 +129,6 @@ func (b *paramRefBuilder) build(ctx *argBuildContext) (string, []string, error) 
 	return paramVar, stmts, nil
 }
 
-// taggedBuilder handles tagged service collection arguments
-type taggedBuilder struct{}
-
-func (b *taggedBuilder) generateIdentical(varName string, ctx *argBuildContext) (string, []string, error) {
-	tagName := ctx.argument.Tag.Name
-	getter := ctx.rnd.getterRegistry.PrivateTag(tagName)
-
-	call := fmt.Sprintf("c.%s()", getter)
-	var stmts []string
-	if !ctx.returnsErr {
-		return varName, append(stmts, fmt.Sprintf("%s, _ := %s", varName, call)), nil
-	}
-
-	stmts = append(stmts, fmt.Sprintf("%s, err := %s", varName, call))
-	stmts = append(stmts, serviceTagError(ctx.service.id, ctx.argIndex, tagName))
-
-	return varName, stmts, nil
-}
-
-func (b *taggedBuilder) generateCasted(varName string, paramElem types.Type, ctx *argBuildContext) (string, []string, error) {
-	var stmts []string
-
-	convType := "[]" + ctx.rnd.importManager.typeString(paramElem)
-	stmts = append(stmts, fmt.Sprintf("var %s %s", varName, convType))
-	stmts = append(stmts, "{")
-
-	tagName := ctx.argument.Tag.Name
-	taggedCallVar, callStmts, err := b.generateIdentical(ctx.rnd.identGenerator.Var("tagged", tagName), ctx)
-	if err != nil {
-		return "", nil, err
-	}
-	stmts = append(stmts, callStmts...)
-
-	stmts = append(stmts, fmt.Sprintf("%s = make(%s, len(%s))", varName, convType, taggedCallVar))
-	stmts = append(stmts, fmt.Sprintf("for idx, item := range %s {", taggedCallVar))
-	stmts = append(stmts, fmt.Sprintf("\t%s[idx] = item", varName))
-	stmts = append(stmts, "}", "}")
-
-	return varName, stmts, nil
-}
-
-func tagElementType(ctx *genContext, tag string) types.Type {
-	if t, ok := ctx.tags[tag]; ok {
-		return t.ElementType
-	}
-	return types.Typ[types.Invalid]
-}
-
-func (b *taggedBuilder) build(ctx *argBuildContext) (string, []string, error) {
-	tagName := ctx.argument.Tag.Name
-	getter := ctx.rnd.getterRegistry.PrivateTag(tagName)
-	if getter == "" {
-		return "", nil, fmt.Errorf("tag %q: missing private getter", tagName)
-	}
-
-	elemType := tagElementType(ctx.genCtx, tagName)
-	paramSlice, ok := ctx.paramType.Underlying().(*types.Slice)
-	if !ok {
-		return "", nil, fmt.Errorf("service %q arg[%d]: tagged injection requires slice type, got %s", ctx.service.id, ctx.argIndex, ctx.paramType)
-	}
-
-	paramElem := paramSlice.Elem()
-	varName := ctx.rnd.identGenerator.Var(fmt.Sprintf("arg%d_tagged", ctx.argIndex), tagName)
-
-	if types.Identical(elemType, paramElem) {
-		return b.generateIdentical(varName, ctx)
-	}
-
-	return b.generateCasted(varName, paramElem, ctx)
-}
-
 // literalBuilder handles literal value arguments
 type literalBuilder struct{}
 
@@ -163,10 +149,10 @@ func (b *literalBuilder) build(ctx *argBuildContext) (string, []string, error) {
 
 // argumentBuilderRegistry maps argument kinds to their builder implementations.
 // This registry pattern allows adding new argument types without modifying lookup logic.
+// Note: TaggedArg is no longer needed as tags are desugared to services in the IR phase.
 var argumentBuilderRegistry = map[ir.ArgumentKind]argumentBuilder{
 	ir.ServiceRefArg: &serviceRefBuilder{},
 	ir.ParamRefArg:   &paramRefBuilder{},
-	ir.TaggedArg:     &taggedBuilder{},
 	ir.LiteralArg:    &literalBuilder{},
 }
 

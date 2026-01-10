@@ -33,7 +33,7 @@ func (p *tagPhase) build(cfg *di.Config, container *Container) error {
 			irTag.ElementType = elemType
 		}
 
-		container.Tags[name] = irTag
+		container.tags[name] = irTag
 	}
 	return nil
 }

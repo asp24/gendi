@@ -69,21 +69,25 @@ func TestOptimizeShared(t *testing.T) {
 			},
 		},
 		{
-			name: "does not optimize tagged service",
+			name: "keeps dependency shared when direct parent is public non-shared",
 			setup: func(c *Container) {
 				s := &Service{
 					ID:     "S",
 					Shared: true,
 					Public: false,
-					Tags:   []*ServiceTag{{Tag: &Tag{Public: true}}},
 				}
-				p := &Service{ID: "P", Shared: true, Dependencies: []*Service{s}}
+				publicParent := &Service{
+					ID:           "!tagged:myTag",
+					Shared:       false,
+					Public:       true,
+					Dependencies: []*Service{s},
+				}
 				c.Services["S"] = s
-				c.Services["P"] = p
+				c.Services["!tagged:myTag"] = publicParent
 			},
 			validate: func(t *testing.T, c *Container) {
 				if !c.Services["S"].Shared {
-					t.Error("S should remain shared")
+					t.Error("S should remain shared because its only parent is public non-shared")
 				}
 			},
 		},
@@ -105,6 +109,33 @@ func TestOptimizeShared(t *testing.T) {
 			validate: func(t *testing.T, c *Container) {
 				if !c.Services["S"].Shared {
 					t.Error("S should remain shared")
+				}
+			},
+		},
+		{
+			name: "keeps parent shared when it feeds a multi-dependency service",
+			setup: func(c *Container) {
+				cSvc := &Service{ID: "C", Shared: true, Public: false}
+				b := &Service{ID: "B", Shared: true, Public: false, Dependencies: []*Service{cSvc}}
+				other := &Service{ID: "X", Shared: true, Public: false}
+				p := &Service{
+					ID:           "P",
+					Shared:       false,
+					Public:       false,
+					Dependencies: []*Service{b, other},
+				}
+
+				c.Services["C"] = cSvc
+				c.Services["B"] = b
+				c.Services["X"] = other
+				c.Services["P"] = p
+			},
+			validate: func(t *testing.T, c *Container) {
+				if c.Services["C"].Shared {
+					t.Error("C should be non-shared")
+				}
+				if !c.Services["B"].Shared {
+					t.Error("B should remain shared because its parent fans out")
 				}
 			},
 		},

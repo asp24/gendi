@@ -30,14 +30,14 @@ func (p *servicePhase) build(cfg *di.Config, container *Container) error {
 
 		// Build service tags (create tags on-demand if not declared)
 		for _, st := range svc.Tags {
-			tag, ok := container.Tags[st.Name]
+			tag, ok := container.tags[st.Name]
 			if !ok {
 				// Create tag on-demand - ElementType will be inferred later
 				tag = &Tag{
 					Name:     st.Name,
 					Services: []*Service{},
 				}
-				container.Tags[st.Name] = tag
+				container.tags[st.Name] = tag
 			}
 			irSvc.Tags = append(irSvc.Tags, &ServiceTag{
 				Tag:        tag,

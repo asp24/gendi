@@ -5,6 +5,7 @@ import (
 	"fmt"
 	app "github.com/asp24/gendi/examples/basic/app"
 	"github.com/asp24/gendi/parameters"
+	stdlib "github.com/asp24/gendi/stdlib"
 	"sync"
 )
 
@@ -18,8 +19,6 @@ type Container struct {
 	params                parameters.Provider
 	onMustCallFailed      func(serviceName string, err error)
 	svc_logger            *app.Logger
-	svc_provider_paypal   *app.PaymentProvider
-	svc_provider_stripe   *app.PaymentProvider
 	svc_service_decorator *app.Service
 	svc_timer             *app.Timer
 }
@@ -46,16 +45,29 @@ func NewContainer(params parameters.Provider, opts ...ContainerOption) *Containe
 	return c
 }
 
-func (c *Container) buildLogger() (*app.Logger, error) {
-	return app.NewLogger("[app] "), nil
+func (c *Container) buildProviderStripe() (*app.PaymentProvider, error) {
+	return app.NewStripeProvider(), nil
 }
 
 func (c *Container) buildProviderPaypal() (*app.PaymentProvider, error) {
 	return app.NewPaypalProvider(), nil
 }
 
-func (c *Container) buildProviderStripe() (*app.PaymentProvider, error) {
-	return app.NewStripeProvider(), nil
+func (c *Container) buildTaggedWithPaymentProvider() ([]*app.PaymentProvider, error) {
+	var zero []*app.PaymentProvider
+	arg0_provider_stripe, err := c.getProviderStripe()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.payment.provider", '\x00', err)
+	}
+	arg1_provider_paypal, err := c.getProviderPaypal()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.payment.provider", '\x01', err)
+	}
+	return stdlib.MakeSlice[*app.PaymentProvider](arg0_provider_stripe, arg1_provider_paypal), nil
+}
+
+func (c *Container) buildLogger() (*app.Logger, error) {
+	return app.NewLogger("[app] "), nil
 }
 
 func (c *Container) buildRepo() (*app.Repo, error) {
@@ -77,11 +89,11 @@ func (c *Container) buildServiceDecoratorInner() (*app.Service, error) {
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator.inner", '\x01', err)
 	}
-	arg2_tagged_payment_provider, err := c.getTaggedWithPaymentProvider()
+	arg2___tagged_with_payment_provider, err := c.getTaggedWithPaymentProvider()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] tag %q: %w", "service.decorator.inner", '\x02', "payment.provider", err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator.inner", '\x02', err)
 	}
-	res, err := app.NewService(arg0_repo, arg1_logger, arg2_tagged_payment_provider)
+	res, err := app.NewService(arg0_repo, arg1_logger, arg2___tagged_with_payment_provider)
 	if err != nil {
 		return zero, fmt.Errorf("service %q constructor: %w", "service.decorator.inner", err)
 	}
@@ -105,71 +117,45 @@ func (c *Container) buildTimer() (*app.Timer, error) {
 	return app.NewTimer(1000000000), nil
 }
 
+func (c *Container) getProviderStripe() (*app.PaymentProvider, error) {
+	return c.buildProviderStripe()
+}
+
+func (c *Container) getProviderPaypal() (*app.PaymentProvider, error) {
+	return c.buildProviderPaypal()
+}
+
+func (c *Container) getTaggedWithPaymentProvider() ([]*app.PaymentProvider, error) {
+	return c.buildTaggedWithPaymentProvider()
+}
+
 func (c *Container) getLogger() (*app.Logger, error) {
-	var zero *app.Logger
 	if c.svc_logger != nil {
 		return c.svc_logger, nil
 	}
 	res, err := c.buildLogger()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_logger = res
 	return res, nil
 }
 
-func (c *Container) getProviderPaypal() (*app.PaymentProvider, error) {
-	var zero *app.PaymentProvider
-	if c.svc_provider_paypal != nil {
-		return c.svc_provider_paypal, nil
-	}
-	res, err := c.buildProviderPaypal()
-	if err != nil {
-		return zero, err
-	}
-	c.svc_provider_paypal = res
-	return res, nil
-}
-
-func (c *Container) getProviderStripe() (*app.PaymentProvider, error) {
-	var zero *app.PaymentProvider
-	if c.svc_provider_stripe != nil {
-		return c.svc_provider_stripe, nil
-	}
-	res, err := c.buildProviderStripe()
-	if err != nil {
-		return zero, err
-	}
-	c.svc_provider_stripe = res
-	return res, nil
-}
-
 func (c *Container) getRepo() (*app.Repo, error) {
-	var zero *app.Repo
-	res, err := c.buildRepo()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildRepo()
 }
 
 func (c *Container) getServiceDecoratorInner() (*app.Service, error) {
-	var zero *app.Service
-	res, err := c.buildServiceDecoratorInner()
-	if err != nil {
-		return zero, err
-	}
-	return res, nil
+	return c.buildServiceDecoratorInner()
 }
 
 func (c *Container) getServiceDecorator() (*app.Service, error) {
-	var zero *app.Service
 	if c.svc_service_decorator != nil {
 		return c.svc_service_decorator, nil
 	}
 	res, err := c.buildServiceDecorator()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_service_decorator = res
 	return res, nil
@@ -180,31 +166,15 @@ func (c *Container) getService() (*app.Service, error) {
 }
 
 func (c *Container) getTimer() (*app.Timer, error) {
-	var zero *app.Timer
 	if c.svc_timer != nil {
 		return c.svc_timer, nil
 	}
 	res, err := c.buildTimer()
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	c.svc_timer = res
 	return res, nil
-}
-
-func (c *Container) getTaggedWithPaymentProvider() ([]*app.PaymentProvider, error) {
-	items := make([]*app.PaymentProvider, 0, 2)
-	tagged_provider_stripe, err := c.getProviderStripe()
-	if err != nil {
-		return nil, err
-	}
-	items = append(items, tagged_provider_stripe)
-	tagged_provider_paypal, err := c.getProviderPaypal()
-	if err != nil {
-		return nil, err
-	}
-	items = append(items, tagged_provider_paypal)
-	return items, nil
 }
 
 func (c *Container) GetService() (*app.Service, error) {

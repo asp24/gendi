@@ -11,12 +11,11 @@ import (
 )
 
 type Generator struct {
-	cfg     *di.Config
 	options Options
 }
 
-func New(cfg *di.Config, opts Options) *Generator {
-	return &Generator{cfg: cfg, options: opts}
+func New(opts Options) *Generator {
+	return &Generator{options: opts}
 }
 
 func (g *Generator) createTypeResolver(cfg *di.Config) (*typeres.Resolver, error) {
@@ -54,48 +53,31 @@ func (g *Generator) assembleOutput(body *bytes.Buffer, importManager *ImportMana
 	return out.Bytes()
 }
 
-func (g *Generator) render(ctx *genContext, pRenderer *ParametersRenderer, cRenderer *ContainerRenderer) ([]byte, error) {
-	body := &bytes.Buffer{}
-
-	// Render main code sections
-	if err := pRenderer.Render(g.cfg.Parameters, body); err != nil {
-		return nil, err
-	}
-
-	if err := cRenderer.Render(g.cfg, ctx, body); err != nil {
-		return nil, err
-	}
-
-	// Assemble final output with header
-	return g.assembleOutput(body, cRenderer.importManager), nil
-}
-
 // Generate produces the container code.
 // Options must be finalized before calling New() (via Options.Finalize()).
 // Internal passes are applied automatically
-func (g *Generator) Generate() ([]byte, error) {
+func (g *Generator) Generate(cfg *di.Config) ([]byte, error) {
 	// Apply internal passes (idempotent - decorators already expanded will be skipped)
-	cfg, err := di.ApplyInternalPasses(g.cfg)
+	cfg, err := di.ApplyInternalPasses(cfg)
 	if err != nil {
 		return nil, err
 	}
-	g.cfg = cfg
 
-	typeResolver, err := g.createTypeResolver(g.cfg)
+	typeResolver, err := g.createTypeResolver(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	// di.Config -> IR
 	irBuilder := ir.NewBuilder(typeResolver)
-	irContainer, err := irBuilder.Build(g.cfg)
+	irContainer, err := irBuilder.Build(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	// IR -> getContext
 	irConverter := NewIRConverter(typeResolver, g.options)
-	ctx, err := irConverter.Convert(irContainer, g.cfg)
+	ctx, err := irConverter.Convert(irContainer, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -104,14 +86,19 @@ func (g *Generator) Generate() ([]byte, error) {
 	getterRegistry := NewGetterRegistry(identGenerator)
 	importManager := NewImportManager(g.options.OutputPkgPath)
 
+	body := &bytes.Buffer{}
+	// Render
 	pRenderer := NewParametersRenderer(importManager)
-	cRenderer := NewContainerRenderer(importManager, identGenerator, getterRegistry, g.options.Container)
-
-	// Render code
-	code, err := g.render(ctx, pRenderer, cRenderer)
-	if err != nil {
+	if err := pRenderer.Render(cfg.Parameters, body); err != nil {
 		return nil, err
 	}
+
+	cRenderer := NewContainerRenderer(importManager, identGenerator, getterRegistry, g.options.Container)
+	if err := cRenderer.Render(cfg, ctx, body); err != nil {
+		return nil, err
+	}
+
+	code := g.assembleOutput(body, cRenderer.importManager)
 
 	// Format
 	formatted, err := format.Source(code)

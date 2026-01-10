@@ -1,6 +1,8 @@
 package generator
 
-import "strings"
+import (
+	"strings"
+)
 
 // IdentGenerator generates Go identifiers for generated code.
 type IdentGenerator struct{}
@@ -32,16 +34,9 @@ func (ig *IdentGenerator) Getter(id string, public bool) string {
 	return "get" + ig.toCamel(id)
 }
 
+// Must returns a must getter method name (e.g., "MustMyService").
 func (ig *IdentGenerator) Must(id string) string {
 	return "Must" + ig.toCamel(id)
-}
-
-// TagGetter returns a tag getter method name.
-func (ig *IdentGenerator) TagGetter(name string, public bool) string {
-	if public {
-		return "GetTaggedWith" + ig.toCamel(name)
-	}
-	return "getTaggedWith" + ig.toCamel(name)
 }
 
 // toCamel converts a string to CamelCase.
