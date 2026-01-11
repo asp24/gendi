@@ -75,7 +75,7 @@ func (g *Generator) Generate(cfg *di.Config) ([]byte, error) {
 		return nil, err
 	}
 
-	// IR -> getContext
+	// IR -> genContext
 	irConverter := NewIRConverter(typeResolver, g.options)
 	ctx, err := irConverter.Convert(irContainer, cfg)
 	if err != nil {

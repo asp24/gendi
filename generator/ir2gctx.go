@@ -62,7 +62,7 @@ func (b *IRConverter) convertService(irSvc *ir.Service, cfg *di.Config) *service
 	return svcDef
 }
 
-func (b *IRConverter) convertToGenContext(irContainer *ir.Container, cfg *di.Config) (*genContext, error) {
+func (b *IRConverter) Convert(irContainer *ir.Container, cfg *di.Config) (*genContext, error) {
 	services := make(map[string]*serviceDef)
 	// Convert IR services to serviceDef
 	for id, irSvc := range irContainer.Services {
@@ -73,15 +73,8 @@ func (b *IRConverter) convertToGenContext(irContainer *ir.Container, cfg *di.Con
 	ctx := &genContext{
 		services:          services,
 		orderedServiceIDs: irContainer.ServiceIDsPostOrder(),
-		outputPkgPath:     b.options.OutputPkgPath,
 		paramGetters:      irContainer.ParamGetters(),
 	}
 
 	return ctx, nil
-}
-
-// Convert executes all phases and returns the generation context and renderer.
-func (b *IRConverter) Convert(irContainer *ir.Container, cfg *di.Config) (*genContext, error) {
-	// Convert IR to genContext for rendering
-	return b.convertToGenContext(irContainer, cfg)
 }
