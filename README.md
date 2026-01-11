@@ -654,7 +654,7 @@ func (c *Container) GetServiceName() (ServiceType, error)
 
 **Default Parameters:**
 ```go
-var DefaultParameters = parameters.NewProviderMap(map[string]any{
+var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
     "param_name": "value",
 })
 ```

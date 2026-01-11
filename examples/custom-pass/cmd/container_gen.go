@@ -11,7 +11,7 @@ import (
 	"sync"
 )
 
-var DefaultParameters = parameters.NewProviderMap(map[string]any{
+var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
 	"db_dsn":                              "postgres://localhost/myapp",
 	"stdlib.http.idle_conn_timeout":       "90s",
 	"stdlib.http.max_idle_conns":          100,
@@ -30,7 +30,7 @@ type Container struct {
 
 type ContainerOption func(*Container)
 
-func WithErrorHandler(handler func(serviceName string, err error)) ContainerOption {
+func WithContainerErrorHandler(handler func(serviceName string, err error)) ContainerOption {
 	return func(c *Container) {
 		c.onMustCallFailed = handler
 	}
@@ -38,7 +38,7 @@ func WithErrorHandler(handler func(serviceName string, err error)) ContainerOpti
 
 func NewContainer(params parameters.Provider, opts ...ContainerOption) *Container {
 	if params == nil {
-		params = DefaultParameters
+		params = DefaultContainerParameters
 	}
 	c := &Container{
 		params:           params,

@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-var DefaultParameters = parameters.NewProviderMap(map[string]any{
+var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
 	"dsn":          "postgres://localhost/advanced",
 	"log_prefix":   "[us-east-1] ",
 	"mail_host":    "smtp.us.example",
@@ -27,7 +27,7 @@ type Container struct {
 
 type ContainerOption func(*Container)
 
-func WithErrorHandler(handler func(serviceName string, err error)) ContainerOption {
+func WithContainerErrorHandler(handler func(serviceName string, err error)) ContainerOption {
 	return func(c *Container) {
 		c.onMustCallFailed = handler
 	}
@@ -35,7 +35,7 @@ func WithErrorHandler(handler func(serviceName string, err error)) ContainerOpti
 
 func NewContainer(params parameters.Provider, opts ...ContainerOption) *Container {
 	if params == nil {
-		params = DefaultParameters
+		params = DefaultContainerParameters
 	}
 	c := &Container{
 		params:           params,

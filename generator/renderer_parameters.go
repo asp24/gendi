@@ -34,14 +34,14 @@ func (r *ParametersRenderer) literalExpr(lit di.Literal) (string, error) {
 	}
 }
 
-func (r *ParametersRenderer) Render(params map[string]di.Parameter, w *bytes.Buffer) error {
+func (r *ParametersRenderer) Render(params map[string]di.Parameter, containerName string, w *bytes.Buffer) error {
 	if len(params) == 0 {
 		return nil
 	}
 
 	r.importManager.ReserveAliases("parameters")
 
-	w.WriteString("var DefaultParameters = parameters.NewProviderMap(map[string]any{\n")
+	fmt.Fprintf(w, "var %s = parameters.NewProviderMap(map[string]any{\n", defaultParametersName(containerName))
 	for _, name := range xmaps.OrderedKeys(params) {
 		param := params[name]
 		lit, err := r.literalExpr(param.Value)

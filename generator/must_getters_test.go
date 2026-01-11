@@ -44,9 +44,9 @@ func TestMustGettersGenerated(t *testing.T) {
 		t.Errorf("expected onMustCallFailed field in Container struct")
 	}
 
-	// Check that WithErrorHandler is generated
-	if !strings.Contains(codeStr, "func WithErrorHandler(handler func(serviceName string, err error)) ContainerOption") {
-		t.Errorf("expected WithErrorHandler function")
+	// Check that WithContainerErrorHandler is generated
+	if !strings.Contains(codeStr, "func WithContainerErrorHandler(handler func(serviceName string, err error)) ContainerOption") {
+		t.Errorf("expected WithContainerErrorHandler function")
 	}
 
 	// Check that NewContainer accepts options

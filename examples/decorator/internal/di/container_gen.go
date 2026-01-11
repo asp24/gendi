@@ -18,7 +18,7 @@ type Container struct {
 
 type ContainerOption func(*Container)
 
-func WithErrorHandler(handler func(serviceName string, err error)) ContainerOption {
+func WithContainerErrorHandler(handler func(serviceName string, err error)) ContainerOption {
 	return func(c *Container) {
 		c.onMustCallFailed = handler
 	}

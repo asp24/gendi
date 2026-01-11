@@ -93,7 +93,7 @@ func (g *Generator) Generate(cfg *di.Config) ([]byte, error) {
 	body := &bytes.Buffer{}
 	// Render
 	pRenderer := NewParametersRenderer(importManager)
-	if err := pRenderer.Render(cfg.Parameters, body); err != nil {
+	if err := pRenderer.Render(cfg.Parameters, g.options.Container, body); err != nil {
 		return nil, err
 	}
 

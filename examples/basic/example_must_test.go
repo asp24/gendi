@@ -25,7 +25,7 @@ func TestMustGetterWithCallback(t *testing.T) {
 
 		container := di.NewContainer(
 			nil,
-			di.WithErrorHandler(func(serviceName string, err error) {
+			di.WithContainerErrorHandler(func(serviceName string, err error) {
 				capturedService = serviceName
 				capturedError = err
 				// In tests, we could call t.Fatalf here instead of panic
@@ -74,7 +74,7 @@ func TestMustGetterWithCallback(t *testing.T) {
 
 		container := di.NewContainer(
 			parameters.ProviderNullInstance,
-			di.WithErrorHandler(func(serviceName string, err error) {
+			di.WithContainerErrorHandler(func(serviceName string, err error) {
 				handlerCalled = true
 				fmt.Printf("Error building service %q: %v\n", serviceName, err)
 			}),

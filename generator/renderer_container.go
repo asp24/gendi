@@ -69,8 +69,8 @@ func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *genConte
 	// ContainerOption type
 	fmt.Fprintf(b, "type %sOption func(*%s)\n\n", r.containerName, r.containerName)
 
-	// WithErrorHandler function
-	fmt.Fprintf(b, "func WithErrorHandler(handler func(serviceName string, err error)) %sOption {\n", r.containerName)
+	// With<Container>ErrorHandler function
+	fmt.Fprintf(b, "func %s(handler func(serviceName string, err error)) %sOption {\n", withErrorHandlerName(r.containerName), r.containerName)
 	fmt.Fprintf(b, "\treturn func(c *%s) {\n", r.containerName)
 	fmt.Fprintf(b, "\t\tc.onMustCallFailed = handler\n")
 	fmt.Fprintf(b, "\t}\n")
@@ -81,7 +81,7 @@ func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *genConte
 	fmt.Fprintf(b, "\tif params == nil {\n")
 
 	if hasParams {
-		fmt.Fprintf(b, "\t\tparams = DefaultParameters\n")
+		fmt.Fprintf(b, "\t\tparams = %s\n", defaultParametersName(r.containerName))
 	} else {
 		fmt.Fprintf(b, "\t\tparams = parameters.ProviderNullInstance\n")
 	}
