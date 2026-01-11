@@ -16,7 +16,6 @@ type serviceDef struct {
 	aliasTarget       string
 }
 
-// IsAlias returns true if this service is an alias to another service.
 func (s *serviceDef) IsAlias() bool {
 	return s.aliasTarget != ""
 }

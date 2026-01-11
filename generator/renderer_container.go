@@ -55,7 +55,7 @@ func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *genConte
 
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
-		if svc.aliasTarget != "" || !svc.shared {
+		if svc.IsAlias() || !svc.shared {
 			continue
 		}
 		resType := svc.GetterType()
@@ -104,7 +104,7 @@ func (r *ContainerRenderer) renderBuildFunctions(b *bytes.Buffer, ctx *genContex
 	// Render build functions for each service
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
-		if svc.aliasTarget != "" {
+		if svc.IsAlias() {
 			continue
 		}
 		if err := r.renderBuild(b, ctx, svc); err != nil {

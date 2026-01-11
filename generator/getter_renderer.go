@@ -13,7 +13,7 @@ type privateGetterRenderer interface {
 
 // selectPrivateGetterRenderer chooses the appropriate renderer based on service properties.
 func selectPrivateGetterRenderer(svc *serviceDef, resType types.Type) privateGetterRenderer {
-	if svc.aliasTarget != "" {
+	if svc.IsAlias() {
 		return &aliasGetterRenderer{}
 	}
 	if !svc.shared {
