@@ -52,6 +52,7 @@ type RawTag struct {
 	ElementType string `yaml:"element_type"`
 	SortBy      string `yaml:"sort_by"`
 	Public      bool   `yaml:"public"`
+	Auto        bool   `yaml:"auto"`
 }
 
 type RawServiceTag struct {

@@ -230,6 +230,7 @@ type Tag struct {
 	ElementType types.Type
 	SortBy      string
 	Public      bool
+	Auto        bool
 	Services    []*Service // Services with this tag (sorted by priority)
 }
 

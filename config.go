@@ -77,6 +77,7 @@ type Tag struct {
 	ElementType string
 	SortBy      string
 	Public      bool
+	Auto        bool
 }
 
 // ServiceTag defines a tag assigned to a service.

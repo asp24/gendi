@@ -102,7 +102,7 @@ func TestServiceDefaults(t *testing.T) {
 		expectedPublic bool
 	}{
 		{
-			name: "no defaults",
+			name:     "no defaults",
 			defaults: nil,
 			service: &RawService{
 				Type: "string",
@@ -760,5 +760,30 @@ func TestThisSubstitutionInTagElementTypeNoPackage(t *testing.T) {
 	// Should remain unchanged when configDir is empty
 	if tag.ElementType != "$this.Notifier" {
 		t.Errorf("expected element_type '$this.Notifier', got '%s'", tag.ElementType)
+	}
+}
+
+func TestTagAutoParsed(t *testing.T) {
+	raw := &RawConfig{
+		Tags: map[string]RawTag{
+			"auto.tag": {
+				ElementType: "string",
+				Auto:        true,
+			},
+		},
+	}
+	p := NewParser()
+	cfg, err := p.convertConfigWithDir(raw, "")
+	if err != nil {
+		t.Fatalf("convertConfigWithDir failed: %v", err)
+	}
+
+	tag, ok := cfg.Tags["auto.tag"]
+	if !ok {
+		t.Fatal("tag 'auto.tag' not found")
+	}
+
+	if !tag.Auto {
+		t.Fatal("expected tag 'auto.tag' to have auto enabled")
 	}
 }

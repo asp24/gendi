@@ -122,6 +122,80 @@ func TestServicePhaseCreatesTagsOnDemand(t *testing.T) {
 	}
 }
 
+func TestTagPhaseAutoValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		tags        map[string]di.Tag
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "auto tag without element_type",
+			tags: map[string]di.Tag{
+				"auto.tag": {
+					Auto: true,
+				},
+			},
+			expectError: true,
+			errorMsg:    "auto requires element_type",
+		},
+		{
+			name: "auto tag with sort_by",
+			tags: map[string]di.Tag{
+				"auto.tag": {
+					ElementType: "iface",
+					Auto:        true,
+					SortBy:      "priority",
+				},
+			},
+			expectError: true,
+			errorMsg:    "auto cannot be used with sort_by",
+		},
+		{
+			name: "auto tag with non-interface element_type",
+			tags: map[string]di.Tag{
+				"auto.tag": {
+					ElementType: "string",
+					Auto:        true,
+				},
+			},
+			expectError: true,
+			errorMsg:    "auto element_type must be an interface",
+		},
+		{
+			name: "auto tag with interface element_type",
+			tags: map[string]di.Tag{
+				"auto.tag": {
+					ElementType: "iface",
+					Auto:        true,
+				},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &di.Config{Tags: tt.tags}
+			container := NewContainer()
+
+			p := &tagPhase{resolver: &autoTagResolver{}}
+			err := p.Apply(cfg, container)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
 // mockResolver is a simple resolver for testing
 type mockResolver struct{}
 
@@ -139,5 +213,28 @@ func (m *mockResolver) LookupMethod(recv types.Type, name string) (*types.Func, 
 }
 
 func (m *mockResolver) InstantiateFunc(fn *types.Func, typeArgs []string) (*types.Signature, []types.Type, error) {
+	return nil, nil, nil
+}
+
+type autoTagResolver struct{}
+
+func (a *autoTagResolver) LookupType(typeStr string) (types.Type, error) {
+	if typeStr == "iface" {
+		iface := types.NewInterfaceType(nil, nil)
+		iface.Complete()
+		return iface, nil
+	}
+	return types.Typ[types.String], nil
+}
+
+func (a *autoTagResolver) LookupFunc(pkgPath, name string) (*types.Func, error) {
+	return nil, nil
+}
+
+func (a *autoTagResolver) LookupMethod(recv types.Type, name string) (*types.Func, error) {
+	return nil, nil
+}
+
+func (a *autoTagResolver) InstantiateFunc(fn *types.Func, typeArgs []string) (*types.Signature, []types.Type, error) {
 	return nil, nil, nil
 }

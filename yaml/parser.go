@@ -64,6 +64,7 @@ func (p *Parser) convertConfigWithDir(raw *RawConfig, configDir string) (*di.Con
 			ElementType: elementType,
 			SortBy:      tag.SortBy,
 			Public:      tag.Public,
+			Auto:        tag.Auto,
 		}
 	}
 
