@@ -13,6 +13,27 @@ import (
 // dependencyResolver builds service dependency graph and links tagged services
 type dependencyResolver struct{}
 
+// collectDependencies recursively collects dependencies from an argument
+func (r *dependencyResolver) collectDependencies(arg *Argument, deps map[string]*Service) {
+	switch arg.Kind {
+	case ServiceRefArg:
+		if arg.Service != nil {
+			deps[arg.Service.ID] = arg.Service
+		}
+	case TaggedArg:
+		if arg.Tag != nil {
+			for _, tagged := range arg.Tag.Services {
+				deps[tagged.ID] = tagged
+			}
+		}
+	case SpreadArg:
+		// Recursively collect dependencies from inner argument
+		if arg.Inner != nil {
+			r.collectDependencies(arg.Inner, deps)
+		}
+	}
+}
+
 // resolve builds the dependency graph for all services
 func (r *dependencyResolver) resolve(_ *di.Config, container *Container) error {
 	// First, link services to their tags and validate types
@@ -39,18 +60,7 @@ func (r *dependencyResolver) resolve(_ *di.Config, container *Container) error {
 		}
 
 		for _, arg := range svc.Constructor.Args {
-			switch arg.Kind {
-			case ServiceRefArg:
-				if arg.Service != nil {
-					deps[arg.Service.ID] = arg.Service
-				}
-			case TaggedArg:
-				if arg.Tag != nil {
-					for _, tagged := range arg.Tag.Services {
-						deps[tagged.ID] = tagged
-					}
-				}
-			}
+			r.collectDependencies(arg, deps)
 		}
 
 		svc.Dependencies = make([]*Service, 0, len(deps))

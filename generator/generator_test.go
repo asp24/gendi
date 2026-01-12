@@ -4,7 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asp24/gendi"
+	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/yaml"
 )
 
 // testOptions creates finalized options for testing
@@ -733,5 +734,83 @@ func TestNonGenericTypeWithTypeArgsError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "not generic") {
 		t.Fatalf("expected error about type not being generic, got: %v", err)
+	}
+}
+
+func TestSpreadWithServiceRef(t *testing.T) {
+	cfg, err := yaml.LoadConfig("testdata/spread/service_ref.yaml")
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	gen := New(testOptions(t))
+	code, err := gen.Generate(cfg)
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	if !strings.Contains(out, "NewServer(") {
+		t.Fatal("expected NewServer call")
+	}
+	if !strings.Contains(out, "...") {
+		t.Fatal("expected spread operator ... in generated code")
+	}
+	// Verify that all_handlers is fetched and spread
+	if !strings.Contains(out, "getAllHandlers()") {
+		t.Fatal("expected getAllHandlers call")
+	}
+}
+
+func TestSpreadWithTagged(t *testing.T) {
+	cfg, err := yaml.LoadConfig("testdata/spread/tagged.yaml")
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	gen := New(testOptions(t))
+	code, err := gen.Generate(cfg)
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	if !strings.Contains(out, "NewServer(") {
+		t.Fatal("expected NewServer call")
+	}
+	if !strings.Contains(out, "...") {
+		t.Fatal("expected spread operator ... in generated code")
+	}
+	// Verify that tagged handlers are used
+	if !strings.Contains(out, "handler") {
+		t.Fatal("expected handler services to be generated")
+	}
+}
+
+func TestSpreadWithMixedArgs(t *testing.T) {
+	cfg, err := yaml.LoadConfig("testdata/spread/mixed_args.yaml")
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	gen := New(testOptions(t))
+	code, err := gen.Generate(cfg)
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	if !strings.Contains(out, "NewServer(") {
+		t.Fatal("expected NewServer call")
+	}
+	if !strings.Contains(out, "...") {
+		t.Fatal("expected spread operator ... in generated code")
+	}
+	// Verify both regular args and spread
+	if !strings.Contains(out, "getHandlerA()") {
+		t.Fatal("expected getHandlerA call for regular arg")
+	}
+	if !strings.Contains(out, "getMoreHandlers()") {
+		t.Fatal("expected getMoreHandlers call for spread arg")
 	}
 }

@@ -184,6 +184,39 @@ func (p *tagDesugarPhase) createMakeSliceConstructor(elemType types.Type, servic
 	}, nil
 }
 
+// rewriteArgument recursively rewrites TaggedArg to ServiceRefArg, including within SpreadArg.
+// Returns true if any rewriting was done.
+func (p *tagDesugarPhase) rewriteArgument(container *Container, svcID string, argIndex int, arg *Argument) (bool, error) {
+	switch arg.Kind {
+	case TaggedArg:
+		if arg.Tag == nil {
+			return false, fmt.Errorf("service %q arg[%d]: TaggedArg has nil Tag", svcID, argIndex)
+		}
+
+		tagServiceID := TagServicePrefix + arg.Tag.Name
+		tagSvc, ok := container.Services[tagServiceID]
+		if !ok {
+			return false, fmt.Errorf("service %q arg[%d]: desugared tag service %q not found", svcID, argIndex, tagServiceID)
+		}
+
+		// Rewrite to ServiceRefArg
+		arg.Kind = ServiceRefArg
+		arg.Service = tagSvc
+		arg.Tag = nil
+		return true, nil
+
+	case SpreadArg:
+		// Recursively rewrite inner argument
+		if arg.Inner != nil {
+			return p.rewriteArgument(container, svcID, argIndex, arg.Inner)
+		}
+		return false, nil
+
+	default:
+		return false, nil
+	}
+}
+
 // rewriteTaggedArgs rewrites all TaggedArg arguments to ServiceRefArg
 // and updates service Dependencies accordingly
 func (p *tagDesugarPhase) rewriteTaggedArgs(container *Container) error {
@@ -194,25 +227,13 @@ func (p *tagDesugarPhase) rewriteTaggedArgs(container *Container) error {
 
 		hasTaggedArgs := false
 		for i, arg := range svc.Constructor.Args {
-			if arg.Kind != TaggedArg {
-				continue
+			rewritten, err := p.rewriteArgument(container, svc.ID, i, arg)
+			if err != nil {
+				return err
 			}
-			hasTaggedArgs = true
-
-			if arg.Tag == nil {
-				return fmt.Errorf("service %q arg[%d]: TaggedArg has nil Tag", svc.ID, i)
+			if rewritten {
+				hasTaggedArgs = true
 			}
-
-			tagServiceID := TagServicePrefix + arg.Tag.Name
-			tagSvc, ok := container.Services[tagServiceID]
-			if !ok {
-				return fmt.Errorf("service %q arg[%d]: desugared tag service %q not found", svc.ID, i, tagServiceID)
-			}
-
-			// Rewrite to ServiceRefArg
-			arg.Kind = ServiceRefArg
-			arg.Service = tagSvc
-			arg.Tag = nil
 		}
 
 		// Update Dependencies if service had TaggedArg
@@ -222,6 +243,21 @@ func (p *tagDesugarPhase) rewriteTaggedArgs(container *Container) error {
 	}
 
 	return nil
+}
+
+// collectDepsFromArg recursively collects dependencies from an argument
+func (p *tagDesugarPhase) collectDepsFromArg(arg *Argument, deps map[string]*Service) {
+	switch arg.Kind {
+	case ServiceRefArg:
+		if arg.Service != nil {
+			deps[arg.Service.ID] = arg.Service
+		}
+	case SpreadArg:
+		// Recursively collect from inner argument
+		if arg.Inner != nil {
+			p.collectDepsFromArg(arg.Inner, deps)
+		}
+	}
 }
 
 // rebuildDependencies rebuilds the Dependencies slice for a service
@@ -238,11 +274,9 @@ func (p *tagDesugarPhase) rebuildDependencies(svc *Service) {
 		deps[svc.Constructor.Receiver.ID] = svc.Constructor.Receiver
 	}
 
-	// Collect dependencies from arguments
+	// Collect dependencies from arguments (recursively for SpreadArg)
 	for _, arg := range svc.Constructor.Args {
-		if arg.Kind == ServiceRefArg && arg.Service != nil {
-			deps[arg.Service.ID] = arg.Service
-		}
+		p.collectDepsFromArg(arg, deps)
 	}
 
 	// Build sorted slice

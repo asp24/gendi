@@ -104,6 +104,10 @@ func (r *argumentResolver) resolve(container *Container, svcID string, idx int, 
 		irArg.Inner = innerResolved
 
 	default: // Literal
+		// Validate that this is actually a literal argument
+		if arg.Kind != di.ArgLiteral {
+			return nil, fmt.Errorf("service %q arg[%d]: unknown argument kind %d", svcID, idx, arg.Kind)
+		}
 		litVal, err := convertLiteral(arg.Literal, paramType)
 		if err != nil {
 			return nil, fmt.Errorf("service %q arg[%d]: %w", svcID, idx, err)

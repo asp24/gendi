@@ -1,0 +1,23 @@
+tags:
+  handler:
+    element_type: "github.com/asp24/gendi/generator/testdata/app.Handler"
+
+services:
+  handler.a:
+    constructor:
+      func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerA"
+    tags:
+      - name: handler
+
+  handler.b:
+    constructor:
+      func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerB"
+    tags:
+      - name: handler
+
+  server:
+    constructor:
+      func: "github.com/asp24/gendi/generator/testdata/app.NewServer"
+      args:
+        - "!spread:!tagged:handler"
+    public: true

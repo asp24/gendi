@@ -1,0 +1,23 @@
+services:
+  handler.a:
+    constructor:
+      func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerA"
+
+  handler.b:
+    constructor:
+      func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerB"
+
+  all_handlers:
+    constructor:
+      func: "github.com/asp24/gendi/generator/testdata/app.GetAllHandlers"
+      args:
+        - "@handler.a"
+        - "@handler.a"
+    shared: true
+
+  server:
+    constructor:
+      func: "github.com/asp24/gendi/generator/testdata/app.NewServer"
+      args:
+        - "!spread:@all_handlers"
+    public: true
