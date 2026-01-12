@@ -8,13 +8,13 @@ import (
 	"github.com/asp24/gendi/xmaps"
 )
 
-// dependencyBuilder builds service dependency graph.
+// dependencyBuilderPhase builds service dependency graph.
 // This phase must run after tagDesugarPhase, so all TaggedArg are already
 // rewritten to ServiceRefArg.
-type dependencyBuilder struct{}
+type dependencyBuilderPhase struct{}
 
 // collectDependencies recursively collects dependencies from an argument
-func (r *dependencyBuilder) collectDependencies(arg *Argument, deps map[string]*Service) {
+func (r *dependencyBuilderPhase) collectDependencies(arg *Argument, deps map[string]*Service) {
 	switch arg.Kind {
 	case ServiceRefArg:
 		if arg.Service != nil {
@@ -25,13 +25,13 @@ func (r *dependencyBuilder) collectDependencies(arg *Argument, deps map[string]*
 		if arg.Inner != nil {
 			r.collectDependencies(arg.Inner, deps)
 		}
-	// Note: TaggedArg is not handled here because it's already desugared to ServiceRefArg
-	// by the time this phase runs.
+		// Note: TaggedArg is not handled here because it's already desugared to ServiceRefArg
+		// by the time this phase runs.
 	}
 }
 
-// resolve builds the dependency graph for all services
-func (r *dependencyBuilder) resolve(_ *di.Config, container *Container) error {
+// Apply builds the dependency graph for all services
+func (r *dependencyBuilderPhase) Apply(_ *di.Config, container *Container) error {
 	for _, id := range xmaps.OrderedKeys(container.Services) {
 		svc := container.Services[id]
 		if svc.IsAlias() {

@@ -11,8 +11,8 @@ type parameterPhase struct {
 	resolver TypeResolver
 }
 
-// build converts config parameters to IR parameters
-func (p *parameterPhase) build(cfg *di.Config, container *Container) error {
+// Apply converts config parameters to IR parameters
+func (p *parameterPhase) Apply(cfg *di.Config, container *Container) error {
 	for name, param := range cfg.Parameters {
 		if param.Type == "" {
 			return fmt.Errorf("parameter %q missing type", name)

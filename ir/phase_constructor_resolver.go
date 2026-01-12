@@ -9,13 +9,14 @@ import (
 	"github.com/asp24/gendi/typeres"
 )
 
-// constructorResolver resolves service constructors (functions, methods, and aliases)
-type constructorResolver struct {
-	resolver TypeResolver
+// constructorResolverPhase resolves service constructors (functions, methods, and aliases)
+type constructorResolverPhase struct {
+	typeResolver TypeResolver
+	argResolver  *argResolver
 }
 
-// resolve resolves all service constructors with circular reference detection
-func (r *constructorResolver) resolve(cfg *di.Config, container *Container) error {
+// Apply resolves all service constructors with circular reference detection
+func (r *constructorResolverPhase) Apply(cfg *di.Config, container *Container) error {
 	resolvingSvcs := make(map[string]bool)
 	resolvedSvcs := make(map[string]bool)
 
@@ -51,7 +52,7 @@ func (r *constructorResolver) resolve(cfg *di.Config, container *Container) erro
 }
 
 // resolveAlias resolves an alias service
-func (r *constructorResolver) resolveAlias(container *Container, svc *Service, cfg *di.Service, resolve func(string) error) error {
+func (r *constructorResolverPhase) resolveAlias(container *Container, svc *Service, cfg *di.Service, resolve func(string) error) error {
 	if cfg.Constructor.Func != "" || cfg.Constructor.Method != "" || len(cfg.Constructor.Args) > 0 {
 		return fmt.Errorf("service %q alias cannot define constructor", svc.ID)
 	}
@@ -72,7 +73,7 @@ func (r *constructorResolver) resolveAlias(container *Container, svc *Service, c
 	svc.Type = target.Type
 
 	if cfg.Type != "" {
-		declType, err := r.resolver.LookupType(cfg.Type)
+		declType, err := r.typeResolver.LookupType(cfg.Type)
 		if err != nil {
 			return fmt.Errorf("service %q type: %w", svc.ID, err)
 		}
@@ -84,7 +85,7 @@ func (r *constructorResolver) resolveAlias(container *Container, svc *Service, c
 }
 
 // resolveConstructor resolves a function or method constructor
-func (r *constructorResolver) resolveConstructor(container *Container, svc *Service, cfg *di.Service, resolve func(string) error) error {
+func (r *constructorResolverPhase) resolveConstructor(container *Container, svc *Service, cfg *di.Service, resolve func(string) error) error {
 	cons := cfg.Constructor
 	if cons.Func == "" && cons.Method == "" {
 		return fmt.Errorf("service %q missing constructor", svc.ID)
@@ -121,7 +122,6 @@ func (r *constructorResolver) resolveConstructor(container *Container, svc *Serv
 			svc.ID, expectedMin, len(cons.Args))
 	}
 
-	argResolver := &argumentResolver{}
 	irCons.Args = make([]*Argument, len(cons.Args))
 	for i, arg := range cons.Args {
 		// For variadic functions, all args after the last non-variadic param
@@ -140,7 +140,7 @@ func (r *constructorResolver) resolveConstructor(container *Container, svc *Serv
 			}
 		}
 
-		irArg, err := argResolver.resolve(container, svc.ID, i, arg, paramType)
+		irArg, err := r.argResolver.resolve(container, svc.ID, i, arg, paramType)
 		if err != nil {
 			return err
 		}
@@ -156,7 +156,7 @@ func (r *constructorResolver) resolveConstructor(container *Container, svc *Serv
 	svc.Type = irCons.ResultType
 
 	if cfg.Type != "" {
-		declType, err := r.resolver.LookupType(cfg.Type)
+		declType, err := r.typeResolver.LookupType(cfg.Type)
 		if err != nil {
 			return fmt.Errorf("service %q type: %w", svc.ID, err)
 		}
@@ -169,7 +169,7 @@ func (r *constructorResolver) resolveConstructor(container *Container, svc *Serv
 }
 
 // validateConstructorSignature validates that a signature returns T or (T, error)
-func (r *constructorResolver) validateConstructorSignature(sig *types.Signature) (types.Type, bool, error) {
+func (r *constructorResolverPhase) validateConstructorSignature(sig *types.Signature) (types.Type, bool, error) {
 	res := sig.Results()
 	if res.Len() == 0 || res.Len() > 2 {
 		return nil, false, fmt.Errorf("constructor must return T or (T, error)")
@@ -187,7 +187,7 @@ func (r *constructorResolver) validateConstructorSignature(sig *types.Signature)
 }
 
 // signatureParams extracts parameter types from a function signature
-func (r *constructorResolver) signatureParams(sig *types.Signature) []types.Type {
+func (r *constructorResolverPhase) signatureParams(sig *types.Signature) []types.Type {
 	params := make([]types.Type, sig.Params().Len())
 	for i := 0; i < sig.Params().Len(); i++ {
 		params[i] = sig.Params().At(i).Type()
@@ -196,13 +196,13 @@ func (r *constructorResolver) signatureParams(sig *types.Signature) []types.Type
 }
 
 // resolveFuncConstructor resolves a function constructor
-func (r *constructorResolver) resolveFuncConstructor(id string, cons di.Constructor) (*Constructor, error) {
+func (r *constructorResolverPhase) resolveFuncConstructor(id string, cons di.Constructor) (*Constructor, error) {
 	pkgPath, name, typeParamStrs, err := typeres.SplitQualifiedNameWithTypeParams(cons.Func)
 	if err != nil {
 		return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
 	}
 
-	fn, err := r.resolver.LookupFunc(pkgPath, name)
+	fn, err := r.typeResolver.LookupFunc(pkgPath, name)
 	if err != nil {
 		return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
 	}
@@ -214,7 +214,7 @@ func (r *constructorResolver) resolveFuncConstructor(id string, cons di.Construc
 
 	if len(typeParamStrs) > 0 {
 		// Generic function - instantiate with type arguments
-		sig, typeArgs, err = r.resolver.InstantiateFunc(fn, typeParamStrs)
+		sig, typeArgs, err = r.typeResolver.InstantiateFunc(fn, typeParamStrs)
 		if err != nil {
 			return nil, fmt.Errorf("service %q constructor.func: %w", id, err)
 		}
@@ -244,7 +244,7 @@ func (r *constructorResolver) resolveFuncConstructor(id string, cons di.Construc
 }
 
 // resolveMethodConstructor resolves a method constructor
-func (r *constructorResolver) resolveMethodConstructor(container *Container, id string, cons di.Constructor, resolve func(string) error) (*Constructor, error) {
+func (r *constructorResolverPhase) resolveMethodConstructor(container *Container, id string, cons di.Constructor, resolve func(string) error) (*Constructor, error) {
 	methodRef := cons.Method
 	if !strings.HasPrefix(methodRef, "@") {
 		return nil, fmt.Errorf("service %q constructor.method must start with @", id)
@@ -271,7 +271,7 @@ func (r *constructorResolver) resolveMethodConstructor(container *Container, id 
 		return nil, fmt.Errorf("service %q constructor.method unknown receiver service %q", id, recvID)
 	}
 
-	meth, err := r.resolver.LookupMethod(recvSvc.Type, methodName)
+	meth, err := r.typeResolver.LookupMethod(recvSvc.Type, methodName)
 	if err != nil {
 		return nil, fmt.Errorf("service %q constructor.method: %w", id, err)
 	}
@@ -296,9 +296,9 @@ func (r *constructorResolver) resolveMethodConstructor(container *Container, id 
 // validateSpreadPosition validates that spread arguments follow the rules:
 // 1. Only one spread is allowed per constructor call
 // 2. Spread must be the last argument
-func (r *constructorResolver) validateSpreadPosition(svcID string, cons *Constructor) error {
+func (r *constructorResolverPhase) validateSpreadPosition(svcID string, cons *Constructor) error {
 	if !cons.Variadic {
-		return nil // No variadic, no spread allowed (already validated in resolve)
+		return nil // No variadic, no spread allowed (already validated in Apply)
 	}
 
 	// Find all spread arguments

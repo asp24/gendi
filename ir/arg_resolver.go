@@ -8,11 +8,11 @@ import (
 	"github.com/asp24/gendi/yaml"
 )
 
-// argumentResolver resolves constructor arguments
-type argumentResolver struct{}
+// argResolver resolves constructor arguments
+type argResolver struct{}
 
 // resolve resolves a single constructor argument
-func (r *argumentResolver) resolve(container *Container, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
+func (r *argResolver) resolve(container *Container, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
 	irArg := &Argument{Type: paramType}
 
 	switch arg.Kind {

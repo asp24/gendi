@@ -66,7 +66,7 @@ func TestTagPhaseOptionalElementType(t *testing.T) {
 			container := NewContainer()
 
 			p := &tagPhase{resolver: &mockResolver{}}
-			err := p.build(cfg, container)
+			err := p.Apply(cfg, container)
 
 			if tt.expectError {
 				if err == nil {
@@ -97,12 +97,12 @@ func TestServicePhaseCreatesTagsOnDemand(t *testing.T) {
 	container := NewContainer()
 
 	// Build tags first (empty)
-	if err := (&tagPhase{resolver: &mockResolver{}}).build(cfg, container); err != nil {
+	if err := (&tagPhase{resolver: &mockResolver{}}).Apply(cfg, container); err != nil {
 		t.Fatalf("tagPhase failed: %v", err)
 	}
 
 	// Build services - should create tag on demand
-	if err := (&servicePhase{}).build(cfg, container); err != nil {
+	if err := (&servicePhase{}).Apply(cfg, container); err != nil {
 		t.Fatalf("servicePhase failed: %v", err)
 	}
 

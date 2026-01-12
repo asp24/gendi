@@ -173,7 +173,7 @@ func TestOptimizeShared(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			container := NewContainer()
 			tt.setup(container)
-			(&sharedOptimizer{}).resolve(nil, container)
+			(&sharedOptimizerPhase{}).Apply(nil, container)
 			tt.validate(t, container)
 		})
 	}

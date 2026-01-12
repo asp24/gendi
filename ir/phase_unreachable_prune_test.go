@@ -18,7 +18,7 @@ func TestPruneUnreachableRemovesServices(t *testing.T) {
 		tags: map[string]*Tag{},
 	}
 
-	pruneUnreachable(nil, container)
+	_ = (&unreachablePrunePhase{}).Apply(nil, container)
 
 	if _, ok := container.Services[publicSvc.ID]; !ok {
 		t.Fatalf("expected public service to remain")
@@ -53,7 +53,7 @@ func TestPruneUnreachableFiltersTagServices(t *testing.T) {
 		},
 	}
 
-	pruneUnreachable(nil, container)
+	_ = (&unreachablePrunePhase{}).Apply(nil, container)
 
 	if len(tag.Services) != 1 || tag.Services[0].ID != privateSvc.ID {
 		t.Fatalf("expected tag services to be filtered to reachable ones")

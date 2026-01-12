@@ -25,8 +25,8 @@ type tagDesugarPhase struct {
 	resolver TypeResolver
 }
 
-// desugar transforms all tags into services
-func (p *tagDesugarPhase) desugar(_ *di.Config, container *Container) error {
+// Apply transforms all tags into services
+func (p *tagDesugarPhase) Apply(_ *di.Config, container *Container) error {
 	if len(container.tags) == 0 {
 		return nil
 	}
@@ -241,7 +241,7 @@ func (p *tagDesugarPhase) rewriteArgument(container *Container, svcID string, ar
 }
 
 // rewriteTaggedArgs rewrites all TaggedArg arguments to ServiceRefArg.
-// Dependencies will be rebuilt later by dependencyBuilder.
+// Dependencies will be rebuilt later by dependencyBuilderPhase.
 func (p *tagDesugarPhase) rewriteTaggedArgs(container *Container) error {
 	for _, svc := range container.Services {
 		if svc.Constructor == nil {

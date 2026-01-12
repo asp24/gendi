@@ -63,7 +63,7 @@ func TestServicePhaseValidatesEmptyID(t *testing.T) {
 			container := NewContainer()
 
 			phase := &servicePhase{}
-			err := phase.build(cfg, container)
+			err := phase.Apply(cfg, container)
 
 			if tt.expectError {
 				if err == nil {

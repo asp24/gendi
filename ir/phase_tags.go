@@ -11,8 +11,8 @@ type tagPhase struct {
 	resolver TypeResolver
 }
 
-// build converts config tags to IR tags
-func (p *tagPhase) build(cfg *di.Config, container *Container) error {
+// Apply converts config tags to IR tags
+func (p *tagPhase) Apply(cfg *di.Config, container *Container) error {
 	for name, tag := range cfg.Tags {
 		if tag.Public && tag.ElementType == "" {
 			return fmt.Errorf("tag %q public requires element_type", name)
