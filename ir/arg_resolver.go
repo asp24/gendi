@@ -5,13 +5,14 @@ import (
 	"go/types"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/yaml"
 )
 
-// argumentResolver resolves constructor arguments
-type argumentResolver struct{}
+// argResolver resolves constructor arguments
+type argResolver struct{}
 
 // resolve resolves a single constructor argument
-func (r *argumentResolver) resolve(container *Container, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
+func (r *argResolver) resolve(container *Container, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
 	irArg := &Argument{Type: paramType}
 
 	switch arg.Kind {
@@ -70,7 +71,43 @@ func (r *argumentResolver) resolve(container *Container, svcID string, idx int, 
 		irArg.Kind = TaggedArg
 		irArg.Tag = tag
 
+	case di.ArgSpread:
+		// Validate that parameter is variadic (represented as slice in go/types)
+		if _, ok := paramType.Underlying().(*types.Slice); !ok {
+			return nil, fmt.Errorf("service %q arg[%d]: !spread: can only be used with variadic parameters, got %s", svcID, idx, paramType)
+		}
+
+		// Parse inner argument string
+		innerKind, innerValue := yaml.ParseArgumentString(arg.Value)
+		innerArg := di.Argument{
+			Kind:  innerKind,
+			Value: innerValue,
+		}
+		// Preserve literal only if inner is also a literal
+		if innerKind == di.ArgLiteral {
+			innerArg.Literal = arg.Literal
+		}
+
+		// Resolve inner argument with the slice type (not element type)
+		// The inner expression should evaluate to []T
+		innerResolved, err := r.resolve(container, svcID, idx, innerArg, paramType)
+		if err != nil {
+			return nil, fmt.Errorf("service %q arg[%d]: !spread: %w", svcID, idx, err)
+		}
+
+		// Validate that inner resolved to a slice type
+		if _, ok := innerResolved.Type.Underlying().(*types.Slice); !ok {
+			return nil, fmt.Errorf("service %q arg[%d]: !spread: requires slice type, got %s", svcID, idx, innerResolved.Type)
+		}
+
+		irArg.Kind = SpreadArg
+		irArg.Inner = innerResolved
+
 	default: // Literal
+		// Validate that this is actually a literal argument
+		if arg.Kind != di.ArgLiteral {
+			return nil, fmt.Errorf("service %q arg[%d]: unknown argument kind %d", svcID, idx, arg.Kind)
+		}
 		litVal, err := convertLiteral(arg.Literal, paramType)
 		if err != nil {
 			return nil, fmt.Errorf("service %q arg[%d]: %w", svcID, idx, err)

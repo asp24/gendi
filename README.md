@@ -226,6 +226,8 @@ parameters:
 - `@service` - Service reference
 - `%parameter%` - Parameter reference
 - `!tagged:tag` - Tagged services collection
+- `!spread:@service` - Spread slice into variadic parameters
+- `!spread:!tagged:tag` - Spread tagged collection into variadic parameters
 - `@.inner` - Inner service (decorators only)
 - `@service.Method` - Method constructor
 
@@ -437,6 +439,43 @@ services:
 Generated code:
 ```go
 return logger.With("channel", "database"), nil
+```
+
+**Spread Operator:**
+
+Use `!spread:` to unpack slices into variadic parameters:
+
+```yaml
+services:
+  handler.a:
+    constructor:
+      func: "app.NewHandlerA"
+    tags:
+      - name: handler
+
+  handler.b:
+    constructor:
+      func: "app.NewHandlerB"
+    tags:
+      - name: handler
+
+  server:
+    constructor:
+      func: "app.NewServer"  # NewServer(handlers ...Handler)
+      args:
+        - "!spread:!tagged:handler"  # Unpacks []Handler into ...Handler
+    public: true
+```
+
+Generated code:
+```go
+func (c *Container) buildServer() (*Server, error) {
+    tagged_0, err := c.getTaggedWithHandler()
+    if err != nil {
+        return nil, err
+    }
+    return app.NewServer(tagged_0...), nil
+}
 ```
 
 ### Generic Constructors

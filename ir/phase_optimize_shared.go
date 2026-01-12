@@ -6,19 +6,19 @@ import (
 	di "github.com/asp24/gendi"
 )
 
-type sharedOptimizer struct{}
+type sharedOptimizerPhase struct{}
 
-// resolve identifies shared services that sit on a single-parent chain and marks them as
+// Apply identifies shared services that sit on a single-parent chain and marks them as
 // non-shared when the chain is anchored by a shared ancestor. Chains that terminate at a
 // public non-shared service stop at that boundary (the direct child stays shared). The
 // optimization is applied recursively from the bottom of the dependency tree (leaves) upwards.
-func (p *sharedOptimizer) resolve(_ *di.Config, container *Container) error {
+func (p *sharedOptimizerPhase) Apply(_ *di.Config, container *Container) error {
 	// Map service ID to list of parent service IDs (referencing services)
 	usage := make(map[string][]string)
 
 	for _, service := range container.Services {
 		// Dependencies contains resolved direct dependencies.
-		// We use it to build the reverse graph (Usage).
+		// We use it to Apply the reverse graph (Usage).
 		for _, dep := range service.Dependencies {
 			// Track unique parents. Dependencies should be unique per service,
 			// but we check existence to be safe.
@@ -38,7 +38,7 @@ func (p *sharedOptimizer) resolve(_ *di.Config, container *Container) error {
 	return nil
 }
 
-func (p *sharedOptimizer) canDeshare(container *Container, svc *Service, usage map[string][]string) bool {
+func (p *sharedOptimizerPhase) canDeshare(container *Container, svc *Service, usage map[string][]string) bool {
 	// Candidate must be Shared and not Public and not Alias
 	if !svc.Shared || svc.Public || svc.IsAlias() {
 		return false

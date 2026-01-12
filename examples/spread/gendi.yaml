@@ -1,0 +1,69 @@
+parameters:
+  server_prefix:
+    type: string
+    value: "/api/v1"
+
+tags:
+  handler:
+    element_type: "github.com/asp24/gendi/examples/spread/app.Handler"
+    sort_by: "priority"
+
+services:
+  # Handler implementations
+  handler.home:
+    constructor:
+      func: "github.com/asp24/gendi/examples/spread/app.NewHomeHandler"
+    tags:
+      - name: handler
+        priority: 100
+
+  handler.api:
+    constructor:
+      func: "github.com/asp24/gendi/examples/spread/app.NewAPIHandler"
+    tags:
+      - name: handler
+        priority: 200
+
+  handler.admin:
+    constructor:
+      func: "github.com/asp24/gendi/examples/spread/app.NewAdminHandler"
+    tags:
+      - name: handler
+        priority: 50
+
+  # Example 1: Spread tagged injection
+  # Tagged handlers are collected as []Handler, then spread into NewServer(...Handler)
+  server.tagged:
+    constructor:
+      func: "github.com/asp24/gendi/examples/spread/app.NewServer"
+      args:
+        - "!spread:!tagged:handler"
+    public: true
+
+  # Example 2: Spread service reference
+  # GetAllHandlers returns []Handler, then spread into NewServer(...Handler)
+  all_handlers:
+    constructor:
+      func: "github.com/asp24/gendi/examples/spread/app.GetAllHandlers"
+      args:
+        - "@handler.home"
+        - "@handler.api"
+        - "@handler.admin"
+    shared: true
+
+  server.ref:
+    constructor:
+      func: "github.com/asp24/gendi/examples/spread/app.NewServer"
+      args:
+        - "!spread:@all_handlers"
+    public: true
+
+  # Example 3: Mixed arguments with spread
+  # Regular parameter + spread of tagged injection
+  server.prefixed:
+    constructor:
+      func: "github.com/asp24/gendi/examples/spread/app.NewPrefixedServer"
+      args:
+        - "%server_prefix%"
+        - "!spread:!tagged:handler"
+    public: true

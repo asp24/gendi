@@ -44,12 +44,12 @@ func NewContainer(params parameters.Provider, opts ...ContainerOption) *Containe
 	return c
 }
 
-func (c *Container) buildProviderStripe() (*app.PaymentProvider, error) {
-	return app.NewStripeProvider(), nil
-}
-
 func (c *Container) buildProviderPaypal() (*app.PaymentProvider, error) {
 	return app.NewPaypalProvider(), nil
+}
+
+func (c *Container) buildProviderStripe() (*app.PaymentProvider, error) {
+	return app.NewStripeProvider(), nil
 }
 
 func (c *Container) buildTaggedWithPaymentProvider() ([]*app.PaymentProvider, error) {
@@ -116,12 +116,12 @@ func (c *Container) buildTimer() (*app.Timer, error) {
 	return app.NewTimer(1000000000), nil
 }
 
-func (c *Container) getProviderStripe() (*app.PaymentProvider, error) {
-	return c.buildProviderStripe()
-}
-
 func (c *Container) getProviderPaypal() (*app.PaymentProvider, error) {
 	return c.buildProviderPaypal()
+}
+
+func (c *Container) getProviderStripe() (*app.PaymentProvider, error) {
+	return c.buildProviderStripe()
 }
 
 func (c *Container) getTaggedWithPaymentProvider() ([]*app.PaymentProvider, error) {

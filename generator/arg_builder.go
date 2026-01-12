@@ -147,6 +147,30 @@ func (b *literalBuilder) build(ctx *argBuildContext) (string, []string, error) {
 	return lit, nil, nil
 }
 
+// spreadBuilder handles spread arguments
+type spreadBuilder struct{}
+
+func (b *spreadBuilder) build(ctx *argBuildContext) (string, []string, error) {
+	if ctx.argument.Inner == nil {
+		return "", nil, fmt.Errorf("spread argument has no inner argument")
+	}
+
+	// Build the inner argument expression
+	innerCtx := *ctx
+	innerCtx.argument = ctx.argument.Inner
+	// Use the inner argument's type (which should be a slice)
+	innerCtx.paramType = ctx.argument.Inner.Type
+
+	innerBuilder := getArgumentBuilder(ctx.argument.Inner.Kind)
+	innerExpr, stmts, err := innerBuilder.build(&innerCtx)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// Add ... to spread the slice
+	return innerExpr + "...", stmts, nil
+}
+
 // argumentBuilderRegistry maps argument kinds to their builder implementations.
 // This registry pattern allows adding new argument types without modifying lookup logic.
 // Note: TaggedArg is no longer needed as tags are desugared to services in the IR phase.
@@ -154,6 +178,7 @@ var argumentBuilderRegistry = map[ir.ArgumentKind]argumentBuilder{
 	ir.ServiceRefArg: &serviceRefBuilder{},
 	ir.ParamRefArg:   &paramRefBuilder{},
 	ir.LiteralArg:    &literalBuilder{},
+	ir.SpreadArg:     &spreadBuilder{},
 }
 
 // getArgumentBuilder returns the appropriate builder for the argument kind.

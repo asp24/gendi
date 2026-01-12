@@ -113,6 +113,7 @@ const (
 	ArgInner
 	ArgParam
 	ArgTagged
+	ArgSpread
 )
 
 // Argument represents a constructor argument.

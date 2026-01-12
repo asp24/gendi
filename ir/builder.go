@@ -2,6 +2,7 @@ package ir
 
 import (
 	"errors"
+	"fmt"
 	"go/types"
 
 	di "github.com/asp24/gendi"
@@ -19,13 +20,33 @@ type TypeResolver interface {
 
 // Builder constructs an IR Container from raw config.
 type Builder struct {
-	resolver TypeResolver
+	phases []Phase
 }
 
 // NewBuilder creates a new IR builder.
 func NewBuilder(resolver TypeResolver) *Builder {
+	phases := []Phase{
+		// Phase 1: Build foundational structures
+		&parameterPhase{resolver: resolver},
+		&tagPhase{resolver: resolver},
+		&servicePhase{},
+
+		// Phase 2: Resolve constructors
+		&constructorResolverPhase{typeResolver: resolver, argResolver: &argResolver{}},
+		// Desugar tags into synthetic services (links services to tags, creates tag services, rewrites args)
+		&tagDesugarPhase{resolver: resolver},
+		// Build dependency graph for all services (requires desugared tags)
+		&dependencyBuilderPhase{},
+
+		// Phase 3: Validate and analyze
+		&validatorPhase{},
+
+		// Phase 4: Optimizations
+		&unreachablePrunePhase{},
+		&sharedOptimizerPhase{},
+	}
 	return &Builder{
-		resolver: resolver,
+		phases: phases,
 	}
 }
 
@@ -37,39 +58,11 @@ func (b *Builder) Build(cfg *di.Config) (*Container, error) {
 
 	result := NewContainer()
 
-	// Phase 1: Build foundational structures
-	if err := (&parameterPhase{resolver: b.resolver}).build(cfg, result); err != nil {
-		return nil, err
+	for _, phase := range b.phases {
+		if err := phase.Apply(cfg, result); err != nil {
+			return nil, fmt.Errorf("phase %T apply: %w", phase, err)
+		}
 	}
-	if err := (&tagPhase{resolver: b.resolver}).build(cfg, result); err != nil {
-		return nil, err
-	}
-	if err := (&servicePhase{}).build(cfg, result); err != nil {
-		return nil, err
-	}
-
-	// Phase 2: Resolve constructors and dependencies
-	if err := (&constructorResolver{resolver: b.resolver}).resolve(cfg, result); err != nil {
-		return nil, err
-	}
-	// Decorator resolution moved to DecoratorPass (config-level transformation)
-	if err := (&dependencyResolver{}).resolve(cfg, result); err != nil {
-		return nil, err
-	}
-
-	// Phase 2.5: Desugar tags into services
-	if err := (&tagDesugarPhase{resolver: b.resolver}).desugar(cfg, result); err != nil {
-		return nil, err
-	}
-
-	// Phase 3: Validate and analyze
-	if err := (&validator{}).validate(cfg, result); err != nil {
-		return nil, err
-	}
-
-	// Phase 4: Optimizations
-	pruneUnreachable(cfg, result)
-	_ = (&sharedOptimizer{}).resolve(cfg, result)
 
 	return result, nil
 }

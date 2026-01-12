@@ -25,10 +25,15 @@ type tagDesugarPhase struct {
 	resolver TypeResolver
 }
 
-// desugar transforms all tags into services
-func (p *tagDesugarPhase) desugar(_ *di.Config, container *Container) error {
+// Apply transforms all tags into services
+func (p *tagDesugarPhase) Apply(_ *di.Config, container *Container) error {
 	if len(container.tags) == 0 {
 		return nil
+	}
+
+	// First, link services to their tags and validate type compatibility
+	if err := p.linkTaggedServices(container); err != nil {
+		return err
 	}
 
 	// Process tags in deterministic order
@@ -57,6 +62,24 @@ func (p *tagDesugarPhase) desugar(_ *di.Config, container *Container) error {
 	// Clear tags - they are now services
 	container.tags = make(map[string]*Tag)
 
+	return nil
+}
+
+// linkTaggedServices links services to their tags and validates type compatibility
+func (p *tagDesugarPhase) linkTaggedServices(container *Container) error {
+	for _, id := range xmaps.OrderedKeys(container.Services) {
+		svc := container.Services[id]
+		for _, st := range svc.Tags {
+			// Validate service type is assignable to tag's ElementType (if known)
+			if st.Tag.ElementType != nil && svc.Type != nil {
+				if !types.AssignableTo(svc.Type, st.Tag.ElementType) {
+					return fmt.Errorf("service %q with tag %q: type %s is not assignable to %s",
+						svc.ID, st.Tag.Name, svc.Type, st.Tag.ElementType)
+				}
+			}
+			st.Tag.Services = append(st.Tag.Services, svc)
+		}
+	}
 	return nil
 }
 
@@ -184,74 +207,54 @@ func (p *tagDesugarPhase) createMakeSliceConstructor(elemType types.Type, servic
 	}, nil
 }
 
-// rewriteTaggedArgs rewrites all TaggedArg arguments to ServiceRefArg
-// and updates service Dependencies accordingly
+// rewriteArgument recursively rewrites TaggedArg to ServiceRefArg, including within SpreadArg.
+// Returns true if any rewriting was done.
+func (p *tagDesugarPhase) rewriteArgument(container *Container, svcID string, argIndex int, arg *Argument) (bool, error) {
+	switch arg.Kind {
+	case TaggedArg:
+		if arg.Tag == nil {
+			return false, fmt.Errorf("service %q arg[%d]: TaggedArg has nil Tag", svcID, argIndex)
+		}
+
+		tagServiceID := TagServicePrefix + arg.Tag.Name
+		tagSvc, ok := container.Services[tagServiceID]
+		if !ok {
+			return false, fmt.Errorf("service %q arg[%d]: desugared tag service %q not found", svcID, argIndex, tagServiceID)
+		}
+
+		// Rewrite to ServiceRefArg
+		arg.Kind = ServiceRefArg
+		arg.Service = tagSvc
+		arg.Tag = nil
+		return true, nil
+
+	case SpreadArg:
+		// Recursively rewrite inner argument
+		if arg.Inner != nil {
+			return p.rewriteArgument(container, svcID, argIndex, arg.Inner)
+		}
+		return false, nil
+
+	default:
+		return false, nil
+	}
+}
+
+// rewriteTaggedArgs rewrites all TaggedArg arguments to ServiceRefArg.
+// Dependencies will be rebuilt later by dependencyBuilderPhase.
 func (p *tagDesugarPhase) rewriteTaggedArgs(container *Container) error {
 	for _, svc := range container.Services {
 		if svc.Constructor == nil {
 			continue
 		}
 
-		hasTaggedArgs := false
 		for i, arg := range svc.Constructor.Args {
-			if arg.Kind != TaggedArg {
-				continue
+			_, err := p.rewriteArgument(container, svc.ID, i, arg)
+			if err != nil {
+				return err
 			}
-			hasTaggedArgs = true
-
-			if arg.Tag == nil {
-				return fmt.Errorf("service %q arg[%d]: TaggedArg has nil Tag", svc.ID, i)
-			}
-
-			tagServiceID := TagServicePrefix + arg.Tag.Name
-			tagSvc, ok := container.Services[tagServiceID]
-			if !ok {
-				return fmt.Errorf("service %q arg[%d]: desugared tag service %q not found", svc.ID, i, tagServiceID)
-			}
-
-			// Rewrite to ServiceRefArg
-			arg.Kind = ServiceRefArg
-			arg.Service = tagSvc
-			arg.Tag = nil
-		}
-
-		// Update Dependencies if service had TaggedArg
-		if hasTaggedArgs {
-			p.rebuildDependencies(svc)
 		}
 	}
 
 	return nil
-}
-
-// rebuildDependencies rebuilds the Dependencies slice for a service
-// based on its constructor arguments
-func (p *tagDesugarPhase) rebuildDependencies(svc *Service) {
-	if svc.Constructor == nil {
-		return
-	}
-
-	deps := make(map[string]*Service)
-
-	// Method receiver is a dependency
-	if svc.Constructor.Kind == MethodConstructor && svc.Constructor.Receiver != nil {
-		deps[svc.Constructor.Receiver.ID] = svc.Constructor.Receiver
-	}
-
-	// Collect dependencies from arguments
-	for _, arg := range svc.Constructor.Args {
-		if arg.Kind == ServiceRefArg && arg.Service != nil {
-			deps[arg.Service.ID] = arg.Service
-		}
-	}
-
-	// Build sorted slice
-	svc.Dependencies = make([]*Service, 0, len(deps))
-	for _, dep := range deps {
-		svc.Dependencies = append(svc.Dependencies, dep)
-	}
-
-	slices.SortFunc(svc.Dependencies, func(a, b *Service) int {
-		return cmp.Compare(a.ID, b.ID)
-	})
 }

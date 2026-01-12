@@ -10,7 +10,7 @@ import (
 
 func TestTaggedElementTypeAssignable(t *testing.T) {
 	container := NewContainer()
-	r := &argumentResolver{}
+	r := &argResolver{}
 	arg := di.Argument{Kind: di.ArgTagged, Value: "tag.test"}
 
 	if _, err := r.resolve(container, "svc.one", 0, arg, types.NewSlice(types.Typ[types.Int])); err != nil {
@@ -26,7 +26,7 @@ func TestTaggedElementTypeAssignable(t *testing.T) {
 
 func TestTaggedElementTypeNotAssignable(t *testing.T) {
 	container := NewContainer()
-	r := &argumentResolver{}
+	r := &argResolver{}
 	arg := di.Argument{Kind: di.ArgTagged, Value: "tag.test"}
 
 	emptyIface := types.NewInterfaceType(nil, nil)

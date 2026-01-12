@@ -8,11 +8,11 @@ import (
 	di "github.com/asp24/gendi"
 )
 
-// validator validates the IR for correctness
-type validator struct{}
+// validatorPhase validates the IR for correctness
+type validatorPhase struct{}
 
-// validate runs all validation checks
-func (v *validator) validate(_ *di.Config, container *Container) error {
+// Apply runs all validation checks
+func (v *validatorPhase) Apply(_ *di.Config, container *Container) error {
 	if err := v.validatePublicServices(container); err != nil {
 		return err
 	}
@@ -24,7 +24,7 @@ func (v *validator) validate(_ *di.Config, container *Container) error {
 
 // validatePublicServices ensures at least one public service exists.
 // Note: After tag desugaring, public tags become public services with !tagged: prefix.
-func (v *validator) validatePublicServices(container *Container) error {
+func (v *validatorPhase) validatePublicServices(container *Container) error {
 	for _, svc := range container.Services {
 		if svc.Public {
 			return nil
@@ -35,7 +35,7 @@ func (v *validator) validatePublicServices(container *Container) error {
 
 // detectCyclesDFS performs DFS-based cycle detection on a service graph.
 // It accepts a neighbor function to traverse different types of relationships.
-func (v *validator) detectCyclesDFS(
+func (v *validatorPhase) detectCyclesDFS(
 	services map[string]*Service,
 	getNeighbors func(*Service) []*Service,
 	errorPrefix string,
@@ -77,7 +77,7 @@ func (v *validator) detectCyclesDFS(
 }
 
 // detectCycles detects circular dependencies using DFS
-func (v *validator) detectCycles(container *Container) error {
+func (v *validatorPhase) detectCycles(container *Container) error {
 	return v.detectCyclesDFS(
 		container.Services,
 		func(svc *Service) []*Service { return svc.Dependencies },

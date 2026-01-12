@@ -14,6 +14,8 @@ func ParseArgumentString(s string) (di.ArgumentKind, string) {
 		return di.ArgServiceRef, s[1:]
 	case len(s) > 2 && s[0] == '%' && s[len(s)-1] == '%':
 		return di.ArgParam, s[1 : len(s)-1]
+	case len(s) > len("!spread:") && s[:len("!spread:")] == "!spread:":
+		return di.ArgSpread, s[len("!spread:"):]
 	case len(s) > len("!tagged:") && s[:len("!tagged:")] == "!tagged:":
 		return di.ArgTagged, s[len("!tagged:"):]
 	}

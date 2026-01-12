@@ -4,10 +4,12 @@ import (
 	di "github.com/asp24/gendi"
 )
 
-// pruneUnreachable removes services not reachable from public services.
+type unreachablePrunePhase struct{}
+
+// Apply removes services not reachable from public services.
 // Note: After tag desugaring, public tags become public services with !tagged: prefix,
 // so we only need to check Services, not tags.
-func pruneUnreachable(_ *di.Config, container *Container) {
+func (p *unreachablePrunePhase) Apply(_ *di.Config, container *Container) error {
 	reachable := map[string]bool{}
 	var queue []*Service
 
@@ -43,4 +45,6 @@ func pruneUnreachable(_ *di.Config, container *Container) {
 			delete(container.Services, id)
 		}
 	}
+
+	return nil
 }

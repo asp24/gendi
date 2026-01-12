@@ -10,8 +10,8 @@ import (
 // servicePhase initializes services from config
 type servicePhase struct{}
 
-// build initializes IR services and determines service order
-func (p *servicePhase) build(cfg *di.Config, container *Container) error {
+// Apply initializes IR services and determines service order
+func (p *servicePhase) Apply(cfg *di.Config, container *Container) error {
 	for id, svc := range cfg.Services {
 		// Validate service ID is not empty or whitespace-only
 		if id == "" {

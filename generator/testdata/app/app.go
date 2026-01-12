@@ -93,3 +93,38 @@ type InterfaceConsumer struct {
 func NewInterfaceConsumer(items []interface{}) *InterfaceConsumer {
 	return &InterfaceConsumer{Items: items}
 }
+
+// Handler types for testing variadic and spread
+type Handler interface {
+	Handle()
+}
+
+type HandlerA struct{}
+
+func NewHandlerA() *HandlerA {
+	return &HandlerA{}
+}
+
+func (h *HandlerA) Handle() {}
+
+type HandlerB struct{}
+
+func NewHandlerB() *HandlerB {
+	return &HandlerB{}
+}
+
+func (h *HandlerB) Handle() {}
+
+// GetAllHandlers returns a slice of handlers for testing spread
+func GetAllHandlers(a, b *HandlerA) []Handler {
+	return []Handler{a, b}
+}
+
+// Server with variadic handlers parameter
+type Server struct {
+	Handlers []Handler
+}
+
+func NewServer(handlers ...Handler) *Server {
+	return &Server{Handlers: handlers}
+}
