@@ -217,75 +217,21 @@ func (p *tagDesugarPhase) rewriteArgument(container *Container, svcID string, ar
 	}
 }
 
-// rewriteTaggedArgs rewrites all TaggedArg arguments to ServiceRefArg
-// and updates service Dependencies accordingly
+// rewriteTaggedArgs rewrites all TaggedArg arguments to ServiceRefArg.
+// Dependencies will be rebuilt later by dependencyBuilder.
 func (p *tagDesugarPhase) rewriteTaggedArgs(container *Container) error {
 	for _, svc := range container.Services {
 		if svc.Constructor == nil {
 			continue
 		}
 
-		hasTaggedArgs := false
 		for i, arg := range svc.Constructor.Args {
-			rewritten, err := p.rewriteArgument(container, svc.ID, i, arg)
+			_, err := p.rewriteArgument(container, svc.ID, i, arg)
 			if err != nil {
 				return err
 			}
-			if rewritten {
-				hasTaggedArgs = true
-			}
-		}
-
-		// Update Dependencies if service had TaggedArg
-		if hasTaggedArgs {
-			p.rebuildDependencies(svc)
 		}
 	}
 
 	return nil
-}
-
-// collectDepsFromArg recursively collects dependencies from an argument
-func (p *tagDesugarPhase) collectDepsFromArg(arg *Argument, deps map[string]*Service) {
-	switch arg.Kind {
-	case ServiceRefArg:
-		if arg.Service != nil {
-			deps[arg.Service.ID] = arg.Service
-		}
-	case SpreadArg:
-		// Recursively collect from inner argument
-		if arg.Inner != nil {
-			p.collectDepsFromArg(arg.Inner, deps)
-		}
-	}
-}
-
-// rebuildDependencies rebuilds the Dependencies slice for a service
-// based on its constructor arguments
-func (p *tagDesugarPhase) rebuildDependencies(svc *Service) {
-	if svc.Constructor == nil {
-		return
-	}
-
-	deps := make(map[string]*Service)
-
-	// Method receiver is a dependency
-	if svc.Constructor.Kind == MethodConstructor && svc.Constructor.Receiver != nil {
-		deps[svc.Constructor.Receiver.ID] = svc.Constructor.Receiver
-	}
-
-	// Collect dependencies from arguments (recursively for SpreadArg)
-	for _, arg := range svc.Constructor.Args {
-		p.collectDepsFromArg(arg, deps)
-	}
-
-	// Build sorted slice
-	svc.Dependencies = make([]*Service, 0, len(deps))
-	for _, dep := range deps {
-		svc.Dependencies = append(svc.Dependencies, dep)
-	}
-
-	slices.SortFunc(svc.Dependencies, func(a, b *Service) int {
-		return cmp.Compare(a.ID, b.ID)
-	})
 }
