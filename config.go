@@ -74,10 +74,10 @@ type Parameter struct {
 
 // Tag defines a tag declaration.
 type Tag struct {
-	ElementType string
-	SortBy      string
-	Public      bool
-	Auto        bool
+	ElementType   string
+	SortBy        string
+	Public        bool
+	Autoconfigure bool
 }
 
 // ServiceTag defines a tag assigned to a service.
@@ -92,6 +92,7 @@ type Service struct {
 	Constructor        Constructor
 	Shared             bool
 	Public             bool
+	Autoconfigure      bool
 	Decorates          string
 	DecorationPriority int
 	Tags               []ServiceTag

@@ -204,10 +204,10 @@ Auto tagging can be enabled for interface-based tags:
 tags:
   handler:
     element_type: "github.com/myapp.Handler"
-    auto: true
+    autoconfigure: true
 ```
 
-`auto: true` requires an interface `element_type` and cannot be combined with
+`autoconfigure: true` requires an interface `element_type` and cannot be combined with
 `sort_by`. See `doc/auto-tagging.md` for full rules.
 
 ### Imports

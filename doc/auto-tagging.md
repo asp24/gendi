@@ -1,31 +1,26 @@
 # Auto Tagging Rules
 
 This document defines the rules for automatic tagging of services when a tag
-declares `auto: true`.
+declares `autoconfigure: true`.
 
 ## Core Rules
 
-- `auto: true` is only valid on explicitly declared tags.
-- With `auto: true`, `element_type` is required. If missing, generation fails.
-- With `auto: true`, `element_type` must be an interface type. Non-interface
+- `autoconfigure: true` is only valid on explicitly declared tags.
+- With `autoconfigure: true`, `element_type` is required. If missing, generation fails.
+- With `autoconfigure: true`, `element_type` must be an interface type. Non-interface
   types cause a generation error.
 - Auto tagging runs after `DecoratorPass`, so it sees the final decorated
   service graph.
-- Only real services are candidates. Aliases and `.inner` services are excluded.
-- For decorator chains, only the outermost decorator can be auto-tagged.
+- Only real services are candidates. Aliases are excluded.
+- Decorator inner services are created with `autoconfigure: false` and do not participate.
 - A service is auto-tagged if its final type is `AssignableTo` the tag's
   `element_type`.
 - Explicit tags remain; auto-tagging only adds missing services (deduped by
   service ID).
 - Result ordering is deterministic (stable order by service ID).
-- `auto: true` cannot be combined with `sort_by` and must be rejected.
+- `autoconfigure: true` cannot be combined with `sort_by` and must be rejected.
+- Services can opt out via `autoconfigure: false` (or in `_default`).
 - An auto-tag may end up empty; this is allowed.
-
-## Implementation Note (Temporary)
-
-Auto-tagging currently excludes decorator inner services by checking the
-`.inner` suffix. This is a temporary rule until decorator metadata is available
-in IR to avoid name-based filtering.
 
 ## Decorator Example
 
@@ -35,7 +30,7 @@ Given:
 tags:
   handlers:
     element_type: "github.com/acme/app.Handler"
-    auto: true
+    autoconfigure: true
 
 services:
   base:

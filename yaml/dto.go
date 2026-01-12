@@ -49,10 +49,10 @@ type RawParameter struct {
 }
 
 type RawTag struct {
-	ElementType string `yaml:"element_type"`
-	SortBy      string `yaml:"sort_by"`
-	Public      bool   `yaml:"public"`
-	Auto        bool   `yaml:"auto"`
+	ElementType   string `yaml:"element_type"`
+	SortBy        string `yaml:"sort_by"`
+	Public        bool   `yaml:"public"`
+	Autoconfigure bool   `yaml:"autoconfigure"`
 }
 
 type RawServiceTag struct {
@@ -97,10 +97,11 @@ func (t *RawServiceTag) UnmarshalYAML(node *yaml.Node) error {
 }
 
 // ServiceDefaults holds default values for service configuration.
-// Only shared and public fields are allowed in _default section.
+// Only shared, public, and autoconfigure fields are allowed in _default section.
 type ServiceDefaults struct {
-	Shared *bool `yaml:"shared"`
-	Public *bool `yaml:"public"`
+	Shared        *bool `yaml:"shared"`
+	Public        *bool `yaml:"public"`
+	Autoconfigure *bool `yaml:"autoconfigure"`
 }
 
 type RawService struct {
@@ -108,6 +109,7 @@ type RawService struct {
 	Constructor        RawConstructor  `yaml:"constructor"`
 	Shared             *bool           `yaml:"shared"`
 	Public             *bool           `yaml:"public"`
+	Autoconfigure      *bool           `yaml:"autoconfigure"`
 	Decorates          string          `yaml:"decorates"`
 	DecorationPriority int             `yaml:"decoration_priority"`
 	Tags               []RawServiceTag `yaml:"tags"`

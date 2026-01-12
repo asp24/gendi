@@ -122,7 +122,7 @@ func TestServicePhaseCreatesTagsOnDemand(t *testing.T) {
 	}
 }
 
-func TestTagPhaseAutoValidation(t *testing.T) {
+func TestTagPhaseAutoconfigureValidation(t *testing.T) {
 	tests := []struct {
 		name        string
 		tags        map[string]di.Tag
@@ -130,44 +130,44 @@ func TestTagPhaseAutoValidation(t *testing.T) {
 		errorMsg    string
 	}{
 		{
-			name: "auto tag without element_type",
+			name: "autoconfigure tag without element_type",
 			tags: map[string]di.Tag{
 				"auto.tag": {
-					Auto: true,
+					Autoconfigure: true,
 				},
 			},
 			expectError: true,
-			errorMsg:    "auto requires element_type",
+			errorMsg:    "autoconfigure requires element_type",
 		},
 		{
-			name: "auto tag with sort_by",
+			name: "autoconfigure tag with sort_by",
 			tags: map[string]di.Tag{
 				"auto.tag": {
-					ElementType: "iface",
-					Auto:        true,
-					SortBy:      "priority",
+					ElementType:   "iface",
+					Autoconfigure: true,
+					SortBy:        "priority",
 				},
 			},
 			expectError: true,
-			errorMsg:    "auto cannot be used with sort_by",
+			errorMsg:    "autoconfigure cannot be used with sort_by",
 		},
 		{
-			name: "auto tag with non-interface element_type",
+			name: "autoconfigure tag with non-interface element_type",
 			tags: map[string]di.Tag{
 				"auto.tag": {
-					ElementType: "string",
-					Auto:        true,
+					ElementType:   "string",
+					Autoconfigure: true,
 				},
 			},
 			expectError: true,
-			errorMsg:    "auto element_type must be an interface",
+			errorMsg:    "autoconfigure element_type must be an interface",
 		},
 		{
-			name: "auto tag with interface element_type",
+			name: "autoconfigure tag with interface element_type",
 			tags: map[string]di.Tag{
 				"auto.tag": {
-					ElementType: "iface",
-					Auto:        true,
+					ElementType:   "iface",
+					Autoconfigure: true,
 				},
 			},
 			expectError: false,
@@ -179,7 +179,7 @@ func TestTagPhaseAutoValidation(t *testing.T) {
 			cfg := &di.Config{Tags: tt.tags}
 			container := NewContainer()
 
-			p := &tagPhase{resolver: &autoTagResolver{}}
+			p := &tagPhase{resolver: &autoconfigureTagResolver{}}
 			err := p.Apply(cfg, container)
 
 			if tt.expectError {
@@ -216,9 +216,9 @@ func (m *mockResolver) InstantiateFunc(fn *types.Func, typeArgs []string) (*type
 	return nil, nil, nil
 }
 
-type autoTagResolver struct{}
+type autoconfigureTagResolver struct{}
 
-func (a *autoTagResolver) LookupType(typeStr string) (types.Type, error) {
+func (a *autoconfigureTagResolver) LookupType(typeStr string) (types.Type, error) {
 	if typeStr == "iface" {
 		iface := types.NewInterfaceType(nil, nil)
 		iface.Complete()
@@ -227,14 +227,14 @@ func (a *autoTagResolver) LookupType(typeStr string) (types.Type, error) {
 	return types.Typ[types.String], nil
 }
 
-func (a *autoTagResolver) LookupFunc(pkgPath, name string) (*types.Func, error) {
+func (a *autoconfigureTagResolver) LookupFunc(pkgPath, name string) (*types.Func, error) {
 	return nil, nil
 }
 
-func (a *autoTagResolver) LookupMethod(recv types.Type, name string) (*types.Func, error) {
+func (a *autoconfigureTagResolver) LookupMethod(recv types.Type, name string) (*types.Func, error) {
 	return nil, nil
 }
 
-func (a *autoTagResolver) InstantiateFunc(fn *types.Func, typeArgs []string) (*types.Signature, []types.Type, error) {
+func (a *autoconfigureTagResolver) InstantiateFunc(fn *types.Func, typeArgs []string) (*types.Signature, []types.Type, error) {
 	return nil, nil, nil
 }

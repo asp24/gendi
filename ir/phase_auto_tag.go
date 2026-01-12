@@ -3,7 +3,6 @@ package ir
 import (
 	"fmt"
 	"go/types"
-	"strings"
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/xmaps"
@@ -19,7 +18,7 @@ func (p *autoTagPhase) Apply(cfg *di.Config, container *Container) error {
 
 	for _, tagName := range xmaps.OrderedKeys(cfg.Tags) {
 		tagCfg := cfg.Tags[tagName]
-		if !tagCfg.Auto {
+		if !tagCfg.Autoconfigure {
 			continue
 		}
 
@@ -28,7 +27,7 @@ func (p *autoTagPhase) Apply(cfg *di.Config, container *Container) error {
 			return fmt.Errorf("tag %q not found", tagName)
 		}
 		if tag.ElementType == nil {
-			return fmt.Errorf("tag %q auto requires element_type", tagName)
+			return fmt.Errorf("tag %q autoconfigure requires element_type", tagName)
 		}
 
 		existing := make(map[string]bool)
@@ -46,7 +45,10 @@ func (p *autoTagPhase) Apply(cfg *di.Config, container *Container) error {
 			if svc == nil {
 				continue
 			}
-			if svc.IsAlias() || strings.HasSuffix(svc.ID, ".inner") {
+			if svc.IsAlias() {
+				continue
+			}
+			if !svc.Autoconfigure {
 				continue
 			}
 			if existing[svc.ID] {

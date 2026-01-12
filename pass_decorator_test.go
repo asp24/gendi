@@ -9,6 +9,7 @@ func TestDecoratorPassSingleDecorator(t *testing.T) {
 	cfg := &Config{
 		Services: map[string]Service{
 			"base": {
+				Autoconfigure: true,
 				Constructor: Constructor{
 					Func: "app.NewBase",
 				},
@@ -47,6 +48,9 @@ func TestDecoratorPassSingleDecorator(t *testing.T) {
 	}
 	if innerSvc.Public {
 		t.Fatalf("expected inner service to not be public")
+	}
+	if innerSvc.Autoconfigure {
+		t.Fatalf("expected inner service to have autoconfigure disabled")
 	}
 
 	// Check base becomes alias

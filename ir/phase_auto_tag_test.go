@@ -19,23 +19,25 @@ func TestAutoTagPhaseAddsTags(t *testing.T) {
 	container := NewContainer()
 	container.tags["auto.tag"] = tag
 
-	aliasTarget := &Service{ID: "svc.target", Type: types.Typ[types.Int]}
+	aliasTarget := &Service{ID: "svc.target", Type: types.Typ[types.Int], Autoconfigure: true}
 
-	svcOne := &Service{ID: "svc.one", Type: types.Typ[types.String]}
-	svcTwo := &Service{ID: "svc.two", Type: types.Typ[types.Int], Tags: []*ServiceTag{{Tag: tag}}}
-	svcInner := &Service{ID: "svc.inner", Type: types.Typ[types.Int]}
-	svcAlias := &Service{ID: "svc.alias", Type: types.Typ[types.Int], Alias: aliasTarget}
+	svcOne := &Service{ID: "svc.one", Type: types.Typ[types.String], Autoconfigure: true}
+	svcTwo := &Service{ID: "svc.two", Type: types.Typ[types.Int], Autoconfigure: true, Tags: []*ServiceTag{{Tag: tag}}}
+	svcInner := &Service{ID: "svc.inner", Type: types.Typ[types.Int], Autoconfigure: false}
+	svcAlias := &Service{ID: "svc.alias", Type: types.Typ[types.Int], Alias: aliasTarget, Autoconfigure: true}
+	svcOptOut := &Service{ID: "svc.optout", Type: types.Typ[types.String], Autoconfigure: false}
 
 	container.Services = map[string]*Service{
-		svcOne.ID:   svcOne,
-		svcTwo.ID:   svcTwo,
-		svcInner.ID: svcInner,
-		svcAlias.ID: svcAlias,
+		svcOne.ID:    svcOne,
+		svcTwo.ID:    svcTwo,
+		svcInner.ID:  svcInner,
+		svcAlias.ID:  svcAlias,
+		svcOptOut.ID: svcOptOut,
 	}
 
 	cfg := &di.Config{
 		Tags: map[string]di.Tag{
-			"auto.tag": {Auto: true},
+			"auto.tag": {Autoconfigure: true},
 		},
 	}
 
@@ -57,6 +59,10 @@ func TestAutoTagPhaseAddsTags(t *testing.T) {
 
 	if serviceHasTag(svcAlias, tag) {
 		t.Fatalf("did not expect alias service %q to be auto-tagged", svcAlias.ID)
+	}
+
+	if serviceHasTag(svcOptOut, tag) {
+		t.Fatalf("did not expect opt-out service %q to be auto-tagged", svcOptOut.ID)
 	}
 }
 
