@@ -121,6 +121,8 @@ Constructor arguments use special syntax:
 - `@.inner` - Inner service (decorators only)
 - `%param.name%` - Parameter reference
 - `!tagged:tag.name` - Tagged services collection
+- `!spread:@service` - Spread slice into variadic parameters
+- `!spread:!tagged:tag` - Spread tagged collection into variadic parameters
 - `@service.Method` - Method constructor
 - `literal` - YAML scalar literal
 

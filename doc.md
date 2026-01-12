@@ -342,15 +342,41 @@ Violation results in a generation error.
 
 ### 6.3.6 Constructor Arguments
 
-| Syntax             | Meaning                      |
-| ------------------ | ---------------------------- |
-| `@service.id`      | Reference to another service |
-| `@.inner`          | Inner service in a decorator |
-| `%param.name%`     | Parameter                    |
-| `!tagged:tag.name` | Tagged injection             |
-| literal            | YAML scalar literal          |
+| Syntax                    | Meaning                                  |
+| ------------------------- | ---------------------------------------- |
+| `@service.id`             | Reference to another service             |
+| `@.inner`                 | Inner service in a decorator             |
+| `%param.name%`            | Parameter                                |
+| `!tagged:tag.name`        | Tagged injection                         |
+| `!spread:@service`        | Spread slice into variadic parameters    |
+| `!spread:!tagged:tag`     | Spread tagged collection into variadic   |
+| literal                   | YAML scalar literal                      |
 
 Argument count and types are strictly validated.
+
+**Spread Operator:**
+
+The `!spread:` operator unpacks slice values into variadic parameters using Go's `...` syntax:
+
+```yaml
+services:
+  all_handlers:
+    constructor:
+      func: "app.GetHandlers"  # Returns []Handler
+
+  server:
+    constructor:
+      func: "app.NewServer"     # NewServer(handlers ...Handler)
+      args:
+        - "!spread:@all_handlers"  # Unpacks []Handler into ...Handler
+```
+
+Rules:
+- Only one spread allowed per constructor
+- Spread must be the last argument
+- Inner value must be a slice type
+- Target parameter must be variadic
+- Works with both service references (`!spread:@service`) and tagged injection (`!spread:!tagged:tag`)
 
 ---
 
