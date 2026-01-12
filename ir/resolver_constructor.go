@@ -133,7 +133,8 @@ func (r *constructorResolver) resolveConstructor(container *Container, svc *Serv
 
 		paramType := irCons.Params[paramIdx]
 		// If this is a variadic parameter, get the slice element type
-		if irCons.Variadic && paramIdx == len(irCons.Params)-1 {
+		// Exception: for spread arguments, keep the slice type
+		if irCons.Variadic && paramIdx == len(irCons.Params)-1 && arg.Kind != di.ArgSpread {
 			if sliceType, ok := paramType.(*types.Slice); ok {
 				paramType = sliceType.Elem()
 			}
@@ -144,6 +145,11 @@ func (r *constructorResolver) resolveConstructor(container *Container, svc *Serv
 			return err
 		}
 		irCons.Args[i] = irArg
+	}
+
+	// Validate spread position
+	if err := r.validateSpreadPosition(svc.ID, irCons); err != nil {
+		return err
 	}
 
 	svc.Constructor = irCons
@@ -285,4 +291,39 @@ func (r *constructorResolver) resolveMethodConstructor(container *Container, id 
 		ReturnsError: returnsErr,
 		Variadic:     sig.Variadic(),
 	}, nil
+}
+
+// validateSpreadPosition validates that spread arguments follow the rules:
+// 1. Only one spread is allowed per constructor call
+// 2. Spread must be the last argument
+func (r *constructorResolver) validateSpreadPosition(svcID string, cons *Constructor) error {
+	if !cons.Variadic {
+		return nil // No variadic, no spread allowed (already validated in resolve)
+	}
+
+	// Find all spread arguments
+	spreadCount := 0
+	lastSpreadIdx := -1
+	for i, arg := range cons.Args {
+		if arg.Kind == SpreadArg {
+			spreadCount++
+			lastSpreadIdx = i
+		}
+	}
+
+	if spreadCount == 0 {
+		return nil // No spread, nothing to check
+	}
+
+	// Check that only one spread is present
+	if spreadCount > 1 {
+		return fmt.Errorf("service %q: !spread: only one spread allowed per constructor call", svcID)
+	}
+
+	// Check that spread is the last argument
+	if lastSpreadIdx != len(cons.Args)-1 {
+		return fmt.Errorf("service %q: !spread: must be the last argument", svcID)
+	}
+
+	return nil
 }

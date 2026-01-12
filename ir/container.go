@@ -185,6 +185,7 @@ type Argument struct {
 	Parameter *Parameter   // For ParamRef
 	Tag       *Tag         // For Tagged
 	Literal   LiteralValue // For Literal
+	Inner     *Argument    // For Spread (wraps another argument)
 }
 
 // ArgumentKind indicates the type of argument.
@@ -195,6 +196,7 @@ const (
 	ServiceRefArg
 	ParamRefArg
 	TaggedArg
+	SpreadArg
 )
 
 // LiteralValue holds a typed literal value.
