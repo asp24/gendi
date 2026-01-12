@@ -31,6 +31,11 @@ func (p *tagDesugarPhase) desugar(_ *di.Config, container *Container) error {
 		return nil
 	}
 
+	// First, link services to their tags and validate type compatibility
+	if err := p.linkTaggedServices(container); err != nil {
+		return err
+	}
+
 	// Process tags in deterministic order
 	for _, tagName := range xmaps.OrderedKeys(container.tags) {
 		tag := container.tags[tagName]
@@ -57,6 +62,24 @@ func (p *tagDesugarPhase) desugar(_ *di.Config, container *Container) error {
 	// Clear tags - they are now services
 	container.tags = make(map[string]*Tag)
 
+	return nil
+}
+
+// linkTaggedServices links services to their tags and validates type compatibility
+func (p *tagDesugarPhase) linkTaggedServices(container *Container) error {
+	for _, id := range xmaps.OrderedKeys(container.Services) {
+		svc := container.Services[id]
+		for _, st := range svc.Tags {
+			// Validate service type is assignable to tag's ElementType (if known)
+			if st.Tag.ElementType != nil && svc.Type != nil {
+				if !types.AssignableTo(svc.Type, st.Tag.ElementType) {
+					return fmt.Errorf("service %q with tag %q: type %s is not assignable to %s",
+						svc.ID, st.Tag.Name, svc.Type, st.Tag.ElementType)
+				}
+			}
+			st.Tag.Services = append(st.Tag.Services, svc)
+		}
+	}
 	return nil
 }
 

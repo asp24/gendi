@@ -48,17 +48,12 @@ func (b *Builder) Build(cfg *di.Config) (*Container, error) {
 		return nil, err
 	}
 
-	// Phase 2: Resolve constructors, link tagged services, desugar tags, build dependencies
+	// Phase 2: Resolve constructors, desugar tags, build dependencies
 	if err := (&constructorResolver{resolver: b.resolver}).resolve(cfg, result); err != nil {
 		return nil, err
 	}
 
-	// Link services to their tags (requires service types from constructorResolver)
-	if err := (&taggedServiceResolver{}).resolve(cfg, result); err != nil {
-		return nil, err
-	}
-
-	// Desugar tags into synthetic services (requires tag.Services from taggedServiceResolver)
+	// Desugar tags into synthetic services (links services to tags, creates tag services, rewrites args)
 	if err := (&tagDesugarPhase{resolver: b.resolver}).desugar(cfg, result); err != nil {
 		return nil, err
 	}
