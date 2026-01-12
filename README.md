@@ -198,6 +198,18 @@ services:
 # func (c *Container) GetTaggedWithHandler() ([]Handler, error)
 ```
 
+Auto tagging can be enabled for interface-based tags:
+
+```yaml
+tags:
+  handler:
+    element_type: "github.com/myapp.Handler"
+    auto: true
+```
+
+`auto: true` requires an interface `element_type` and cannot be combined with
+`sort_by`. See `doc/auto-tagging.md` for full rules.
+
 ### Imports
 
 Configuration files can import and override other configurations:

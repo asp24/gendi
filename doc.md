@@ -452,6 +452,7 @@ tags:
     element_type: "example.com/app/payments.Provider"
     sort_by: priority
     public: true
+    auto: false
 ```
 
 **Implicit creation (no declaration needed):**
@@ -467,6 +468,12 @@ services:
 ```
 
 Only explicitly declared tags can be public.
+
+The following fields are supported on tag declarations:
+* `element_type` (optional, required for public or auto tags)
+* `sort_by` (optional)
+* `public` (optional)
+* `auto` (optional)
 
 ### 6.6.2 Element Type Inference
 
@@ -529,6 +536,32 @@ func (c *Container) GetTaggedWithPaymentProvider() ([]payments.Provider, error)
 ```
 
 The getter returns all tagged services in the same order as tagged injection.
+
+---
+
+### 6.6.6 Auto Tagging
+
+Auto tagging can be enabled on a tag by setting `auto: true`. The generator
+will add the tag to every service whose **final** type implements the tag's
+`element_type`.
+
+Rules:
+* `element_type` is required and must be an interface type.
+* `auto: true` cannot be combined with `sort_by`.
+* Auto tagging runs after decorator expansion; only the outermost decorator
+  is considered for tagging.
+* Alias and `.inner` services are excluded.
+
+Example:
+
+```yaml
+tags:
+  handler:
+    element_type: "github.com/myapp.Handler"
+    auto: true
+```
+
+See `doc/auto-tagging.md` for full rules and details.
 
 ---
 
@@ -697,6 +730,6 @@ service "payments":
 
 1. `services.type` is optional
 2. Tagged injection produces `[]T` only
-3. `tags.element_type` is optional (required when `public: true`)
+3. `tags.element_type` is optional (required when `public: true` or `auto: true`)
 4. Strict typing, no `any`
 5. Errors detected at generation time
