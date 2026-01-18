@@ -172,6 +172,7 @@ services:
       args: []
     shared: true
     public: true
+    autoconfigure: true
     decorates: other.service
     decoration_priority: 10
     tags:
@@ -207,13 +208,14 @@ tags:
 
 ### 6.3.2 Service Defaults
 
-The `_default` key allows setting default values for `shared` and `public` fields across all services:
+The `_default` key allows setting default values for `shared`, `public`, and `autoconfigure` fields across all services:
 
 ```yaml
 services:
   _default:
     shared: true      # All services are shared by default
     public: false     # All services are private by default
+    autoconfigure: true # Services participate in autoconfiguration by default
 
   logger:
     type: "*app.Logger"
@@ -229,10 +231,10 @@ services:
 ```
 
 Rules:
-* Only `shared` and `public` fields are allowed in `_default`
+* Only `shared`, `public`, and `autoconfigure` fields are allowed in `_default`
 * Explicit values in individual services always override defaults
 * Other fields (type, constructor, alias, decorates, tags) are forbidden in `_default`
-* If a field is not set in `_default` or the service, the standard default applies (shared defaults to true, public defaults to false)
+* If a field is not set in `_default` or the service, the standard default applies (shared defaults to true, public defaults to false, autoconfigure defaults to true)
 
 ---
 
@@ -452,6 +454,7 @@ tags:
     element_type: "example.com/app/payments.Provider"
     sort_by: priority
     public: true
+    autoconfigure: false
 ```
 
 **Implicit creation (no declaration needed):**
@@ -467,6 +470,12 @@ services:
 ```
 
 Only explicitly declared tags can be public.
+
+The following fields are supported on tag declarations:
+* `element_type` (optional, required for public or autoconfigure tags)
+* `sort_by` (optional)
+* `public` (optional)
+* `autoconfigure` (optional)
 
 ### 6.6.2 Element Type Inference
 
@@ -529,6 +538,32 @@ func (c *Container) GetTaggedWithPaymentProvider() ([]payments.Provider, error)
 ```
 
 The getter returns all tagged services in the same order as tagged injection.
+
+---
+
+### 6.6.6 Auto Tagging
+
+Auto tagging can be enabled on a tag by setting `autoconfigure: true`. The generator
+will add the tag to every service whose **final** type implements the tag's
+`element_type`.
+
+Rules:
+* `element_type` is required and must be an interface type.
+* `autoconfigure: true` cannot be combined with `sort_by`.
+* Auto tagging runs after decorator expansion; alias services are excluded.
+* Decorator inner services are created with `autoconfigure: false` and do not participate.
+* Services can opt out via `autoconfigure: false` (or in `_default`).
+
+Example:
+
+```yaml
+tags:
+  handler:
+    element_type: "github.com/myapp.Handler"
+    autoconfigure: true
+```
+
+See `doc/auto-tagging.md` for full rules and details.
 
 ---
 
@@ -697,6 +732,6 @@ service "payments":
 
 1. `services.type` is optional
 2. Tagged injection produces `[]T` only
-3. `tags.element_type` is optional (required when `public: true`)
+3. `tags.element_type` is optional (required when `public: true` or `autoconfigure: true`)
 4. Strict typing, no `any`
 5. Errors detected at generation time

@@ -117,9 +117,10 @@ func (p *DecoratorPass) expandOne(cfg *Config, baseID, decoratorID string) error
 
 	// Transform base into alias to current decorator
 	aliasService := Service{
-		Alias:  decoratorID,
-		Shared: isShared,
-		Public: baseSvc.Public, // Preserve public flag
+		Alias:         decoratorID,
+		Shared:        isShared,
+		Public:        baseSvc.Public, // Preserve public flag
+		Autoconfigure: false,
 	}
 
 	// Rewrite @.inner args in decorator
@@ -139,17 +140,21 @@ func (p *DecoratorPass) resolveInnerService(cfg *Config, baseSvc Service, decora
 	// If base is already an alias, reuse the target instead of creating new inner
 	if baseSvc.Alias != "" {
 		innerID := baseSvc.Alias
-		return innerID, cfg.Services[innerID]
+		innerSvc := cfg.Services[innerID]
+		innerSvc.Autoconfigure = false
+		cfg.Services[innerID] = innerSvc
+		return innerID, innerSvc
 	}
 
 	// Create new inner service (clone of base)
 	innerID := decoratorID + ".inner"
 	innerSvc := Service{
-		Type:        baseSvc.Type,
-		Constructor: baseSvc.Constructor,
-		Shared:      baseSvc.Shared,
-		Public:      false, // Inner services are never public
-		Tags:        nil,   // No tags on inner
+		Type:          baseSvc.Type,
+		Constructor:   baseSvc.Constructor,
+		Shared:        baseSvc.Shared,
+		Public:        false, // Inner services are never public
+		Autoconfigure: false,
+		Tags:          nil, // No tags on inner
 	}
 	// Store the new inner service
 	cfg.Services[innerID] = innerSvc

@@ -101,8 +101,9 @@ type Service struct {
 	Alias       *Service // If this is an alias, points to target service
 
 	// Lifecycle
-	Shared bool
-	Public bool
+	Shared        bool
+	Public        bool
+	Autoconfigure bool
 
 	// Tags
 	Tags []*ServiceTag
@@ -226,11 +227,12 @@ type Parameter struct {
 
 // Tag is a resolved tag definition.
 type Tag struct {
-	Name        string
-	ElementType types.Type
-	SortBy      string
-	Public      bool
-	Services    []*Service // Services with this tag (sorted by priority)
+	Name          string
+	ElementType   types.Type
+	SortBy        string
+	Public        bool
+	Autoconfigure bool
+	Services      []*Service // Services with this tag (sorted by priority)
 }
 
 // ServiceTag is a tag attached to a service.

@@ -95,20 +95,22 @@ func TestParseArgumentLiteralNode(t *testing.T) {
 
 func TestServiceDefaults(t *testing.T) {
 	tests := []struct {
-		name           string
-		defaults       *ServiceDefaults
-		service        *RawService
-		expectedShared *bool
-		expectedPublic bool
+		name                  string
+		defaults              *ServiceDefaults
+		service               *RawService
+		expectedShared        *bool
+		expectedPublic        bool
+		expectedAutoconfigure bool
 	}{
 		{
-			name: "no defaults",
+			name:     "no defaults",
 			defaults: nil,
 			service: &RawService{
 				Type: "string",
 			},
-			expectedShared: nil,
-			expectedPublic: false,
+			expectedShared:        nil,
+			expectedPublic:        false,
+			expectedAutoconfigure: true,
 		},
 		{
 			name: "inherit shared from defaults",
@@ -118,8 +120,9 @@ func TestServiceDefaults(t *testing.T) {
 			service: &RawService{
 				Type: "string",
 			},
-			expectedShared: boolPtr(true),
-			expectedPublic: false,
+			expectedShared:        boolPtr(true),
+			expectedPublic:        false,
+			expectedAutoconfigure: true,
 		},
 		{
 			name: "inherit public from defaults",
@@ -129,8 +132,9 @@ func TestServiceDefaults(t *testing.T) {
 			service: &RawService{
 				Type: "string",
 			},
-			expectedShared: nil,
-			expectedPublic: true,
+			expectedShared:        nil,
+			expectedPublic:        true,
+			expectedAutoconfigure: true,
 		},
 		{
 			name: "override shared",
@@ -141,8 +145,9 @@ func TestServiceDefaults(t *testing.T) {
 				Type:   "string",
 				Shared: boolPtr(false),
 			},
-			expectedShared: boolPtr(false),
-			expectedPublic: false,
+			expectedShared:        boolPtr(false),
+			expectedPublic:        false,
+			expectedAutoconfigure: true,
 		},
 		{
 			name: "override public",
@@ -153,8 +158,9 @@ func TestServiceDefaults(t *testing.T) {
 				Type:   "string",
 				Public: boolPtr(false),
 			},
-			expectedShared: nil,
-			expectedPublic: false,
+			expectedShared:        nil,
+			expectedPublic:        false,
+			expectedAutoconfigure: true,
 		},
 		{
 			name: "inherit both from defaults",
@@ -165,8 +171,34 @@ func TestServiceDefaults(t *testing.T) {
 			service: &RawService{
 				Type: "string",
 			},
-			expectedShared: boolPtr(true),
-			expectedPublic: true,
+			expectedShared:        boolPtr(true),
+			expectedPublic:        true,
+			expectedAutoconfigure: true,
+		},
+		{
+			name: "inherit autoconfigure from defaults",
+			defaults: &ServiceDefaults{
+				Autoconfigure: boolPtr(false),
+			},
+			service: &RawService{
+				Type: "string",
+			},
+			expectedShared:        nil,
+			expectedPublic:        false,
+			expectedAutoconfigure: false,
+		},
+		{
+			name: "override autoconfigure",
+			defaults: &ServiceDefaults{
+				Autoconfigure: boolPtr(false),
+			},
+			service: &RawService{
+				Type:          "string",
+				Autoconfigure: boolPtr(true),
+			},
+			expectedShared:        nil,
+			expectedPublic:        false,
+			expectedAutoconfigure: true,
 		},
 	}
 
@@ -184,6 +216,10 @@ func TestServiceDefaults(t *testing.T) {
 
 			if svc.Public != tt.expectedPublic {
 				t.Errorf("expected public=%v, got %v", tt.expectedPublic, svc.Public)
+			}
+
+			if svc.Autoconfigure != tt.expectedAutoconfigure {
+				t.Errorf("expected autoconfigure=%v, got %v", tt.expectedAutoconfigure, svc.Autoconfigure)
 			}
 		})
 	}
@@ -760,5 +796,30 @@ func TestThisSubstitutionInTagElementTypeNoPackage(t *testing.T) {
 	// Should remain unchanged when configDir is empty
 	if tag.ElementType != "$this.Notifier" {
 		t.Errorf("expected element_type '$this.Notifier', got '%s'", tag.ElementType)
+	}
+}
+
+func TestTagAutoconfigureParsed(t *testing.T) {
+	raw := &RawConfig{
+		Tags: map[string]RawTag{
+			"auto.tag": {
+				ElementType:   "string",
+				Autoconfigure: true,
+			},
+		},
+	}
+	p := NewParser()
+	cfg, err := p.convertConfigWithDir(raw, "")
+	if err != nil {
+		t.Fatalf("convertConfigWithDir failed: %v", err)
+	}
+
+	tag, ok := cfg.Tags["auto.tag"]
+	if !ok {
+		t.Fatal("tag 'auto.tag' not found")
+	}
+
+	if !tag.Autoconfigure {
+		t.Fatal("expected tag 'auto.tag' to have autoconfigure enabled")
 	}
 }

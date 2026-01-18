@@ -2,6 +2,7 @@ package ir
 
 import (
 	"fmt"
+	"go/types"
 
 	di "github.com/asp24/gendi"
 )
@@ -14,14 +15,23 @@ type tagPhase struct {
 // Apply converts config tags to IR tags
 func (p *tagPhase) Apply(cfg *di.Config, container *Container) error {
 	for name, tag := range cfg.Tags {
+		if tag.Autoconfigure {
+			if tag.ElementType == "" {
+				return fmt.Errorf("tag %q autoconfigure requires element_type", name)
+			}
+			if tag.SortBy != "" {
+				return fmt.Errorf("tag %q autoconfigure cannot be used with sort_by", name)
+			}
+		}
 		if tag.Public && tag.ElementType == "" {
 			return fmt.Errorf("tag %q public requires element_type", name)
 		}
 		irTag := &Tag{
-			Name:     name,
-			SortBy:   tag.SortBy,
-			Public:   tag.Public,
-			Services: []*Service{},
+			Name:          name,
+			SortBy:        tag.SortBy,
+			Public:        tag.Public,
+			Autoconfigure: tag.Autoconfigure,
+			Services:      []*Service{},
 		}
 
 		// ElementType is now optional - can be inferred from constructor arguments
@@ -29,6 +39,11 @@ func (p *tagPhase) Apply(cfg *di.Config, container *Container) error {
 			elemType, err := p.resolver.LookupType(tag.ElementType)
 			if err != nil {
 				return fmt.Errorf("tag %q element_type: %w", name, err)
+			}
+			if tag.Autoconfigure {
+				if _, ok := elemType.Underlying().(*types.Interface); !ok {
+					return fmt.Errorf("tag %q autoconfigure element_type must be an interface", name)
+				}
 			}
 			irTag.ElementType = elemType
 		}

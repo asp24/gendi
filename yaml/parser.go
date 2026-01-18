@@ -32,11 +32,7 @@ func (p *Parser) convertConfigWithDir(raw *RawConfig, configDir string) (*di.Con
 	// Resolve $this package path from config file directory
 	var thisPackage string
 	if configDir != "" {
-		pkg, err := resolvePackagePath(configDir)
-		if err != nil {
-			// If resolution fails, $this will remain empty and cause an error if used
-			thisPackage = ""
-		} else {
+		if pkg, err := resolvePackagePath(configDir); err == nil {
 			thisPackage = pkg
 		}
 	}
@@ -61,9 +57,10 @@ func (p *Parser) convertConfigWithDir(raw *RawConfig, configDir string) (*di.Con
 			elementType = strings.ReplaceAll(elementType, "$this.", thisPackage+".")
 		}
 		cfg.Tags[name] = di.Tag{
-			ElementType: elementType,
-			SortBy:      tag.SortBy,
-			Public:      tag.Public,
+			ElementType:   elementType,
+			SortBy:        tag.SortBy,
+			Public:        tag.Public,
+			Autoconfigure: tag.Autoconfigure,
 		}
 	}
 
@@ -71,8 +68,9 @@ func (p *Parser) convertConfigWithDir(raw *RawConfig, configDir string) (*di.Con
 	var defaults *ServiceDefaults
 	if defaultSvc, ok := raw.Services["_default"]; ok {
 		defaults = &ServiceDefaults{
-			Shared: defaultSvc.Shared,
-			Public: defaultSvc.Public,
+			Shared:        defaultSvc.Shared,
+			Public:        defaultSvc.Public,
+			Autoconfigure: defaultSvc.Autoconfigure,
 		}
 		// Validate that _default only contains allowed fields
 		if err := p.validateDefaults(defaultSvc); err != nil {
@@ -111,6 +109,16 @@ func (p *Parser) convertServiceWithPackage(raw *RawService, defaults *ServiceDef
 		shared = *raw.Shared
 	}
 
+	defaultAutoconfigure := true
+	if defaults != nil && defaults.Autoconfigure != nil {
+		defaultAutoconfigure = *defaults.Autoconfigure
+	}
+
+	autoconfigure := defaultAutoconfigure
+	if raw.Autoconfigure != nil {
+		autoconfigure = *raw.Autoconfigure
+	}
+
 	public := raw.Public
 	if public == nil && defaults != nil && defaults.Public != nil {
 		public = defaults.Public
@@ -126,6 +134,7 @@ func (p *Parser) convertServiceWithPackage(raw *RawService, defaults *ServiceDef
 		Type:               raw.Type,
 		Shared:             shared,
 		Public:             publicBool,
+		Autoconfigure:      autoconfigure,
 		Decorates:          raw.Decorates,
 		DecorationPriority: raw.DecorationPriority,
 	}
@@ -240,7 +249,7 @@ func (p *Parser) convertLiteral(node *yaml.Node) (di.Literal, error) {
 	}
 }
 
-// validateDefaults ensures _default only contains allowed fields (shared, public)
+// validateDefaults ensures _default only contains allowed fields (shared, public, autoconfigure)
 func (p *Parser) validateDefaults(raw *RawService) error {
 	if raw.Type != "" {
 		return fmt.Errorf("field 'type' is not allowed in _default")
@@ -260,6 +269,6 @@ func (p *Parser) validateDefaults(raw *RawService) error {
 	if len(raw.Tags) > 0 {
 		return fmt.Errorf("field 'tags' is not allowed in _default")
 	}
-	// Only shared and public are allowed, which we already extracted
+	// Only shared, public, and autoconfigure are allowed, which we already extracted
 	return nil
 }

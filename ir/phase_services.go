@@ -22,10 +22,11 @@ func (p *servicePhase) Apply(cfg *di.Config, container *Container) error {
 		}
 
 		irSvc := &Service{
-			ID:     id,
-			Shared: svc.Shared && svc.Alias == "",
-			Public: svc.Public,
-			Tags:   []*ServiceTag{},
+			ID:            id,
+			Shared:        svc.Shared && svc.Alias == "",
+			Public:        svc.Public,
+			Autoconfigure: svc.Autoconfigure,
+			Tags:          []*ServiceTag{},
 		}
 
 		// Build service tags (create tags on-demand if not declared)

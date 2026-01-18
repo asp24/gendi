@@ -33,6 +33,7 @@ func NewBuilder(resolver TypeResolver) *Builder {
 
 		// Phase 2: Resolve constructors
 		&constructorResolverPhase{typeResolver: resolver, argResolver: &argResolver{}},
+		&autoTagPhase{},
 		// Desugar tags into synthetic services (links services to tags, creates tag services, rewrites args)
 		&tagDesugarPhase{resolver: resolver},
 		// Build dependency graph for all services (requires desugared tags)
