@@ -32,11 +32,7 @@ func (p *Parser) convertConfigWithDir(raw *RawConfig, configDir string) (*di.Con
 	// Resolve $this package path from config file directory
 	var thisPackage string
 	if configDir != "" {
-		pkg, err := resolvePackagePath(configDir)
-		if err != nil {
-			// If resolution fails, $this will remain empty and cause an error if used
-			thisPackage = ""
-		} else {
+		if pkg, err := resolvePackagePath(configDir); err == nil {
 			thisPackage = pkg
 		}
 	}
