@@ -150,6 +150,31 @@ Configuration files can import others:
 - Later imports override earlier ones
 - Each file has its own `$this` context
 
+#### Import Exclusions
+
+Exclude specific files from glob pattern imports:
+
+```yaml
+imports:
+  # Load all services except test files and internal files
+  - path: ./services/*.yaml
+    exclude:
+      - ./services/test_*.yaml
+      - ./services/internal/*.yaml
+
+  # Glob in subdirectories with exclusions
+  - path: ./config/**/*.yaml
+    exclude:
+      - ./config/**/dev_*.yaml
+```
+
+Features:
+- Exclusion patterns support full glob syntax (`*`, `?`, `[]`, `**`)
+- Patterns resolved relative to importing file's directory
+- Works with any import type (local, absolute, module-based)
+- Exclusions take precedence over inclusions
+- Backward compatible - `exclude` field is optional
+
 ### The `$this` Token
 
 `$this` is replaced with the Go package path of the config file's directory:

@@ -15,7 +15,8 @@ type RawConfig struct {
 }
 
 type RawImport struct {
-	Path string `yaml:"path"`
+	Path    string   `yaml:"path"`
+	Exclude []string `yaml:"exclude"`
 }
 
 func (i *RawImport) UnmarshalYAML(node *yaml.Node) error {
