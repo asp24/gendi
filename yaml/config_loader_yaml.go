@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/bmatcuk/doublestar/v4"
 	ylib "gopkg.in/yaml.v3"
 
 	di "github.com/asp24/gendi"
@@ -71,6 +72,12 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 		if err != nil {
 			return nil, fmt.Errorf("resolve import %q: %w", imp.Path, err)
 		}
+
+		impPaths, err = l.filterExcludedFiles(impPaths, baseDir, imp.Exclude)
+		if err != nil {
+			return nil, fmt.Errorf("apply exclusions for import %q: %w", imp.Path, err)
+		}
+
 		for _, impPath := range impPaths {
 			child, err := l.loadRecursive(impPath, state)
 			if err != nil {
@@ -115,4 +122,48 @@ var defaultYamlUnmarshal = ylib.Unmarshal
 
 func (l *ConfigLoaderYaml) yamlUnmarshal(data []byte, v interface{}) error {
 	return defaultYamlUnmarshal(data, v)
+}
+
+// filterExcludedFiles removes files matching any exclusion pattern.
+// files - absolute paths returned by resolver
+// baseDir - directory for resolving relative exclusion patterns
+// excludePatterns - glob patterns to exclude
+func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, excludePatterns []string) ([]string, error) {
+	if len(excludePatterns) == 0 {
+		return files, nil
+	}
+
+	// Build set of excluded absolute paths
+	excludedSet := make(map[string]bool)
+
+	for _, pattern := range excludePatterns {
+		// Resolve pattern relative to baseDir
+		absPattern := pattern
+		if !filepath.IsAbs(pattern) {
+			absPattern = filepath.Join(baseDir, pattern)
+		}
+
+		// Match pattern using doublestar (same library as glob imports)
+		matches, err := doublestar.FilepathGlob(absPattern)
+		if err != nil {
+			return nil, fmt.Errorf("invalid exclusion pattern %q: %w", pattern, err)
+		}
+
+		// Add matched files to exclusion set
+		for _, match := range matches {
+			if abs, err := filepath.Abs(match); err == nil {
+				excludedSet[abs] = true
+			}
+		}
+	}
+
+	// Filter files not in exclusion set
+	result := make([]string, 0, len(files))
+	for _, file := range files {
+		if !excludedSet[file] {
+			result = append(result, file)
+		}
+	}
+
+	return result, nil
 }
