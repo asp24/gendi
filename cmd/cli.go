@@ -8,6 +8,7 @@ import (
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/generator"
+	"github.com/asp24/gendi/srcloc"
 	"github.com/asp24/gendi/yaml"
 )
 
@@ -66,4 +67,16 @@ func Run(flags *flag.FlagSet, passes []di.Pass) error {
 	}
 
 	return Generate(cfg, passes)
+}
+
+func MustRun(flags *flag.FlagSet, passes []di.Pass) {
+	err := Run(flags, passes)
+	if err == nil {
+		return
+	}
+
+	errRenderer := srcloc.NewRenderer()
+	_, _ = os.Stderr.WriteString(errRenderer.RenderError(err, 4))
+
+	os.Exit(1)
 }

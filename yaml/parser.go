@@ -8,6 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/srcloc"
 )
 
 // Parser converts raw YAML structures to di.Config.
@@ -18,11 +19,7 @@ func NewParser() *Parser {
 	return &Parser{}
 }
 
-func (p *Parser) convertConfig(raw *RawConfig) (*di.Config, error) {
-	return p.convertConfigWithDir(raw, "")
-}
-
-func (p *Parser) convertConfigWithDir(raw *RawConfig, configDir string) (*di.Config, error) {
+func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, filePath string) (*di.Config, error) {
 	cfg := &di.Config{
 		Parameters: make(map[string]di.Parameter),
 		Tags:       make(map[string]di.Tag),
@@ -44,8 +41,9 @@ func (p *Parser) convertConfigWithDir(raw *RawConfig, configDir string) (*di.Con
 			return nil, fmt.Errorf("parameter %q: %w", name, err)
 		}
 		cfg.Parameters[name] = di.Parameter{
-			Type:  param.Type,
-			Value: lit,
+			Type:      param.Type,
+			Value:     lit,
+			SourceLoc: srcloc.NewLocation(filePath, param.Node),
 		}
 	}
 
@@ -61,6 +59,7 @@ func (p *Parser) convertConfigWithDir(raw *RawConfig, configDir string) (*di.Con
 			SortBy:        tag.SortBy,
 			Public:        tag.Public,
 			Autoconfigure: tag.Autoconfigure,
+			SourceLoc:     srcloc.NewLocation(filePath, tag.Node),
 		}
 	}
 
@@ -83,7 +82,7 @@ func (p *Parser) convertConfigWithDir(raw *RawConfig, configDir string) (*di.Con
 		if name == "_default" {
 			continue // Skip _default itself
 		}
-		converted, err := p.convertServiceWithPackage(svc, defaults, thisPackage)
+		converted, err := p.convertServiceWithPackageAndFile(svc, defaults, thisPackage, filePath)
 		if err != nil {
 			return nil, fmt.Errorf("service %q: %w", name, err)
 		}
@@ -98,6 +97,10 @@ func (p *Parser) convertService(raw *RawService, defaults *ServiceDefaults) (di.
 }
 
 func (p *Parser) convertServiceWithPackage(raw *RawService, defaults *ServiceDefaults, thisPackage string) (di.Service, error) {
+	return p.convertServiceWithPackageAndFile(raw, defaults, thisPackage, "")
+}
+
+func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *ServiceDefaults, thisPackage string, filePath string) (di.Service, error) {
 	// Apply defaults if not explicitly set
 	defaultShared := true
 	if defaults != nil && defaults.Shared != nil {
@@ -137,6 +140,7 @@ func (p *Parser) convertServiceWithPackage(raw *RawService, defaults *ServiceDef
 		Autoconfigure:      autoconfigure,
 		Decorates:          raw.Decorates,
 		DecorationPriority: raw.DecorationPriority,
+		SourceLoc:          srcloc.NewLocation(filePath, raw.Node),
 	}
 
 	if raw.Alias != "" {
@@ -153,13 +157,15 @@ func (p *Parser) convertServiceWithPackage(raw *RawService, defaults *ServiceDef
 		svc.Tags[i] = di.ServiceTag{
 			Name:       tag.Name,
 			Attributes: tag.Attributes,
+			SourceLoc:  srcloc.NewLocation(filePath, tag.Node),
 		}
 	}
 
 	// Convert constructor
 	svc.Constructor = di.Constructor{
-		Func:   raw.Constructor.Func,
-		Method: raw.Constructor.Method,
+		Func:      raw.Constructor.Func,
+		Method:    raw.Constructor.Method,
+		SourceLoc: srcloc.NewLocation(filePath, raw.Constructor.Node),
 	}
 
 	// Substitute $this with the resolved package path
@@ -180,7 +186,7 @@ func (p *Parser) convertServiceWithPackage(raw *RawService, defaults *ServiceDef
 	if len(raw.Constructor.Args) > 0 {
 		svc.Constructor.Args = make([]di.Argument, len(raw.Constructor.Args))
 		for i, arg := range raw.Constructor.Args {
-			converted, err := p.convertArgument(&arg)
+			converted, err := p.convertArgumentWithFile(&arg, filePath)
 			if err != nil {
 				return di.Service{}, fmt.Errorf("arg[%d]: %w", i, err)
 			}
@@ -192,17 +198,25 @@ func (p *Parser) convertServiceWithPackage(raw *RawService, defaults *ServiceDef
 }
 
 func (p *Parser) convertArgument(raw *RawArgument) (di.Argument, error) {
+	return p.convertArgumentWithFile(raw, "")
+}
+
+func (p *Parser) convertArgumentWithFile(raw *RawArgument, filePath string) (di.Argument, error) {
+	loc := srcloc.NewLocation(filePath, raw.Node)
+
 	if raw.Value != nil {
 		kind, val := ParseArgumentString(*raw.Value)
 		if kind != di.ArgLiteral {
 			return di.Argument{
-				Kind:  kind,
-				Value: val,
+				Kind:      kind,
+				Value:     val,
+				SourceLoc: loc,
 			}, nil
 		}
 		return di.Argument{
-			Kind:    di.ArgLiteral,
-			Literal: di.NewStringLiteral(*raw.Value),
+			Kind:      di.ArgLiteral,
+			Literal:   di.NewStringLiteral(*raw.Value),
+			SourceLoc: loc,
 		}, nil
 	}
 
@@ -212,8 +226,9 @@ func (p *Parser) convertArgument(raw *RawArgument) (di.Argument, error) {
 			return di.Argument{}, err
 		}
 		return di.Argument{
-			Kind:    di.ArgLiteral,
-			Literal: lit,
+			Kind:      di.ArgLiteral,
+			Literal:   lit,
+			SourceLoc: loc,
 		}, nil
 	}
 

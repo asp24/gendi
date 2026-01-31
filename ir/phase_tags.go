@@ -5,6 +5,7 @@ import (
 	"go/types"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/srcloc"
 )
 
 // tagPhase builds tags from config
@@ -17,14 +18,14 @@ func (p *tagPhase) Apply(cfg *di.Config, container *Container) error {
 	for name, tag := range cfg.Tags {
 		if tag.Autoconfigure {
 			if tag.ElementType == "" {
-				return fmt.Errorf("tag %q autoconfigure requires element_type", name)
+				return srcloc.Errorf(tag.SourceLoc, "tag %q autoconfigure requires element_type", name)
 			}
 			if tag.SortBy != "" {
-				return fmt.Errorf("tag %q autoconfigure cannot be used with sort_by", name)
+				return srcloc.Errorf(tag.SourceLoc, "tag %q autoconfigure cannot be used with sort_by", name)
 			}
 		}
 		if tag.Public && tag.ElementType == "" {
-			return fmt.Errorf("tag %q public requires element_type", name)
+			return srcloc.Errorf(tag.SourceLoc, "tag %q public requires element_type", name)
 		}
 		irTag := &Tag{
 			Name:          name,
@@ -38,11 +39,11 @@ func (p *tagPhase) Apply(cfg *di.Config, container *Container) error {
 		if tag.ElementType != "" {
 			elemType, err := p.resolver.LookupType(tag.ElementType)
 			if err != nil {
-				return fmt.Errorf("tag %q element_type: %w", name, err)
+				return srcloc.WrapError(tag.SourceLoc, fmt.Sprintf("tag %q element_type", name), err)
 			}
 			if tag.Autoconfigure {
 				if _, ok := elemType.Underlying().(*types.Interface); !ok {
-					return fmt.Errorf("tag %q autoconfigure element_type must be an interface", name)
+					return srcloc.Errorf(tag.SourceLoc, "tag %q autoconfigure element_type must be an interface", name)
 				}
 			}
 			irTag.ElementType = elemType

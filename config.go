@@ -1,6 +1,10 @@
 package di
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/asp24/gendi/srcloc"
+)
 
 // Pass is a compiler pass that transforms config before validation and generation.
 // Passes mutate the config and return it for chaining.
@@ -70,6 +74,9 @@ func (cfg *Config) MergeWith(src *Config) *Config {
 type Parameter struct {
 	Type  string
 	Value Literal
+
+	// Source location (optional)
+	SourceLoc *srcloc.Location
 }
 
 // Tag defines a tag declaration.
@@ -78,12 +85,18 @@ type Tag struct {
 	SortBy        string
 	Public        bool
 	Autoconfigure bool
+
+	// Source location (optional)
+	SourceLoc *srcloc.Location
 }
 
 // ServiceTag defines a tag assigned to a service.
 type ServiceTag struct {
 	Name       string
 	Attributes map[string]interface{}
+
+	// Source location (optional)
+	SourceLoc *srcloc.Location
 }
 
 // Service defines a service entry.
@@ -97,6 +110,9 @@ type Service struct {
 	DecorationPriority int
 	Tags               []ServiceTag
 	Alias              string
+
+	// Source location (optional)
+	SourceLoc *srcloc.Location
 }
 
 // Constructor defines service constructor configuration.
@@ -104,6 +120,9 @@ type Constructor struct {
 	Func   string
 	Method string
 	Args   []Argument
+
+	// Source locations (optional)
+	SourceLoc *srcloc.Location
 }
 
 // ArgumentKind is the parsed kind of a constructor argument.
@@ -123,4 +142,7 @@ type Argument struct {
 	Kind    ArgumentKind
 	Value   string
 	Literal Literal
+
+	// Source location (optional)
+	SourceLoc *srcloc.Location
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/srcloc"
 )
 
 // parameterPhase builds parameters from config
@@ -15,16 +16,16 @@ type parameterPhase struct {
 func (p *parameterPhase) Apply(cfg *di.Config, container *Container) error {
 	for name, param := range cfg.Parameters {
 		if param.Type == "" {
-			return fmt.Errorf("parameter %q missing type", name)
+			return srcloc.Errorf(param.SourceLoc, "parameter %q missing type", name)
 		}
 		paramType, err := p.resolver.LookupType(param.Type)
 		if err != nil {
-			return fmt.Errorf("parameter %q type: %w", name, err)
+			return srcloc.WrapError(param.SourceLoc, fmt.Sprintf("parameter %q type", name), err)
 		}
 
 		litVal, err := convertLiteral(param.Value, paramType)
 		if err != nil {
-			return fmt.Errorf("parameter %q value: %w", name, err)
+			return srcloc.WrapError(param.SourceLoc, fmt.Sprintf("parameter %q value", name), err)
 		}
 
 		container.Parameters[name] = &Parameter{

@@ -5,8 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	di "github.com/asp24/gendi"
 	"gopkg.in/yaml.v3"
+
+	di "github.com/asp24/gendi"
 )
 
 func TestParseServiceAlias(t *testing.T) {
@@ -693,7 +694,7 @@ func TestThisSubstitutionInTagElementType(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	cfg, err := p.convertConfigWithDir(raw, tempDir)
+	cfg, err := p.ConvertConfigWithDirAndFile(raw, tempDir, "")
 	if err != nil {
 		t.Fatalf("convertConfigWithDir failed: %v", err)
 	}
@@ -725,7 +726,7 @@ func TestThisSubstitutionInTagElementTypePointer(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	cfg, err := p.convertConfigWithDir(raw, tempDir)
+	cfg, err := p.ConvertConfigWithDirAndFile(raw, tempDir, "")
 	if err != nil {
 		t.Fatalf("convertConfigWithDir failed: %v", err)
 	}
@@ -757,7 +758,7 @@ func TestThisSubstitutionInTagElementTypeSlice(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	cfg, err := p.convertConfigWithDir(raw, tempDir)
+	cfg, err := p.ConvertConfigWithDirAndFile(raw, tempDir, "")
 	if err != nil {
 		t.Fatalf("convertConfigWithDir failed: %v", err)
 	}
@@ -783,7 +784,7 @@ func TestThisSubstitutionInTagElementTypeNoPackage(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	cfg, err := p.convertConfigWithDir(raw, "")
+	cfg, err := p.ConvertConfigWithDirAndFile(raw, "", "")
 	if err != nil {
 		t.Fatalf("convertConfigWithDir failed: %v", err)
 	}
@@ -809,7 +810,7 @@ func TestTagAutoconfigureParsed(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	cfg, err := p.convertConfigWithDir(raw, "")
+	cfg, err := p.ConvertConfigWithDirAndFile(raw, "", "")
 	if err != nil {
 		t.Fatalf("convertConfigWithDir failed: %v", err)
 	}
