@@ -1,10 +1,10 @@
 package ir
 
 import (
-	"fmt"
 	"strings"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/srcloc"
 )
 
 // servicePhase initializes services from config
@@ -15,10 +15,10 @@ func (p *servicePhase) Apply(cfg *di.Config, container *Container) error {
 	for id, svc := range cfg.Services {
 		// Validate service ID is not empty or whitespace-only
 		if id == "" {
-			return fmt.Errorf("service ID cannot be empty")
+			return srcloc.Errorf(svc.SourceLoc, "service ID cannot be empty")
 		}
 		if strings.TrimSpace(id) == "" {
-			return fmt.Errorf("service ID %q cannot be whitespace-only", id)
+			return srcloc.Errorf(svc.SourceLoc, "service ID %q cannot be whitespace-only", id)
 		}
 
 		irSvc := &Service{
