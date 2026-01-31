@@ -87,7 +87,7 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 		}
 	}
 
-	cfg, err := l.parser.convertConfigWithDir(raw, baseDir)
+	cfg, err := l.parser.ConvertConfigWithDirAndFile(raw, baseDir, abs)
 	if err != nil {
 		return nil, fmt.Errorf("convert %s: %w", abs, err)
 	}
