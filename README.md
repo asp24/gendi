@@ -35,6 +35,8 @@ This adds gendi to your `go.mod` and allows running it via `go tool gendi`.
 
 **gendi.yaml:**
 ```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/asp24/gendi/master/gendi.schema.json
+
 parameters:
   db_dsn:
     type: string
@@ -56,6 +58,8 @@ services:
     shared: true
     public: true  # Exposed via public getter
 ```
+
+> **💡 Tip:** Add the schema comment at the top of your YAML files to get autocomplete and validation in editors that support YAML schemas (VS Code, IntelliJ, etc.)
 
 ### 2. Generate the container
 

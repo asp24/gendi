@@ -2,6 +2,24 @@
 
 Complete reference for gendi YAML configuration files.
 
+## Schema Validation
+
+Add this line at the top of your YAML files for editor autocomplete and validation:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/asp24/gendi/master/gendi.schema.json
+```
+
+Supported editors:
+- **VS Code**: Install [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml)
+- **IntelliJ IDEA**: Built-in YAML support
+- **Vim/Neovim**: Use [yaml-language-server](https://github.com/redhat-developer/yaml-language-server)
+
+For local schema validation:
+```yaml
+# yaml-language-server: $schema=./gendi.schema.json
+```
+
 ## Table of Contents
 
 - [Parameters](#parameters)

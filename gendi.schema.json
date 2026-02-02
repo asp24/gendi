@@ -1,0 +1,241 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/asp24/gendi/schema",
+  "title": "gendi Configuration",
+  "description": "Configuration schema for gendi dependency injection container generator",
+  "type": "object",
+  "properties": {
+    "imports": {
+      "description": "List of configuration files to import",
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string",
+            "description": "Path to configuration file (supports glob patterns)"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Path to configuration file (supports glob patterns)"
+              },
+              "exclude": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Glob patterns for files to exclude from import"
+              }
+            },
+            "required": ["path"],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "parameters": {
+      "description": "Typed configuration parameters",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["string", "int", "float64", "bool", "time.Duration"],
+            "description": "Parameter type"
+          },
+          "value": {
+            "description": "Parameter value (type depends on 'type' field)"
+          }
+        },
+        "required": ["type", "value"],
+        "additionalProperties": false
+      }
+    },
+    "tags": {
+      "description": "Tag definitions for collecting services",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "element_type": {
+            "type": "string",
+            "description": "Go type of tagged services (required when public or autoconfigure is true)"
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Tag attribute to sort by (cannot be used with autoconfigure)"
+          },
+          "public": {
+            "type": "boolean",
+            "description": "Generate public getter for this tag collection"
+          },
+          "autoconfigure": {
+            "type": "boolean",
+            "description": "Automatically tag services implementing the element_type interface"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "services": {
+      "description": "Service definitions",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Explicit service type (inferred from constructor if omitted)"
+          },
+          "constructor": {
+            "type": "object",
+            "properties": {
+              "func": {
+                "type": "string",
+                "description": "Constructor function name (use $this. for current package)"
+              },
+              "method": {
+                "type": "string",
+                "description": "Method constructor (@service.Method)"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "description": "Constructor argument: @service, %param%, !tagged:tag, !spread:@service, @.inner, or literal"
+                },
+                "description": "Constructor arguments"
+              }
+            },
+            "oneOf": [
+              {
+                "required": ["func"]
+              },
+              {
+                "required": ["method"]
+              }
+            ],
+            "additionalProperties": false
+          },
+          "alias": {
+            "type": "string",
+            "description": "Alias to another service (mutually exclusive with constructor)"
+          },
+          "shared": {
+            "type": "boolean",
+            "description": "Whether service is singleton (true) or factory (false)",
+            "default": true
+          },
+          "public": {
+            "type": "boolean",
+            "description": "Generate public getter method",
+            "default": false
+          },
+          "autoconfigure": {
+            "type": "boolean",
+            "description": "Enable autoconfiguration for this service",
+            "default": false
+          },
+          "decorates": {
+            "type": "string",
+            "description": "Service ID to decorate"
+          },
+          "decoration_priority": {
+            "type": "integer",
+            "description": "Decorator priority (higher wraps first)",
+            "default": 0
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Tag name"
+                }
+              },
+              "required": ["name"],
+              "additionalProperties": true,
+              "description": "Additional tag attributes can be added dynamically"
+            },
+            "description": "Tags assigned to this service"
+          }
+        },
+        "oneOf": [
+          {
+            "required": ["constructor"]
+          },
+          {
+            "required": ["alias"]
+          }
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "parameters": {
+        "db_dsn": {
+          "type": "string",
+          "value": "postgres://localhost/myapp"
+        },
+        "port": {
+          "type": "int",
+          "value": 8080
+        },
+        "timeout": {
+          "type": "time.Duration",
+          "value": "30s"
+        }
+      },
+      "tags": {
+        "handler": {
+          "element_type": "github.com/myapp.Handler",
+          "sort_by": "priority",
+          "public": true
+        }
+      },
+      "services": {
+        "database": {
+          "constructor": {
+            "func": "github.com/myapp/db.New",
+            "args": ["%db_dsn%"]
+          },
+          "shared": true
+        },
+        "user_repo": {
+          "constructor": {
+            "func": "github.com/myapp/repo.NewUserRepository",
+            "args": ["@database"]
+          },
+          "shared": true,
+          "public": true
+        },
+        "home_handler": {
+          "constructor": {
+            "func": "github.com/myapp/handlers.NewHome",
+            "args": ["@user_repo"]
+          },
+          "tags": [
+            {
+              "name": "handler",
+              "priority": 10
+            }
+          ]
+        },
+        "server": {
+          "constructor": {
+            "func": "github.com/myapp/server.New",
+            "args": ["!tagged:handler"]
+          },
+          "public": true
+        }
+      }
+    }
+  ]
+}
