@@ -1,0 +1,12 @@
+services:
+  logger:
+    constructor:
+      func: "test.NewLogger"
+    shared: true
+
+  service:
+    constructor:
+      func: "test.NewService"
+      args:
+        - "@logger"
+    public: true

@@ -1,0 +1,8 @@
+parameters:
+  message:
+    type: string
+    value: "Hello"
+
+  env:
+    type: string
+    value: "development"

@@ -1,0 +1,36 @@
+services:
+  service:
+    constructor:
+      func: "test.NewBaseService"
+    shared: true
+
+  decorator.logging:
+    constructor:
+      func: "test.NewLoggingDecorator"
+      args:
+        - "@.inner"
+    decorates: service
+    decoration_priority: 10
+
+  decorator.metrics:
+    constructor:
+      func: "test.NewMetricsDecorator"
+      args:
+        - "@.inner"
+    decorates: service
+    decoration_priority: 20
+
+  decorator.cache:
+    constructor:
+      func: "test.NewCacheDecorator"
+      args:
+        - "@.inner"
+    decorates: service
+    decoration_priority: 30
+
+  app:
+    constructor:
+      func: "test.NewApp"
+      args:
+        - "@service"
+    public: true

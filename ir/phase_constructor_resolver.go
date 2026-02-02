@@ -37,7 +37,10 @@ func (r *constructorResolverPhase) Apply(cfg *di.Config, container *Container) e
 		}()
 
 		svc := container.Services[id]
-		cfgService := cfg.Services[id]
+		cfgService, exists := cfg.Services[id]
+		if !exists {
+			return fmt.Errorf("service %q not found", id)
+		}
 
 		if cfgService.Alias != "" {
 			return r.resolveAlias(container, svc, &cfgService, resolveService)
@@ -63,7 +66,7 @@ func (r *constructorResolverPhase) resolveAlias(container *Container, svc *Servi
 	}
 
 	if err := resolve(cfg.Alias); err != nil {
-		return err
+		return srcloc.WrapError(cfg.SourceLoc, fmt.Sprintf("service %q alias target %q", svc.ID, cfg.Alias), err)
 	}
 
 	target, ok := container.Services[cfg.Alias]

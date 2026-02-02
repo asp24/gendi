@@ -36,6 +36,9 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 
 	// Convert parameters
 	for name, param := range raw.Parameters {
+		if param.Type == "" {
+			return nil, fmt.Errorf("parameter %q: type is required", name)
+		}
 		lit, err := p.convertLiteral(&param.Value)
 		if err != nil {
 			return nil, fmt.Errorf("parameter %q: %w", name, err)

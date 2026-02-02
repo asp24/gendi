@@ -1,0 +1,11 @@
+tags:
+  handler:
+    element_type: "test.Handler"
+    sort_by: "priority"
+    autoconfigure: true
+
+services:
+  dummy:
+    public: true
+    constructor:
+      func: "test.NewDummy"

@@ -1,0 +1,12 @@
+services:
+  factory:
+    constructor:
+      func: "test.NewFactory"
+    shared: true
+
+  product:
+    constructor:
+      method: "@factory.Create"
+      args:
+        - "test-product"
+    public: true

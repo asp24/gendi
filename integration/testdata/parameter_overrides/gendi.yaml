@@ -1,0 +1,16 @@
+imports:
+  - ./base.yaml
+
+parameters:
+  env:
+    type: string
+    value: "production"
+
+services:
+  app:
+    constructor:
+      func: "test.NewApp"
+      args:
+        - "%message%"
+        - "%env%"
+    public: true

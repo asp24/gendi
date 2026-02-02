@@ -1,0 +1,15 @@
+services:
+  events:
+    constructor:
+      func: "test.NewEventChannel"
+      args:
+        - 10
+    shared: true
+    public: true
+
+  app:
+    constructor:
+      func: "test.NewApp"
+      args:
+        - "@events"
+    public: true

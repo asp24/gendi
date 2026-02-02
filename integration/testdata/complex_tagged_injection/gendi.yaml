@@ -1,0 +1,35 @@
+tags:
+  middleware:
+    element_type: "test.Middleware"
+    sort_by: "order"
+    public: true
+
+services:
+  middleware.auth:
+    constructor:
+      func: "test.NewAuthMiddleware"
+    tags:
+      - name: middleware
+        order: 10
+        required: true
+
+  middleware.logging:
+    constructor:
+      func: "test.NewLoggingMiddleware"
+    tags:
+      - name: middleware
+        order: 1
+
+  middleware.metrics:
+    constructor:
+      func: "test.NewMetricsMiddleware"
+    tags:
+      - name: middleware
+        order: 5
+
+  app:
+    constructor:
+      func: "test.NewApp"
+      args:
+        - "!tagged:middleware"
+    public: true

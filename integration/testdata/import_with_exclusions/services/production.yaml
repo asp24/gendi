@@ -1,0 +1,5 @@
+services:
+  prod_service:
+    constructor:
+      func: "test.NewProdService"
+    public: true
