@@ -104,7 +104,7 @@ parameters:
     value: 8080
 
   timeout:
-    type: duration
+    type: time.Duration
     value: "30s"
 
   debug:
@@ -112,7 +112,7 @@ parameters:
     value: true
 ```
 
-**Supported types:** `string`, `int`, `float`, `bool`, `duration`
+**Supported types:** `string`, `int`, `float64`, `bool`, `time.Duration`
 
 ### Services
 
@@ -208,7 +208,7 @@ tags:
 ```
 
 `autoconfigure: true` requires an interface `element_type` and cannot be combined with
-`sort_by`. See `doc/auto-tagging.md` for full rules.
+`sort_by`. See `doc/spec/tags.md` for full rules.
 
 ### Imports
 
@@ -232,9 +232,21 @@ parameters:
 - Parameters, tags, and services are merged
 - Services with the same ID are replaced
 
+**Best practice:** The best way to keep configuration clean and composable is to split config into many small files, typically one per package, and import them from a small root file.
+
+**Import exclusions:**
+```yaml
+imports:
+  - path: ./services/*.yaml
+    exclude:
+      - ./services/test_*.yaml
+      - ./services/internal/*.yaml
+```
+
 ### Special Tokens
 
 - `$this` - Replaced with current file's package path
+- `$this.` in `type`, `func`, or `method` fields resolves to the Go package path of the config file
 - `@service` - Service reference
 - `%parameter%` - Parameter reference
 - `!tagged:tag` - Tagged services collection
@@ -253,6 +265,7 @@ Flags:
   --out string         Output directory or file (required)
   --pkg string         Go package name (required)
   --container string   Container struct name (default: "Container")
+  --strict            Enable strict validation (default: true)
   --build-tags string  Build tags for generated file
   --verbose           Enable verbose logging
 ```
@@ -639,6 +652,10 @@ go run ./cmd
 - **`github.com/asp24/gendi/stdlib`** - Factory functions for stdlib types
 - **`github.com/asp24/gendi/ir`** - Intermediate representation
 
+## Technical Spec
+
+See `doc/spec/README.md` for the full specification.
+
 ### Using as a Library
 
 ```go
@@ -695,12 +712,18 @@ The generated container provides:
 
 **Constructor:**
 ```go
-func NewContainer(params parameters.Provider) *Container
+func NewContainer(params parameters.Provider, opts ...ContainerOption) *Container
 ```
 
 **Public Service Getters:**
 ```go
 func (c *Container) GetServiceName() (ServiceType, error)
+func (c *Container) MustServiceName() ServiceType
+```
+
+**Error handling for Must getters:**
+```go
+func WithContainerErrorHandler(handler func(serviceName string, err error)) ContainerOption
 ```
 
 **Default Parameters:**
@@ -717,7 +740,7 @@ var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
 
 ## Requirements
 
-- Go 1.21 or later
+- Go 1.25.4 or later
 - No runtime dependencies for generated code (except `github.com/asp24/gendi/parameters`)
 
 ## License
