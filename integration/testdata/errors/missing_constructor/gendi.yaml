@@ -1,3 +1,0 @@
-services:
-  app:
-    shared: true

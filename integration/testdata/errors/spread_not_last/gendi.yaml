@@ -1,8 +1,0 @@
-services:
-  app:
-    public: true
-    constructor:
-      func: "test.NewApp"
-      args:
-        - "!spread:!tagged:handler"
-        - "test"

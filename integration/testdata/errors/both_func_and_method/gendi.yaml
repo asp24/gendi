@@ -1,5 +1,0 @@
-services:
-  app:
-    constructor:
-      func: "test.NewApp"
-      method: "@factory.Create"

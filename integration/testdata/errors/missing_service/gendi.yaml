@@ -1,6 +1,0 @@
-services:
-  app:
-    constructor:
-      func: "test.NewApp"
-      args:
-        - "@nonexistent"
