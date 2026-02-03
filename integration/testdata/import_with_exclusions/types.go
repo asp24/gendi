@@ -1,5 +1,13 @@
 package main
 
-type ProdService struct{}
+type Service struct {
+	banner string
+}
 
-func NewProdService() *ProdService { return &ProdService{} }
+func NewService(banner string) *Service {
+	return &Service{banner: banner}
+}
+
+func (s *Service) GetBanner() string {
+	return s.banner
+}

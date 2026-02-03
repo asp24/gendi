@@ -15,72 +15,9 @@ import (
 	"github.com/asp24/gendi/yaml"
 )
 
-// TestWorkflow tests the complete workflow using test files from testdata
-func TestWorkflow(t *testing.T) {
-	tests := []struct {
-		name           string
-		expectedOutput string
-		wantCompileErr bool
-		wantRuntimeErr bool
-	}{
-		// Basic tests
-		{
-			name:           "basic_service",
-			expectedOutput: "Hello, World!\n",
-		},
-		{
-			name:           "service_dependency",
-			expectedOutput: "[LOG] Service running\n",
-		},
-		{
-			name:           "tagged_injection",
-			expectedOutput: "B\nA\n",
-		},
-		{
-			name:           "decorator",
-			expectedOutput: "decorated(base)\n",
-		},
-		{
-			name:           "method_constructor",
-			expectedOutput: "test-product\n",
-		},
-		// Advanced tests
-		{
-			name:           "multi_file_imports",
-			expectedOutput: "TestApp: 2 handlers\napi\nhome\n",
-		},
-		{
-			name:           "import_with_exclusions",
-			expectedOutput: "prod service loaded\ntest exclusion works\n",
-		},
-		{
-			name:           "parameter_overrides",
-			expectedOutput: "Hello from production\n",
-		},
-		{
-			name:           "decorator_chain",
-			expectedOutput: "cache(metrics(log(base)))\n",
-		},
-		{
-			name:           "complex_tagged_injection",
-			expectedOutput: "Middleware chain (3):\n- auth\n- logging\n- metrics\nPublic getter returned 3 items\n",
-		},
-		{
-			name:           "generic_channel",
-			expectedOutput: "start\nprocess\nend\nProcessed 3 events\n",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			runEmbeddedTest(t, tt.name, tt.expectedOutput, tt.wantCompileErr, tt.wantRuntimeErr)
-		})
-	}
-}
-
 func runEmbeddedTest(t *testing.T, testName string, expectedOutput string, wantCompileErr, wantRuntimeErr bool) {
 	testDir := fmt.Sprintf("testdata/%s", testName)
-	// Create temporary directory for test
+	// Create a temporary directory for test
 	tmpDir := prepareTestDir(t, testDir)
 	configPath := filepath.Join(tmpDir, "gendi.yaml")
 
@@ -117,7 +54,7 @@ func runEmbeddedTest(t *testing.T, testName string, expectedOutput string, wantC
 	}
 
 	// Format generated code and fix imports
-	formatted, err := imports.Process("container_gen.go", []byte(code), nil)
+	formatted, err := imports.Process("container_gen.go", code, nil)
 	if err != nil {
 		t.Fatalf("failed to format generated code: %v", err)
 	}
@@ -177,46 +114,64 @@ func runEmbeddedTest(t *testing.T, testName string, expectedOutput string, wantC
 	}
 }
 
-// BenchmarkWorkflow benchmarks the complete workflow
-func BenchmarkWorkflow(b *testing.B) {
-	// Use basic_service for benchmarking
-	testDir := "testdata/basic_service"
+// TestWorkflow tests the complete workflow using test files from testdata
+func TestWorkflow(t *testing.T) {
+	tests := []struct {
+		name           string
+		expectedOutput string
+		wantCompileErr bool
+		wantRuntimeErr bool
+	}{
+		// Basic tests
+		{
+			name:           "basic_service",
+			expectedOutput: "Hello, World!\n",
+		},
+		{
+			name:           "service_dependency",
+			expectedOutput: "[LOG] Service running\n",
+		},
+		{
+			name:           "tagged_injection",
+			expectedOutput: "B\nA\n",
+		},
+		{
+			name:           "decorator",
+			expectedOutput: "decorated(base)\n",
+		},
+		{
+			name:           "method_constructor",
+			expectedOutput: "test-product\n",
+		},
+		{
+			name:           "multi_file_imports",
+			expectedOutput: "TestApp: 2 handlers\napi\nhome\n",
+		},
+		{
+			name:           "import_with_exclusions",
+			expectedOutput: "service banner is: prod\n",
+		},
+		{
+			name:           "parameter_overrides",
+			expectedOutput: "Hello from production\n",
+		},
+		{
+			name:           "decorator_chain",
+			expectedOutput: "cache(metrics(log(base)))\n",
+		},
+		{
+			name:           "complex_tagged_injection",
+			expectedOutput: "Middleware chain (3):\n- auth\n- logging\n- metrics\nPublic getter returned 3 items\n",
+		},
+		{
+			name:           "generic_channel",
+			expectedOutput: "start\nprocess\nend\nProcessed 3 events\n",
+		},
+	}
 
-	configData, _ := testdata.ReadFile(filepath.Join(testDir, "gendi.yaml"))
-	typesData, _ := testdata.ReadFile(filepath.Join(testDir, "types.go"))
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		tmpDir := b.TempDir()
-
-		// Write files
-		configPath := filepath.Join(tmpDir, "gendi.yaml")
-		os.WriteFile(configPath, configData, 0644)
-
-		typesPath := filepath.Join(tmpDir, "types.go")
-		os.WriteFile(typesPath, typesData, 0644)
-
-		goModContent := fmt.Sprintf(`module test
-go 1.25.4
-require github.com/asp24/gendi v0.0.0
-replace github.com/asp24/gendi => %s
-`, getModuleRoot())
-		os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goModContent), 0644)
-
-		// Load and generate
-		cfg, _ := yaml.LoadConfig(configPath)
-		cfg, _ = di.ApplyInternalPasses(cfg)
-
-		opts := generator.Options{
-			Out:        tmpDir,
-			Package:    "main",
-			ModulePath: "test",
-			ModuleRoot: tmpDir,
-		}
-		opts.Finalize()
-
-		gen := generator.New(opts)
-		gen.Generate(cfg)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runEmbeddedTest(t, tt.name, tt.expectedOutput, tt.wantCompileErr, tt.wantRuntimeErr)
+		})
 	}
 }

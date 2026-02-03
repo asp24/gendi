@@ -1,5 +1,9 @@
 package main
 
+import (
+	"fmt"
+)
+
 type Service interface {
 	Process() string
 }
@@ -46,4 +50,9 @@ type App struct {
 
 func NewApp(service Service) *App {
 	return &App{service: service}
+}
+
+func (a *App) Run() {
+	// Should wrap as: cache(metrics(log(base)))
+	fmt.Println(a.service.Process())
 }

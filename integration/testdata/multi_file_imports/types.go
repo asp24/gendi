@@ -1,5 +1,9 @@
 package main
 
+import (
+	"fmt"
+)
+
 type Database struct{}
 
 func NewDatabase() *Database { return &Database{} }
@@ -22,4 +26,11 @@ type App struct {
 
 func NewApp(name string, db *Database, handlers []Handler) *App {
 	return &App{name: name, db: db, handlers: handlers}
+}
+
+func (a *App) Run() {
+	fmt.Printf("%s: %d handlers\n", a.name, len(a.handlers))
+	for _, h := range a.handlers {
+		fmt.Println(h.Name())
+	}
 }

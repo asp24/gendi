@@ -6,10 +6,6 @@ func NewContainer(_ any) *Container {
 	return &Container{}
 }
 
-func (c *Container) GetApp() (*App, error) {
-	panic("implement me")
-}
-
-func (c *Container) GetTaggedWithMiddleware() ([]Middleware, error) {
+func (c *Container) GetGreeter() (*Greeter, error) {
 	panic("implement me")
 }

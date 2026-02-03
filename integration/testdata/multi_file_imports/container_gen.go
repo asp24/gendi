@@ -2,10 +2,14 @@ package main
 
 type Container struct{}
 
-func NewContainer() *Container {
+func NewContainer(_ any) *Container {
 	return &Container{}
 }
 
-func (c *Container) GetProduct() (*Product, error) {
+func (c *Container) GetApp() (*App, error) {
+	panic("implement me")
+}
+
+func (c *Container) MustApp() *App {
 	panic("implement me")
 }

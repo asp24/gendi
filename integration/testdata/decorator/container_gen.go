@@ -9,3 +9,7 @@ func NewContainer(_ any) *Container {
 func (c *Container) GetApp() (*App, error) {
 	panic("implement me")
 }
+
+func (c *Container) MustApp() *App {
+	panic("implement me")
+}
