@@ -1,0 +1,7 @@
+services:
+  service:
+    constructor:
+      func: "test.NewService"
+      args:
+        - "prod"
+    public: true

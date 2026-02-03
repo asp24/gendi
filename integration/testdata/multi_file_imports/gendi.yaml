@@ -1,0 +1,18 @@
+imports:
+  - ./services/database.yaml
+  - ./services/handlers.yaml
+
+parameters:
+  app_name:
+    type: string
+    value: "TestApp"
+
+services:
+  app:
+    constructor:
+      func: "test.NewApp"
+      args:
+        - "%app_name%"
+        - "@database"
+        - "!tagged:handler"
+    public: true

@@ -1,0 +1,12 @@
+parameters:
+  greeting:
+    type: string
+    value: "Hello, World!"
+
+services:
+  greeter:
+    constructor:
+      func: "test.NewGreeter"
+      args:
+        - "%greeting%"
+    public: true

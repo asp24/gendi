@@ -1,0 +1,177 @@
+package integration
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"testing"
+
+	"golang.org/x/tools/imports"
+
+	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/generator"
+	"github.com/asp24/gendi/yaml"
+)
+
+func runEmbeddedTest(t *testing.T, testName string, expectedOutput string, wantCompileErr, wantRuntimeErr bool) {
+	testDir := fmt.Sprintf("testdata/%s", testName)
+	// Create a temporary directory for test
+	tmpDir := prepareTestDir(t, testDir)
+	configPath := filepath.Join(tmpDir, "gendi.yaml")
+
+	// Load and parse config
+	cfg, err := yaml.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	// Apply internal passes
+	cfg, err = di.ApplyInternalPasses(cfg)
+	if err != nil {
+		t.Fatalf("failed to apply internal passes: %v", err)
+	}
+
+	// Generate container code
+	opts := generator.Options{
+		Out:        tmpDir,
+		Package:    "main",
+		ModulePath: "test",
+		ModuleRoot: tmpDir,
+	}
+	if err := opts.Finalize(); err != nil {
+		t.Fatalf("failed to finalize options: %v", err)
+	}
+
+	gen := generator.New(opts)
+	code, err := gen.Generate(cfg)
+	if err != nil {
+		if wantCompileErr {
+			return // Expected error
+		}
+		t.Fatalf("failed to generate code: %v", err)
+	}
+
+	// Format generated code and fix imports
+	formatted, err := imports.Process("container_gen.go", code, nil)
+	if err != nil {
+		t.Fatalf("failed to format generated code: %v", err)
+	}
+
+	// Write generated container
+	containerPath := filepath.Join(tmpDir, "container_gen.go")
+	if err := os.WriteFile(containerPath, formatted, 0644); err != nil {
+		t.Fatalf("failed to write container: %v", err)
+	}
+
+	// Write main.go AFTER container generation (so NewContainer is defined)
+	if err := prepareMainGo(testDir, tmpDir); err != nil {
+		t.Fatalf("failed to write main.go: %v", err)
+	}
+
+	// Compile the code
+	compileCmd := exec.Command("go", "build", "-o", "app")
+	compileCmd.Dir = tmpDir
+	compileOutput, err := compileCmd.CombinedOutput()
+	if err != nil {
+		if wantCompileErr {
+			return // Expected compilation error
+		}
+		t.Fatalf("compilation failed: %v\nOutput:\n%s\n\nGenerated container:\n%s",
+			err, compileOutput, string(formatted))
+	}
+
+	if wantCompileErr {
+		t.Fatal("expected compilation error, but compilation succeeded")
+	}
+
+	// Run the binary
+	runCmd := exec.Command(filepath.Join(tmpDir, "app"))
+	runCmd.Dir = tmpDir
+	var stdout, stderr bytes.Buffer
+	runCmd.Stdout = &stdout
+	runCmd.Stderr = &stderr
+
+	err = runCmd.Run()
+	if err != nil {
+		if wantRuntimeErr {
+			return // Expected runtime error
+		}
+		t.Fatalf("runtime failed: %v\nStdout:\n%s\nStderr:\n%s",
+			err, stdout.String(), stderr.String())
+	}
+
+	if wantRuntimeErr {
+		t.Fatal("expected runtime error, but execution succeeded")
+	}
+
+	// Verify output
+	actualOutput := stdout.String()
+	if actualOutput != expectedOutput {
+		t.Errorf("output mismatch:\nExpected:\n%q\nActual:\n%q",
+			expectedOutput, actualOutput)
+	}
+}
+
+// TestWorkflow tests the complete workflow using test files from testdata
+func TestWorkflow(t *testing.T) {
+	tests := []struct {
+		name           string
+		expectedOutput string
+		wantCompileErr bool
+		wantRuntimeErr bool
+	}{
+		// Basic tests
+		{
+			name:           "basic_service",
+			expectedOutput: "Hello, World!\n",
+		},
+		{
+			name:           "service_dependency",
+			expectedOutput: "[LOG] Service running\n",
+		},
+		{
+			name:           "tagged_injection",
+			expectedOutput: "B\nA\n",
+		},
+		{
+			name:           "decorator",
+			expectedOutput: "decorated(base)\n",
+		},
+		{
+			name:           "method_constructor",
+			expectedOutput: "test-product\n",
+		},
+		{
+			name:           "multi_file_imports",
+			expectedOutput: "TestApp: 2 handlers\napi\nhome\n",
+		},
+		{
+			name:           "import_with_exclusions",
+			expectedOutput: "service banner is: prod\n",
+		},
+		{
+			name:           "parameter_overrides",
+			expectedOutput: "Hello from production\n",
+		},
+		{
+			name:           "decorator_chain",
+			expectedOutput: "cache(metrics(log(base)))\n",
+		},
+		{
+			name:           "complex_tagged_injection",
+			expectedOutput: "Middleware chain (3):\n- auth\n- logging\n- metrics\nPublic getter returned 3 items\n",
+		},
+		{
+			name:           "generic_channel",
+			expectedOutput: "start\nprocess\nend\nProcessed 3 events\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runEmbeddedTest(t, tt.name, tt.expectedOutput, tt.wantCompileErr, tt.wantRuntimeErr)
+		})
+	}
+}

@@ -1,0 +1,8 @@
+services:
+  base:
+    constructor:
+      func: "example.NewBase"
+  alias: "@base"
+  alias_public:
+    alias: "base"
+    public: true

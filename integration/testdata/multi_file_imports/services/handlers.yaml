@@ -1,0 +1,16 @@
+tags:
+  handler:
+    element_type: "test.Handler"
+
+services:
+  handler.home:
+    constructor:
+      func: "test.NewHomeHandler"
+    tags:
+      - name: handler
+
+  handler.api:
+    constructor:
+      func: "test.NewAPIHandler"
+    tags:
+      - name: handler

@@ -1,0 +1,20 @@
+services:
+  service:
+    constructor:
+      func: "test.NewService"
+    shared: true
+
+  decorator:
+    constructor:
+      func: "test.NewDecorator"
+      args:
+        - "@.inner"
+    decorates: service
+    decoration_priority: 10
+
+  app:
+    constructor:
+      func: "test.NewApp"
+      args:
+        - "@service"
+    public: true

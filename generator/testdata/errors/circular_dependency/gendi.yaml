@@ -1,0 +1,12 @@
+services:
+  a:
+    constructor:
+      func: "test.NewA"
+      args:
+        - "@b"
+
+  b:
+    constructor:
+      func: "test.NewB"
+      args:
+        - "@a"

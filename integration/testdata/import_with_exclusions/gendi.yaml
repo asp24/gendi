@@ -1,0 +1,4 @@
+imports:
+  - path: ./services/*.yaml
+    exclude:
+      - ./services/test_*.yaml

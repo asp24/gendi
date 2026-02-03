@@ -1,0 +1,26 @@
+tags:
+  plugin:
+    element_type: "test.Plugin"
+    sort_by: "priority"
+
+services:
+  plugin.a:
+    constructor:
+      func: "test.NewPluginA"
+    tags:
+      - name: plugin
+        priority: 1
+
+  plugin.b:
+    constructor:
+      func: "test.NewPluginB"
+    tags:
+      - name: plugin
+        priority: 2
+
+  app:
+    constructor:
+      func: "test.NewApp"
+      args:
+        - "!tagged:plugin"
+    public: true
