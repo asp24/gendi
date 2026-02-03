@@ -18,9 +18,13 @@ func getCurrentDir() string {
 	return filepath.Dir(filename)
 }
 
-// TestInvalidImports tests various import error scenarios.
-// These tests remain in integration/ because they test the import resolution
-// logic which involves file system operations and is separate from generation errors.
+func writeTestFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write file %s: %v", path, err)
+	}
+}
+
 func TestInvalidImports(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -60,33 +64,23 @@ func TestInvalidImports(t *testing.T) {
 	}
 }
 
-func TestLoadConfigModuleImport(t *testing.T) {
-	modulePath := readModulePath(t)
-	importPath := modulePath + "/generator/testdata/imports/module.yaml"
+func TestLoadConfigAbsoluteImport(t *testing.T) {
+	importPath := filepath.Join(getCurrentDir(), "testdata", "imports", "module.yaml")
 
-	dir, err := os.MkdirTemp(".", "config-import-")
-	if err != nil {
-		t.Fatalf("create temp dir: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.RemoveAll(dir)
-	})
-
+	dir := t.TempDir()
 	rootPath := filepath.Join(dir, "root.yaml")
-	root := []byte(strings.TrimSpace(fmt.Sprintf(`
+	root := strings.TrimSpace(fmt.Sprintf(`
 imports:
   - path: %q
-`, importPath)))
-	if err := os.WriteFile(rootPath, root, 0o644); err != nil {
-		t.Fatalf("write root config: %v", err)
-	}
+`, importPath))
+	writeTestFile(t,rootPath, root)
 
 	cfg, err := LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
 	if _, ok := cfg.Services["module.service"]; !ok {
-		t.Fatalf("expected service from module import to load")
+		t.Fatalf("expected service from absolute import to load")
 	}
 }
 
@@ -96,17 +90,15 @@ func TestLoadConfigImportGlobLocal(t *testing.T) {
 	baseBPath := filepath.Join(dir, "base_b.yaml")
 	rootPath := filepath.Join(dir, "root.yaml")
 
-	baseA := []byte(strings.TrimSpace(`
+	baseA := strings.TrimSpace(`
 services:
   dupe:
     constructor:
       func: "example.NewA"
-`))
-	if err := os.WriteFile(baseAPath, baseA, 0o644); err != nil {
-		t.Fatalf("write base_a config: %v", err)
-	}
+`)
+	writeTestFile(t,baseAPath, baseA)
 
-	baseB := []byte(strings.TrimSpace(`
+	baseB := strings.TrimSpace(`
 services:
   dupe:
     constructor:
@@ -114,18 +106,14 @@ services:
   extra:
     constructor:
       func: "example.NewExtra"
-`))
-	if err := os.WriteFile(baseBPath, baseB, 0o644); err != nil {
-		t.Fatalf("write base_b config: %v", err)
-	}
+`)
+	writeTestFile(t,baseBPath, baseB)
 
-	root := []byte(strings.TrimSpace(`
+	root := strings.TrimSpace(`
 imports:
   - "./base_*.yaml"
-`))
-	if err := os.WriteFile(rootPath, root, 0o644); err != nil {
-		t.Fatalf("write root config: %v", err)
-	}
+`)
+	writeTestFile(t,rootPath, root)
 
 	cfg, err := LoadConfig(rootPath)
 	if err != nil {
@@ -152,17 +140,15 @@ func TestLoadConfigImportGlobLocalRecursive(t *testing.T) {
 	baseBPath := filepath.Join(nestedDir, "base_b.yaml")
 	rootPath := filepath.Join(dir, "root.yaml")
 
-	baseA := []byte(strings.TrimSpace(`
+	baseA := strings.TrimSpace(`
 services:
   dupe:
     constructor:
       func: "example.NewA"
-`))
-	if err := os.WriteFile(baseAPath, baseA, 0o644); err != nil {
-		t.Fatalf("write base_a config: %v", err)
-	}
+`)
+	writeTestFile(t,baseAPath, baseA)
 
-	baseB := []byte(strings.TrimSpace(`
+	baseB := strings.TrimSpace(`
 services:
   dupe:
     constructor:
@@ -170,18 +156,14 @@ services:
   extra_recursive:
     constructor:
       func: "example.NewExtraRecursive"
-`))
-	if err := os.WriteFile(baseBPath, baseB, 0o644); err != nil {
-		t.Fatalf("write base_b config: %v", err)
-	}
+`)
+	writeTestFile(t,baseBPath, baseB)
 
-	root := []byte(strings.TrimSpace(`
+	root := strings.TrimSpace(`
 imports:
   - "./configs/**/*.yaml"
-`))
-	if err := os.WriteFile(rootPath, root, 0o644); err != nil {
-		t.Fatalf("write root config: %v", err)
-	}
+`)
+	writeTestFile(t,rootPath, root)
 
 	cfg, err := LoadConfig(rootPath)
 	if err != nil {
@@ -196,79 +178,57 @@ imports:
 	}
 }
 
-func TestLoadConfigImportGlobModule(t *testing.T) {
-	modulePath := readModulePath(t)
-	importPath := modulePath + "/generator/testdata/imports/*.yaml"
+func TestLoadConfigAbsoluteImportGlob(t *testing.T) {
+	importPath := filepath.Join(getCurrentDir(), "testdata", "imports", "*.yaml")
 
 	dir := t.TempDir()
 	rootPath := filepath.Join(dir, "root.yaml")
-	root := []byte(strings.TrimSpace(fmt.Sprintf(`
+	root := strings.TrimSpace(fmt.Sprintf(`
 imports:
   - path: %q
-`, importPath)))
-	if err := os.WriteFile(rootPath, root, 0o644); err != nil {
-		t.Fatalf("write root config: %v", err)
-	}
+`, importPath))
+	writeTestFile(t,rootPath, root)
 
 	cfg, err := LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
 	if _, ok := cfg.Services["module.service"]; !ok {
-		t.Fatalf("expected service from module glob import to load")
+		t.Fatalf("expected service from absolute glob import to load")
 	}
 	if _, ok := cfg.Services["module.extra"]; !ok {
-		t.Fatalf("expected extra service from module glob import to load")
+		t.Fatalf("expected extra service from absolute glob import to load")
 	}
 }
 
-func TestLoadConfigImportGlobModuleRecursive(t *testing.T) {
-	modulePath := readModulePath(t)
-	importPath := modulePath + "/generator/testdata/imports/**/*.yaml"
+func TestLoadConfigAbsoluteImportGlobRecursive(t *testing.T) {
+	importPath := filepath.Join(getCurrentDir(), "testdata", "imports", "**", "*.yaml")
 
 	dir := t.TempDir()
 	rootPath := filepath.Join(dir, "root.yaml")
-	root := []byte(strings.TrimSpace(fmt.Sprintf(`
+	root := strings.TrimSpace(fmt.Sprintf(`
 imports:
   - path: %q
-`, importPath)))
-	if err := os.WriteFile(rootPath, root, 0o644); err != nil {
-		t.Fatalf("write root config: %v", err)
-	}
+`, importPath))
+	writeTestFile(t,rootPath, root)
 
 	cfg, err := LoadConfig(rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
 	if _, ok := cfg.Services["module.service"]; !ok {
-		t.Fatalf("expected service from module recursive glob import to load")
+		t.Fatalf("expected service from absolute recursive glob import to load")
 	}
 	if _, ok := cfg.Services["module.extra"]; !ok {
-		t.Fatalf("expected extra service from module recursive glob import to load")
+		t.Fatalf("expected extra service from absolute recursive glob import to load")
 	}
 	if _, ok := cfg.Services["module.nested"]; !ok {
-		t.Fatalf("expected nested service from module recursive glob import to load")
+		t.Fatalf("expected nested service from absolute recursive glob import to load")
 	}
 }
 
 func TestLoadConfigServiceAlias(t *testing.T) {
-	dir := t.TempDir()
-	rootPath := filepath.Join(dir, "root.yaml")
-	root := []byte(strings.TrimSpace(`
-services:
-  base:
-    constructor:
-      func: "example.NewBase"
-  alias: "@base"
-  alias_public:
-    alias: "base"
-    public: true
-`))
-	if err := os.WriteFile(rootPath, root, 0o644); err != nil {
-		t.Fatalf("write root config: %v", err)
-	}
-
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := LoadConfig(filepath.Join(getCurrentDir(), "testdata", "service_alias", "gendi.yaml"))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -281,21 +241,7 @@ services:
 }
 
 func TestLoadConfigNullArgument(t *testing.T) {
-	dir := t.TempDir()
-	rootPath := filepath.Join(dir, "root.yaml")
-	root := []byte(strings.TrimSpace(`
-services:
-  svc:
-    constructor:
-      func: "example.NewB"
-      args:
-        - null
-`))
-	if err := os.WriteFile(rootPath, root, 0o644); err != nil {
-		t.Fatalf("write root config: %v", err)
-	}
-
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := LoadConfig(filepath.Join(getCurrentDir(), "testdata", "null_argument", "gendi.yaml"))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -310,20 +256,4 @@ services:
 	if !arg.Literal.IsNull() {
 		t.Fatalf("expected null literal, got %v", arg.Literal.Kind)
 	}
-}
-
-func readModulePath(t *testing.T) string {
-	t.Helper()
-	data, err := os.ReadFile("../go.mod")
-	if err != nil {
-		t.Fatalf("read go.mod: %v", err)
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "module ") {
-			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
-		}
-	}
-	t.Fatalf("module path not found in go.mod")
-	return ""
 }
