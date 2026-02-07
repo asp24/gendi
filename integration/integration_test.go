@@ -167,6 +167,10 @@ func TestWorkflow(t *testing.T) {
 			name:           "generic_channel",
 			expectedOutput: "start\nprocess\nend\nProcessed 3 events\n",
 		},
+		{
+			name:           "go_ref",
+			expectedOutput: "hello from go ref\n",
+		},
 	}
 
 	for _, tt := range tests {

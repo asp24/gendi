@@ -1,0 +1,7 @@
+services:
+  writer:
+    constructor:
+      func: "test.NewWriter"
+      args:
+        - "!go:os.Stdout"
+    public: true
