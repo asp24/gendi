@@ -171,6 +171,19 @@ func (b *spreadBuilder) build(ctx *argBuildContext) (string, []string, error) {
 	return innerExpr + "...", stmts, nil
 }
 
+// goRefBuilder handles Go package-level variable/constant reference arguments
+type goRefBuilder struct{}
+
+func (b *goRefBuilder) build(ctx *argBuildContext) (string, []string, error) {
+	obj := ctx.argument.GoRef.Object
+	alias := ctx.rnd.importManager.qualifier(obj.Pkg())
+	if alias == "" {
+		return obj.Name(), nil, nil
+	}
+
+	return alias + "." + obj.Name(), nil, nil
+}
+
 // argumentBuilderRegistry maps argument kinds to their builder implementations.
 // This registry pattern allows adding new argument types without modifying lookup logic.
 // Note: TaggedArg is no longer needed as tags are desugared to services in the IR phase.
@@ -179,6 +192,7 @@ var argumentBuilderRegistry = map[ir.ArgumentKind]argumentBuilder{
 	ir.ParamRefArg:   &paramRefBuilder{},
 	ir.LiteralArg:    &literalBuilder{},
 	ir.SpreadArg:     &spreadBuilder{},
+	ir.GoRefArg:      &goRefBuilder{},
 }
 
 // getArgumentBuilder returns the appropriate builder for the argument kind.

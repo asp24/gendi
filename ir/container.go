@@ -187,6 +187,12 @@ type Argument struct {
 	Tag       *Tag         // For Tagged
 	Literal   LiteralValue // For Literal
 	Inner     *Argument    // For Spread (wraps another argument)
+	GoRef     *GoRef       // For GoRef
+}
+
+// GoRef holds a reference to a package-level variable or constant.
+type GoRef struct {
+	Object types.Object // *types.Var or *types.Const
 }
 
 // ArgumentKind indicates the type of argument.
@@ -198,6 +204,7 @@ const (
 	ParamRefArg
 	TaggedArg
 	SpreadArg
+	GoRefArg
 )
 
 // LiteralValue holds a typed literal value.

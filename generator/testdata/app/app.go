@@ -1,6 +1,9 @@
 package app
 
-import "time"
+import (
+	"io"
+	"time"
+)
 
 type A struct{}
 
@@ -128,3 +131,15 @@ type Server struct {
 func NewServer(handlers ...Handler) *Server {
 	return &Server{Handlers: handlers}
 }
+
+// Writer wraps an io.Writer for testing !go: references
+type Writer struct {
+	Out io.Writer
+}
+
+func NewWriter(out io.Writer) *Writer {
+	return &Writer{Out: out}
+}
+
+// DefaultPrefix is a package-level variable for testing !go: with $this
+var DefaultPrefix = "app"

@@ -193,6 +193,10 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 			if err != nil {
 				return di.Service{}, fmt.Errorf("arg[%d]: %w", i, err)
 			}
+			// Substitute $this in !go: argument values
+			if thisPackage != "" && converted.Kind == di.ArgGoRef && strings.Contains(converted.Value, "$this.") {
+				converted.Value = strings.Replace(converted.Value, "$this.", thisPackage+".", 1)
+			}
 			svc.Constructor.Args[i] = converted
 		}
 	}
