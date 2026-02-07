@@ -9,8 +9,7 @@ import (
 )
 
 var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
-	"dsn":        "postgres://localhost/app",
-	"log_prefix": "[app] ",
+	"dsn": "postgres://localhost/app",
 })
 
 type Container struct {

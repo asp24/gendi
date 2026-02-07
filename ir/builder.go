@@ -44,6 +44,7 @@ func NewBuilder(resolver TypeResolver) *Builder {
 
 		// Phase 4: Optimizations
 		&unreachablePrunePhase{},
+		&unusedParamPrunePhase{},
 		&sharedOptimizerPhase{},
 	}
 	return &Builder{

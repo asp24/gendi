@@ -12,12 +12,8 @@ import (
 )
 
 var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
-	"db_dsn":                              "postgres://localhost/myapp",
-	"stdlib.http.idle_conn_timeout":       "90s",
-	"stdlib.http.max_idle_conns":          100,
-	"stdlib.http.max_idle_conns_per_host": 10,
-	"stdlib.http.timeout":                 "30s",
-	"stdlib.slog.level":                   0,
+	"db_dsn":            "postgres://localhost/myapp",
+	"stdlib.slog.level": 0,
 })
 
 type Container struct {
