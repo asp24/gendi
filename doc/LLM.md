@@ -19,10 +19,11 @@ Constructor args:
 - `!tagged:tag.name` tagged injection
 - `!spread:@service` spread slice into variadic
 - `!spread:!tagged:tag` spread tagged collection into variadic
+- `!go:pkg.Symbol` Go package-level var/const (e.g. `!go:os.Stdout`)
 - `@service.Method` method constructor
 - literal scalars (string/int/float/bool/null)
 
-`$this.` in `type`, `func`, or `method` fields resolves to the Go package path of the config file.
+`$this.` in `type`, `func`, `method` fields and `!go:` arguments resolves to the Go package path of the config file.
 
 Imports support `exclude`:
 ```yaml

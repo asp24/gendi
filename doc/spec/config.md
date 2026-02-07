@@ -59,6 +59,7 @@ Resolution:
 Rules:
 - For `type` field: `$this.` can appear anywhere in the type (`*$this.T`, `[]$this.T`, `map[K]$this.V`)
 - For `func` and `method` fields: `$this` must appear at the start of the path
+- For `!go:` arguments: `$this.` is replaced in the argument value (e.g., `!go:$this.DefaultLevel`)
 - If package resolution fails, `$this` remains unchanged and will cause a generation error if the symbol is not found
 
 ## Constructor Arguments
@@ -71,6 +72,7 @@ Rules:
 | `!tagged:tag.name` | Tagged injection |
 | `!spread:@service` | Spread slice into variadic parameters |
 | `!spread:!tagged:tag` | Spread tagged collection into variadic parameters |
+| `!go:pkg.Symbol` | Go package-level variable or constant |
 | literal | YAML scalar literal |
 
 Argument count and types are strictly validated.
