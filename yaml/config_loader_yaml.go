@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
 	ylib "gopkg.in/yaml.v3"
@@ -127,14 +128,14 @@ func (l *ConfigLoaderYaml) yamlUnmarshal(data []byte, v interface{}) error {
 // filterExcludedFiles removes files matching any exclusion pattern.
 // files - absolute paths returned by resolver
 // baseDir - directory for resolving relative exclusion patterns
-// excludePatterns - glob patterns to exclude
+// excludePatterns - glob patterns, file paths, or directory paths to exclude
 func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, excludePatterns []string) ([]string, error) {
 	if len(excludePatterns) == 0 {
 		return files, nil
 	}
 
-	// Build set of excluded absolute paths
 	excludedSet := make(map[string]bool)
+	var excludedDirs []string
 
 	for _, pattern := range excludePatterns {
 		// Resolve pattern relative to baseDir
@@ -143,24 +144,45 @@ func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, e
 			absPattern = filepath.Join(baseDir, pattern)
 		}
 
+		// If the pattern is a directory, exclude all files under it
+		if info, err := os.Stat(absPattern); err == nil && info.IsDir() {
+			excludedDirs = append(excludedDirs, absPattern+string(filepath.Separator))
+			continue
+		}
+
 		// Match pattern using doublestar (same library as glob imports)
 		matches, err := doublestar.FilepathGlob(absPattern)
 		if err != nil {
 			return nil, fmt.Errorf("invalid exclusion pattern %q: %w", pattern, err)
 		}
 
-		// Add matched files to exclusion set
 		for _, match := range matches {
-			if abs, err := filepath.Abs(match); err == nil {
+			abs, err := filepath.Abs(match)
+			if err != nil {
+				continue
+			}
+			if info, err := os.Stat(abs); err == nil && info.IsDir() {
+				excludedDirs = append(excludedDirs, abs+string(filepath.Separator))
+			} else {
 				excludedSet[abs] = true
 			}
 		}
 	}
 
-	// Filter files not in exclusion set
+	// Filter files not in exclusion set and not under excluded directories
 	result := make([]string, 0, len(files))
 	for _, file := range files {
-		if !excludedSet[file] {
+		if excludedSet[file] {
+			continue
+		}
+		excluded := false
+		for _, dir := range excludedDirs {
+			if strings.HasPrefix(file, dir) {
+				excluded = true
+				break
+			}
+		}
+		if !excluded {
 			result = append(result, file)
 		}
 	}

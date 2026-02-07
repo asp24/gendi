@@ -431,3 +431,54 @@ imports:
 		t.Error("expected test parameter to be excluded")
 	}
 }
+
+func TestExcludeDirectory(t *testing.T) {
+	dir := t.TempDir()
+	servicesDir := filepath.Join(dir, "services")
+	internalDir := filepath.Join(servicesDir, "internal")
+	if err := os.MkdirAll(internalDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	writeFile(t, servicesDir, "app.yaml", `
+parameters:
+  app:
+    type: string
+    value: "app"
+`)
+	writeFile(t, internalDir, "secret.yaml", `
+parameters:
+  secret:
+    type: string
+    value: "secret"
+`)
+	writeFile(t, internalDir, "debug.yaml", `
+parameters:
+  debug:
+    type: string
+    value: "debug"
+`)
+
+	rootPath := writeFile(t, dir, "gendi.yaml", `
+imports:
+  - path: ./services/**/*.yaml
+    exclude:
+      - ./services/internal
+`)
+
+	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	cfg, err := loader.Load(rootPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if _, ok := cfg.Parameters["app"]; !ok {
+		t.Error("expected app parameter to be loaded")
+	}
+	if _, ok := cfg.Parameters["secret"]; ok {
+		t.Error("expected secret parameter to be excluded")
+	}
+	if _, ok := cfg.Parameters["debug"]; ok {
+		t.Error("expected debug parameter to be excluded")
+	}
+}

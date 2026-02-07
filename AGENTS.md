@@ -152,15 +152,15 @@ Configuration files can import others:
 
 #### Import Exclusions
 
-Exclude specific files from glob pattern imports:
+Exclude files from imports using glob patterns or directory paths:
 
 ```yaml
 imports:
-  # Load all services except test files and internal files
-  - path: ./services/*.yaml
+  # Load all services except test files and an entire directory
+  - path: ./services/**/*.yaml
     exclude:
       - ./services/test_*.yaml
-      - ./services/internal/*.yaml
+      - ./services/internal
 
   # Glob in subdirectories with exclusions
   - path: ./config/**/*.yaml
@@ -169,7 +169,8 @@ imports:
 ```
 
 Features:
-- Exclusion patterns support full glob syntax (`*`, `?`, `[]`, `**`)
+- Exclusion entries can be glob patterns (`*`, `?`, `[]`, `**`) or directory paths
+- Directory paths exclude all files under that directory
 - Patterns resolved relative to importing file's directory
 - Works with any import type (local, absolute, module-based)
 - Exclusions take precedence over inclusions
