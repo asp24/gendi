@@ -197,6 +197,10 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 			if thisPackage != "" && converted.Kind == di.ArgGoRef && strings.Contains(converted.Value, "$this.") {
 				converted.Value = strings.Replace(converted.Value, "$this.", thisPackage+".", 1)
 			}
+			// Substitute $this in !field:!go: argument values
+			if thisPackage != "" && converted.Kind == di.ArgFieldAccess && strings.Contains(converted.Value, "!go:") && strings.Contains(converted.Value, "$this.") {
+				converted.Value = strings.Replace(converted.Value, "$this.", thisPackage+".", 1)
+			}
 			svc.Constructor.Args[i] = converted
 		}
 	}

@@ -20,6 +20,8 @@ func ParseArgumentString(s string) (di.ArgumentKind, string) {
 		return di.ArgTagged, s[len("!tagged:"):]
 	case len(s) > len("!go:") && s[:len("!go:")] == "!go:":
 		return di.ArgGoRef, s[len("!go:"):]
+	case len(s) > len("!field:") && s[:len("!field:")] == "!field:":
+		return di.ArgFieldAccess, s[len("!field:"):]
 	}
 	return di.ArgLiteral, ""
 }

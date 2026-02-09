@@ -41,12 +41,25 @@ func collectPackagePaths(cfg *di.Config) ([]string, error) {
 			pkgs := collectTypePackages(svc.Type)
 			addAll(pkgs)
 		}
-		// Collect packages from !go: argument references
+		// Collect packages from !go: and !field:!go: argument references
 		for _, arg := range svc.Constructor.Args {
 			if arg.Kind == di.ArgGoRef {
 				pkg, _, _, err := typeres.SplitQualifiedNameWithTypeParams(arg.Value)
 				if err == nil {
 					add(pkg)
+				}
+			}
+			if arg.Kind == di.ArgFieldAccess && strings.HasPrefix(arg.Value, "!go:") {
+				goValue := arg.Value[len("!go:"):]
+				// Try progressively shorter prefixes to find the package path
+				parts := strings.Split(goValue, ".")
+				for i := len(parts) - 1; i >= 2; i-- {
+					qualName := strings.Join(parts[:i], ".")
+					pkg, _, _, err := typeres.SplitQualifiedNameWithTypeParams(qualName)
+					if err == nil {
+						add(pkg)
+						break
+					}
 				}
 			}
 		}

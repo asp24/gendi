@@ -143,3 +143,27 @@ func NewWriter(out io.Writer) *Writer {
 
 // DefaultPrefix is a package-level variable for testing !go: with $this
 var DefaultPrefix = "app"
+
+// DatabaseConfig holds database configuration for testing !field: access
+type DatabaseConfig struct {
+	DSN string
+}
+
+// AppConfig holds application configuration for testing !field: access
+type AppConfig struct {
+	Host     string
+	Port     int
+	Database DatabaseConfig
+}
+
+func LoadConfig() *AppConfig {
+	return &AppConfig{
+		Host:     "localhost",
+		Port:     8080,
+		Database: DatabaseConfig{DSN: "postgres://localhost/db"},
+	}
+}
+
+func NewServerWithAddr(host string, port int) *Server {
+	return &Server{}
+}

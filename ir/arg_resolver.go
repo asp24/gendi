@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"go/types"
+	"strings"
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/srcloc"
@@ -107,6 +108,18 @@ func (r *argResolver) resolve(container *Container, svcID string, idx int, arg d
 		irArg.Kind = SpreadArg
 		irArg.Inner = innerResolved
 
+	case di.ArgFieldAccess:
+		fa, err := r.resolveFieldAccess(container, svcID, idx, arg)
+		if err != nil {
+			return nil, err
+		}
+		if !types.AssignableTo(fa.ResultType, paramType) {
+			return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: field access result type %s is not assignable to %s",
+				svcID, idx, fa.ResultType, paramType)
+		}
+		irArg.Kind = FieldAccessArg
+		irArg.FieldAccess = fa
+
 	case di.ArgGoRef:
 		pkgPath, name, _, err := typeres.SplitQualifiedNameWithTypeParams(arg.Value)
 		if err != nil {
@@ -137,4 +150,133 @@ func (r *argResolver) resolve(container *Container, svcID string, idx int, arg d
 	}
 
 	return irArg, nil
+}
+
+// resolveFieldAccess resolves a !field: argument to a FieldAccess struct.
+// The value can be either @service.Field.Chain or !go:pkg.Symbol.Field.Chain.
+func (r *argResolver) resolveFieldAccess(container *Container, svcID string, idx int, arg di.Argument) (*FieldAccess, error) {
+	value := arg.Value
+
+	switch {
+	case strings.HasPrefix(value, "@"):
+		return r.resolveFieldAccessOnService(container, svcID, idx, arg, value[1:])
+	case strings.HasPrefix(value, "!go:"):
+		return r.resolveFieldAccessOnGoRef(svcID, idx, arg, value[len("!go:"):])
+	default:
+		return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: !field: value must start with @ or !go:, got %q", svcID, idx, value)
+	}
+}
+
+// resolveFieldAccessOnService resolves !field:@service.Field.Chain.
+// Uses longest prefix match to find the service ID, since service IDs can contain dots.
+func (r *argResolver) resolveFieldAccessOnService(container *Container, svcID string, idx int, arg di.Argument, value string) (*FieldAccess, error) {
+	parts := strings.Split(value, ".")
+	if len(parts) < 2 {
+		return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: !field:@%s requires at least one field name", svcID, idx, value)
+	}
+
+	// Longest prefix match: try progressively shorter prefixes
+	var service *Service
+	var fieldParts []string
+	for i := len(parts) - 1; i >= 1; i-- {
+		candidate := strings.Join(parts[:i], ".")
+		if svc, ok := container.Services[candidate]; ok {
+			service = svc
+			fieldParts = parts[i:]
+			break
+		}
+	}
+	if service == nil {
+		return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: !field:@%s: no matching service found", svcID, idx, value)
+	}
+
+	baseType := service.Type
+	resultType, err := walkFieldChain(baseType, fieldParts)
+	if err != nil {
+		return nil, srcloc.WrapError(arg.SourceLoc, fmt.Sprintf("service %q arg[%d]: !field:@%s", svcID, idx, value), err)
+	}
+
+	return &FieldAccess{
+		Service:    service,
+		FieldNames: fieldParts,
+		ResultType: resultType,
+	}, nil
+}
+
+// resolveFieldAccessOnGoRef resolves !field:!go:pkg.Symbol.Field.Chain.
+// Iteratively strips trailing dot-separated parts and tries LookupVar until
+// the package-level symbol is found. The remainder becomes the field chain.
+func (r *argResolver) resolveFieldAccessOnGoRef(svcID string, idx int, arg di.Argument, value string) (*FieldAccess, error) {
+	parts := strings.Split(value, ".")
+	if len(parts) < 3 {
+		// Need at least pkg.Symbol.Field
+		return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: !field:!go:%s requires at least one field name after the symbol", svcID, idx, value)
+	}
+
+	// Try progressively shorter prefixes to find the package-level symbol.
+	// Minimum 2 parts for a valid qualified name (pkg.Name).
+	var obj types.Object
+	var fieldParts []string
+	for i := len(parts) - 1; i >= 2; i-- {
+		qualName := strings.Join(parts[:i], ".")
+		pkgPath, name, _, err := typeres.SplitQualifiedNameWithTypeParams(qualName)
+		if err != nil {
+			continue
+		}
+		obj, err = r.typeResolver.LookupVar(pkgPath, name)
+		if err != nil {
+			continue
+		}
+		fieldParts = parts[i:]
+		break
+	}
+	if obj == nil {
+		return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: !field:!go:%s: no matching package-level symbol found", svcID, idx, value)
+	}
+
+	baseType := obj.Type()
+	resultType, err := walkFieldChain(baseType, fieldParts)
+	if err != nil {
+		return nil, srcloc.WrapError(arg.SourceLoc, fmt.Sprintf("service %q arg[%d]: !field:!go:%s", svcID, idx, value), err)
+	}
+
+	return &FieldAccess{
+		GoRef:      &GoRef{Object: obj},
+		FieldNames: fieldParts,
+		ResultType: resultType,
+	}, nil
+}
+
+// walkFieldChain walks a chain of field names on a type, returning the final field's type.
+// Pointer types are automatically dereferenced at each level.
+func walkFieldChain(baseType types.Type, fieldNames []string) (types.Type, error) {
+	if len(fieldNames) == 0 {
+		return nil, fmt.Errorf("empty field chain")
+	}
+
+	currentType := baseType
+	for _, fieldName := range fieldNames {
+		// Dereference pointer types
+		for {
+			ptr, ok := currentType.(*types.Pointer)
+			if !ok {
+				break
+			}
+			currentType = ptr.Elem()
+		}
+
+		obj, _, _ := types.LookupFieldOrMethod(currentType, true, nil, fieldName)
+		if obj == nil {
+			return nil, fmt.Errorf("field %q not found on type %s", fieldName, currentType)
+		}
+		field, ok := obj.(*types.Var)
+		if !ok || !field.IsField() {
+			return nil, fmt.Errorf("%q is not a field on type %s", fieldName, currentType)
+		}
+		if !field.Exported() {
+			return nil, fmt.Errorf("field %q on type %s is not exported", fieldName, currentType)
+		}
+		currentType = field.Type()
+	}
+	return currentType, nil
 }

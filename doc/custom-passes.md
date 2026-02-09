@@ -623,6 +623,7 @@ const (
     ArgTagged
     ArgSpread
     ArgGoRef
+    ArgFieldAccess
 )
 
 // Tag represents a tag definition
