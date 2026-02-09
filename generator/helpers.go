@@ -2,191 +2,85 @@ package generator
 
 import (
 	"go/types"
-	"strings"
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/typeres"
 	"github.com/asp24/gendi/xmaps"
 )
 
-func collectPackagePaths(cfg *di.Config) ([]string, error) {
-	seen := map[string]bool{}
-	add := func(path string) {
-		if path != "" {
-			seen[path] = true
-		}
+// refreshPackages re-populates the Packages field on all config structs.
+// This is needed after compiler passes that may add or modify services.
+func refreshPackages(cfg *di.Config) {
+	for name, param := range cfg.Parameters {
+		param.Packages = typeres.CollectTypePackages(param.Type)
+		cfg.Parameters[name] = param
 	}
-	addAll := func(paths []string) {
-		for _, p := range paths {
-			add(p)
+	for name, tag := range cfg.Tags {
+		tag.Packages = typeres.CollectTypePackages(tag.ElementType)
+		cfg.Tags[name] = tag
+	}
+	for name, svc := range cfg.Services {
+		svc.Packages = typeres.CollectTypePackages(svc.Type)
+		svc.Constructor.Packages = typeres.CollectFuncPackages(svc.Constructor.Func)
+		for i, arg := range svc.Constructor.Args {
+			switch arg.Kind {
+			case di.ArgGoRef:
+				arg.Packages = typeres.CollectGoRefPackages(arg.Value)
+			case di.ArgFieldAccessGo:
+				arg.Packages = typeres.CollectFieldAccessGoPackages(arg.Value)
+			}
+			svc.Constructor.Args[i] = arg
+		}
+		cfg.Services[name] = svc
+	}
+}
+
+func collectPackagePaths(cfg *di.Config) []string {
+	seen := map[string]bool{}
+	addAll := func(pkgs []string) {
+		for _, p := range pkgs {
+			if p != "" {
+				seen[p] = true
+			}
 		}
 	}
 
 	for _, svc := range cfg.Services {
-		if svc.Constructor.Func != "" {
-			// Extract function package and type arguments
-			pkg, _, typeParams, err := typeres.SplitQualifiedNameWithTypeParams(svc.Constructor.Func)
-			if err != nil {
-				return nil, err
-			}
-			add(pkg)
-
-			// Collect packages from type arguments
-			for _, tp := range typeParams {
-				pkgs := collectTypePackages(tp)
-				addAll(pkgs)
-			}
-		}
-		if svc.Type != "" {
-			pkgs := collectTypePackages(svc.Type)
-			addAll(pkgs)
-		}
-		// Collect packages from !go: and !field:!go: argument references
+		addAll(svc.Packages)
+		addAll(svc.Constructor.Packages)
 		for _, arg := range svc.Constructor.Args {
-			if arg.Kind == di.ArgGoRef {
-				pkg, _, _, err := typeres.SplitQualifiedNameWithTypeParams(arg.Value)
-				if err == nil {
-					add(pkg)
-				}
-			}
-			if arg.Kind == di.ArgFieldAccess && strings.HasPrefix(arg.Value, "!go:") {
-				goValue := arg.Value[len("!go:"):]
-				// Try progressively shorter prefixes to find the package path
-				parts := strings.Split(goValue, ".")
-				for i := len(parts) - 1; i >= 2; i-- {
-					qualName := strings.Join(parts[:i], ".")
-					pkg, _, _, err := typeres.SplitQualifiedNameWithTypeParams(qualName)
-					if err == nil {
-						add(pkg)
-						break
-					}
-				}
-			}
+			addAll(arg.Packages)
 		}
 	}
 	for _, param := range cfg.Parameters {
-		if param.Type != "" {
-			pkgs := collectTypePackages(param.Type)
-			addAll(pkgs)
-		}
+		addAll(param.Packages)
 	}
-
-	// Check if there are tags or tagged arguments - need stdlib for MakeSlice
-	hasTagsOrTaggedArgs := len(cfg.Tags) > 0
-	if !hasTagsOrTaggedArgs {
-		for _, svc := range cfg.Services {
-			if len(svc.Tags) > 0 {
-				hasTagsOrTaggedArgs = true
-				break
-			}
-			for _, arg := range svc.Constructor.Args {
-				if arg.Kind == di.ArgTagged {
-					hasTagsOrTaggedArgs = true
-					break
-				}
-			}
-		}
-	}
-	if hasTagsOrTaggedArgs {
-		// Tag desugaring uses stdlib.MakeSlice
-		add("github.com/asp24/gendi/stdlib")
-	}
-
 	for _, tag := range cfg.Tags {
-		if tag.ElementType != "" {
-			pkgs := collectTypePackages(tag.ElementType)
-			addAll(pkgs)
-		}
+		addAll(tag.Packages)
 	}
 
-	return xmaps.OrderedKeys(seen), nil
+	if hasTagsOrTaggedArgs(cfg) {
+		seen["github.com/asp24/gendi/stdlib"] = true
+	}
+
+	return xmaps.OrderedKeys(seen)
 }
 
-// collectTypePackages extracts all package paths from a type string,
-// including composite types like chan, slice, map, pointers, and arrays.
-func collectTypePackages(typeStr string) []string {
-	typeStr = strings.TrimSpace(typeStr)
-	var result []string
-
-	// Pointer type: *T
-	if strings.HasPrefix(typeStr, "*") {
-		return collectTypePackages(typeStr[1:])
+func hasTagsOrTaggedArgs(cfg *di.Config) bool {
+	if len(cfg.Tags) > 0 {
+		return true
 	}
-
-	// Slice type: []T
-	if strings.HasPrefix(typeStr, "[]") {
-		return collectTypePackages(typeStr[2:])
-	}
-
-	// Array type: [N]T
-	if strings.HasPrefix(typeStr, "[") {
-		closeBracket := strings.Index(typeStr, "]")
-		if closeBracket != -1 {
-			return collectTypePackages(typeStr[closeBracket+1:])
+	for _, svc := range cfg.Services {
+		if len(svc.Tags) > 0 {
+			return true
 		}
-		return nil
-	}
-
-	// Map type: map[K]V
-	if strings.HasPrefix(typeStr, "map[") {
-		keyEnd := findMatchingBracketHelper(typeStr, 3)
-		if keyEnd != -1 {
-			keyStr := typeStr[4:keyEnd]
-			valStr := typeStr[keyEnd+1:]
-			result = append(result, collectTypePackages(keyStr)...)
-			result = append(result, collectTypePackages(valStr)...)
-			return result
-		}
-		return nil
-	}
-
-	// Channel types: <-chan T, chan<- T, chan T
-	if strings.HasPrefix(typeStr, "<-chan ") {
-		return collectTypePackages(typeStr[7:])
-	}
-	if strings.HasPrefix(typeStr, "chan<- ") {
-		return collectTypePackages(typeStr[7:])
-	}
-	if strings.HasPrefix(typeStr, "chan ") {
-		return collectTypePackages(typeStr[5:])
-	}
-
-	// Basic types have no package
-	if !strings.Contains(typeStr, ".") {
-		return nil
-	}
-
-	// Named type: pkg/path.TypeName or pkg/path.TypeName[T1, T2]
-	pkg, _, typeArgs, err := typeres.SplitQualifiedNameWithTypeParams(typeStr)
-	if err != nil {
-		return nil
-	}
-
-	result = append(result, pkg)
-
-	// Recursively collect packages from type arguments
-	for _, arg := range typeArgs {
-		result = append(result, collectTypePackages(arg)...)
-	}
-
-	return result
-}
-
-// findMatchingBracketHelper is a helper for collectTypePackages
-func findMatchingBracketHelper(s string, start int) int {
-	depth := 1
-	for i := start + 1; i < len(s); i++ {
-		switch s[i] {
-		case '[':
-			depth++
-		case ']':
-			depth--
-			if depth == 0 {
-				return i
+		for _, arg := range svc.Constructor.Args {
+			if arg.Kind == di.ArgTagged {
+				return true
 			}
 		}
 	}
-	return -1
+	return false
 }
 
 func isNilable(t types.Type) bool {

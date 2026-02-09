@@ -72,8 +72,9 @@ func (cfg *Config) MergeWith(src *Config) *Config {
 
 // Parameter defines a typed parameter literal.
 type Parameter struct {
-	Type  string
-	Value Literal
+	Type     string
+	Value    Literal
+	Packages []string
 
 	// Source location (optional)
 	SourceLoc *srcloc.Location
@@ -85,6 +86,7 @@ type Tag struct {
 	SortBy        string
 	Public        bool
 	Autoconfigure bool
+	Packages      []string
 
 	// Source location (optional)
 	SourceLoc *srcloc.Location
@@ -110,6 +112,7 @@ type Service struct {
 	DecorationPriority int
 	Tags               []ServiceTag
 	Alias              string
+	Packages           []string
 
 	// Source location (optional)
 	SourceLoc *srcloc.Location
@@ -117,9 +120,10 @@ type Service struct {
 
 // Constructor defines service constructor configuration.
 type Constructor struct {
-	Func   string
-	Method string
-	Args   []Argument
+	Func     string
+	Method   string
+	Args     []Argument
+	Packages []string
 
 	// Source locations (optional)
 	SourceLoc *srcloc.Location
@@ -136,14 +140,16 @@ const (
 	ArgTagged
 	ArgSpread
 	ArgGoRef
-	ArgFieldAccess
+	ArgFieldAccessService
+	ArgFieldAccessGo
 )
 
 // Argument represents a constructor argument.
 type Argument struct {
-	Kind    ArgumentKind
-	Value   string
-	Literal Literal
+	Kind     ArgumentKind
+	Value    string
+	Literal  Literal
+	Packages []string
 
 	// Source location (optional)
 	SourceLoc *srcloc.Location

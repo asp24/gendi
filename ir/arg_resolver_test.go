@@ -270,84 +270,77 @@ func TestResolveFieldAccess(t *testing.T) {
 		// Service field access
 		{
 			name:      "service_field_ok",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "@config.Host"},
+			arg:       di.Argument{Kind: di.ArgFieldAccessService, Value: "config.Host"},
 			paramType: stringType,
 		},
 		{
 			name:      "service_nested_field",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "@config.Database.DSN"},
+			arg:       di.Argument{Kind: di.ArgFieldAccessService, Value: "config.Database.DSN"},
 			paramType: stringType,
 		},
 		{
 			name:      "service_dotted_id",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "@config.db.Host"},
+			arg:       di.Argument{Kind: di.ArgFieldAccessService, Value: "config.db.Host"},
 			paramType: stringType,
 		},
 		{
 			name:      "service_no_field",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "@config"},
+			arg:       di.Argument{Kind: di.ArgFieldAccessService, Value: "config"},
 			paramType: stringType,
 			wantErr:   "requires at least one field",
 		},
 		{
 			name:      "service_not_found",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "@missing.Host"},
+			arg:       di.Argument{Kind: di.ArgFieldAccessService, Value: "missing.Host"},
 			paramType: stringType,
 			wantErr:   "no matching service",
 		},
 		{
 			name:      "service_unknown_field",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "@config.NoSuch"},
+			arg:       di.Argument{Kind: di.ArgFieldAccessService, Value: "config.NoSuch"},
 			paramType: stringType,
 			wantErr:   "not found",
 		},
 		{
 			name:      "service_unexported_field",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "@config.secret"},
+			arg:       di.Argument{Kind: di.ArgFieldAccessService, Value: "config.secret"},
 			paramType: stringType,
 			wantErr:   "not found", // unexported fields are not found by LookupFieldOrMethod with nil package
 		},
 		{
 			name:      "service_type_mismatch",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "@config.Host"},
+			arg:       di.Argument{Kind: di.ArgFieldAccessService, Value: "config.Host"},
 			paramType: intType,
 			wantErr:   "not assignable",
 		},
 		// Go ref field access
 		{
 			name:      "goref_field_ok",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "!go:mypkg.DefaultCfg.Host"},
+			arg:       di.Argument{Kind: di.ArgFieldAccessGo, Value: "mypkg.DefaultCfg.Host"},
 			paramType: stringType,
 		},
 		{
 			name:      "goref_nested_field",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "!go:mypkg.DefaultCfg.Database.DSN"},
+			arg:       di.Argument{Kind: di.ArgFieldAccessGo, Value: "mypkg.DefaultCfg.Database.DSN"},
 			paramType: stringType,
 		},
 		{
 			name:      "goref_too_few_parts",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "!go:x.y"},
+			arg:       di.Argument{Kind: di.ArgFieldAccessGo, Value: "x.y"},
 			paramType: stringType,
 			wantErr:   "requires at least one field",
 		},
 		{
 			name:      "goref_symbol_not_found",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "!go:mypkg.Missing.Field"},
+			arg:       di.Argument{Kind: di.ArgFieldAccessGo, Value: "mypkg.Missing.Field"},
 			paramType: stringType,
 			wantErr:   "no matching package-level symbol",
 		},
 		{
 			name:      "goref_unknown_field",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "!go:mypkg.DefaultCfg.NoSuch"},
+			arg:       di.Argument{Kind: di.ArgFieldAccessGo, Value: "mypkg.DefaultCfg.NoSuch"},
 			paramType: stringType,
 			wantErr:   "not found",
-		},
-		// Invalid prefix
-		{
-			name:      "invalid_prefix",
-			arg:       di.Argument{Kind: di.ArgFieldAccess, Value: "badprefix.Host"},
-			paramType: stringType,
-			wantErr:   "must start with @ or !go:",
 		},
 	}
 

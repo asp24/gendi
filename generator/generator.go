@@ -19,10 +19,7 @@ func New(opts Options) *Generator {
 }
 
 func (g *Generator) createTypeResolver(cfg *di.Config) (*typeres.Resolver, error) {
-	paths, err := collectPackagePaths(cfg)
-	if err != nil {
-		return nil, err
-	}
+	paths := collectPackagePaths(cfg)
 
 	result := typeres.NewResolver(g.options.ModuleRoot)
 
@@ -62,6 +59,9 @@ func (g *Generator) Generate(cfg *di.Config) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Re-populate Packages fields after passes may have added/modified services
+	refreshPackages(cfg)
 
 	typeResolver, err := g.createTypeResolver(cfg)
 	if err != nil {

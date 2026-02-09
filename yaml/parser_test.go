@@ -976,7 +976,10 @@ func TestThisSubstitutionInGoAndFieldArgs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		expected := "!go:github.com/app.DefaultCfg.Host"
+		if svc.Constructor.Args[0].Kind != di.ArgFieldAccessGo {
+			t.Fatalf("expected ArgFieldAccessGo, got: %d", svc.Constructor.Args[0].Kind)
+		}
+		expected := "github.com/app.DefaultCfg.Host"
 		if svc.Constructor.Args[0].Value != expected {
 			t.Fatalf("expected %q, got: %q", expected, svc.Constructor.Args[0].Value)
 		}
