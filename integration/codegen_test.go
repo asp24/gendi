@@ -1,4 +1,4 @@
-package generator_test
+package integration
 
 import (
 	"strings"
@@ -7,7 +7,6 @@ import (
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/generator"
 	"github.com/asp24/gendi/pipeline"
-	"github.com/asp24/gendi/yaml"
 )
 
 func testEmitOptions(t *testing.T) (pipeline.Options, generator.EmitOptions) {
@@ -672,9 +671,38 @@ func TestNonGenericTypeWithTypeArgsError(t *testing.T) {
 }
 
 func TestSpreadWithServiceRef(t *testing.T) {
-	cfg, err := yaml.LoadConfig("testdata/spread/service_ref.yaml")
-	if err != nil {
-		t.Fatalf("load config: %v", err)
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"handler.a": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerA",
+				},
+			},
+			"handler.b": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerB",
+				},
+			},
+			"all_handlers": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.GetAllHandlers",
+					Args: []di.Argument{
+						{Kind: di.ArgServiceRef, Value: "handler.a"},
+						{Kind: di.ArgServiceRef, Value: "handler.a"},
+					},
+				},
+				Shared: true,
+			},
+			"server": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServer",
+					Args: []di.Argument{
+						{Kind: di.ArgSpread, Value: "@all_handlers"},
+					},
+				},
+				Public: true,
+			},
+		},
 	}
 
 	out := generate(t, cfg)
@@ -691,9 +719,39 @@ func TestSpreadWithServiceRef(t *testing.T) {
 }
 
 func TestSpreadWithTagged(t *testing.T) {
-	cfg, err := yaml.LoadConfig("testdata/spread/tagged.yaml")
-	if err != nil {
-		t.Fatalf("load config: %v", err)
+	cfg := &di.Config{
+		Tags: map[string]di.Tag{
+			"handler": {
+				ElementType: "github.com/asp24/gendi/generator/testdata/app.Handler",
+			},
+		},
+		Services: map[string]di.Service{
+			"handler.a": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerA",
+				},
+				Tags: []di.ServiceTag{
+					{Name: "handler"},
+				},
+			},
+			"handler.b": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerB",
+				},
+				Tags: []di.ServiceTag{
+					{Name: "handler"},
+				},
+			},
+			"server": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServer",
+					Args: []di.Argument{
+						{Kind: di.ArgSpread, Value: "!tagged:handler"},
+					},
+				},
+				Public: true,
+			},
+		},
 	}
 
 	out := generate(t, cfg)
@@ -706,6 +764,59 @@ func TestSpreadWithTagged(t *testing.T) {
 	}
 	if !strings.Contains(out, "handler") {
 		t.Fatal("expected handler services to be generated")
+	}
+}
+
+func TestSpreadWithMixedArgs(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"handler.a": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerA",
+				},
+			},
+			"handler.b": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerB",
+				},
+			},
+			"more_handlers": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.GetAllHandlers",
+					Args: []di.Argument{
+						{Kind: di.ArgServiceRef, Value: "handler.a"},
+						{Kind: di.ArgServiceRef, Value: "handler.a"},
+					},
+				},
+				Shared: true,
+			},
+			"server": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServer",
+					Args: []di.Argument{
+						{Kind: di.ArgServiceRef, Value: "handler.a"},
+						{Kind: di.ArgServiceRef, Value: "handler.b"},
+						{Kind: di.ArgSpread, Value: "@more_handlers"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	out := generate(t, cfg)
+
+	if !strings.Contains(out, "NewServer(") {
+		t.Fatal("expected NewServer call")
+	}
+	if !strings.Contains(out, "...") {
+		t.Fatal("expected spread operator ... in generated code")
+	}
+	if !strings.Contains(out, "getHandlerA()") {
+		t.Fatal("expected getHandlerA call for regular arg")
+	}
+	if !strings.Contains(out, "getMoreHandlers()") {
+		t.Fatal("expected getMoreHandlers call for spread arg")
 	}
 }
 
@@ -921,24 +1032,197 @@ func TestFieldAccessUnknownField(t *testing.T) {
 	}
 }
 
-func TestSpreadWithMixedArgs(t *testing.T) {
-	cfg, err := yaml.LoadConfig("testdata/spread/mixed_args.yaml")
-	if err != nil {
-		t.Fatalf("load config: %v", err)
+func TestDecoratorOnAlias(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"svc": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+				},
+				Public: true,
+			},
+			"svc.alias": {
+				Alias:  "svc",
+				Public: true,
+			},
+			"svc.decorator": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
+					Args: []di.Argument{
+						{Kind: di.ArgInner},
+					},
+				},
+				Decorates:          "svc.alias",
+				DecorationPriority: 10,
+			},
+		},
 	}
 
 	out := generate(t, cfg)
 
-	if !strings.Contains(out, "NewServer(") {
-		t.Fatal("expected NewServer call")
+	// Verify that both base and decorator constructors are used in generated code
+	if !strings.Contains(out, "NewServiceBase(") {
+		t.Fatalf("expected generated code to build underlying service for decorated alias")
 	}
-	if !strings.Contains(out, "...") {
-		t.Fatal("expected spread operator ... in generated code")
+	if !strings.Contains(out, "NewServiceDecoratorA(") {
+		t.Fatalf("expected generated code to build decorator")
 	}
-	if !strings.Contains(out, "getHandlerA()") {
-		t.Fatal("expected getHandlerA call for regular arg")
+}
+
+func TestDecoratorWithPublicTagHasPrivateGetter(t *testing.T) {
+	cfg := &di.Config{
+		Tags: map[string]di.Tag{
+			"public.tag": {
+				ElementType: "github.com/asp24/gendi/generator/testdata/app.Service",
+				Public:      true,
+			},
+		},
+		Services: map[string]di.Service{
+			"svc": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+				},
+			},
+			"svc.decorator": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
+					Args: []di.Argument{
+						{Kind: di.ArgInner},
+					},
+				},
+				Decorates:          "svc",
+				DecorationPriority: 10,
+				Tags: []di.ServiceTag{
+					{Name: "public.tag"},
+				},
+			},
+		},
 	}
-	if !strings.Contains(out, "getMoreHandlers()") {
-		t.Fatal("expected getMoreHandlers call for spread arg")
+
+	out := generate(t, cfg)
+
+	// Verify that the private getter for the decorator exists (required by tag getter)
+	if !strings.Contains(out, "func (c *Container) getSvcDecorator()") {
+		t.Fatalf("expected private getter for tagged decorator")
+	}
+	// Verify that the tag getter calls the private getter of the decorator
+	if !strings.Contains(out, "getSvcDecorator()") {
+		t.Fatalf("expected tag getter to call decorator private getter")
+	}
+}
+
+func TestDecoratorSharesStorageWithBase(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"svc": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+				},
+				Public: true,
+				Shared: true,
+			},
+			"svc.decorator": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
+					Args: []di.Argument{
+						{Kind: di.ArgInner},
+					},
+				},
+				Decorates:          "svc",
+				DecorationPriority: 10,
+				Public:             true,
+				Shared:             true,
+			},
+		},
+	}
+
+	out := generate(t, cfg)
+
+	// Verify that storage is attached to the decorator (base is an alias)
+	if !strings.Contains(out, "svc_svc_decorator ") {
+		t.Fatalf("expected storage field for decorator, got:\n%s", out)
+	}
+	if strings.Contains(out, "svc_svc ") {
+		t.Fatalf("unexpected storage field for base alias")
+	}
+
+	// Verify that BOTH getters share the same storage
+	// getSvcDecorator should use nil check (optimized for nilable types)
+	if !strings.Contains(out, "if c.svc_svc_decorator != nil") {
+		t.Fatalf("expected decorator getter to use nil check for caching")
+	}
+	// getSvc should delegate to getSvcDecorator
+	if !strings.Contains(out, "return c.getSvcDecorator()") {
+		t.Fatalf("expected getSvc to delegate to getSvcDecorator")
+	}
+	// Only getSvcDecorator should check the cache directly (deduplication)
+	count := strings.Count(out, "if c.svc_svc_decorator != nil")
+	if count != 1 {
+		t.Fatalf("expected nil check to appear exactly once (in decorator getter), found %d", count)
+	}
+}
+
+func TestMustGettersGenerated(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"foo": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
+				},
+				Public: true,
+			},
+			"bar": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewC",
+				},
+				Public: true,
+			},
+			"internal": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+				},
+				Public: false, // not public
+			},
+		},
+	}
+
+	out := generate(t, cfg)
+
+	// Check that onMustCallFailed field is present
+	if !strings.Contains(out, "onMustCallFailed func(serviceName string, err error)") {
+		t.Errorf("expected onMustCallFailed field in Container struct")
+	}
+
+	// Check that WithContainerErrorHandler is generated
+	if !strings.Contains(out, "func WithContainerErrorHandler(handler func(serviceName string, err error)) ContainerOption") {
+		t.Errorf("expected WithContainerErrorHandler function")
+	}
+
+	// Check that NewContainer accepts options
+	if !strings.Contains(out, "func NewContainer(params parameters.Provider, opts ...ContainerOption)") {
+		t.Errorf("expected NewContainer to accept options")
+	}
+
+	// Check that Must* methods are generated for public services
+	if !strings.Contains(out, "func (c *Container) MustFoo()") {
+		t.Errorf("expected MustFoo method")
+	}
+	if !strings.Contains(out, "func (c *Container) MustBar()") {
+		t.Errorf("expected MustBar method")
+	}
+
+	// Check that Must* methods are NOT generated for private services
+	if strings.Contains(out, "func (c *Container) MustInternal()") {
+		t.Errorf("unexpected MustInternal method for private service")
+	}
+
+	// Check that Must* methods call onMustCallFailed callback
+	if !strings.Contains(out, "c.onMustCallFailed(") {
+		t.Errorf("expected Must methods to call onMustCallFailed callback")
+	}
+
+	// Check that Must* methods panic after callback
+	if !strings.Contains(out, `panic(err)`) {
+		t.Errorf("expected Must methods to panic after onMustCallFailed")
 	}
 }
