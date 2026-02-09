@@ -6,20 +6,18 @@ import (
 	"github.com/asp24/gendi/typeres"
 )
 
-// IRConverter builds the generation context using the IR layer.
-type IRConverter struct {
-	options      Options
+// IrConverter builds the generation context using the IR layer.
+type IrConverter struct {
 	typeResolver *typeres.Resolver
 }
 
-func NewIRConverter(typeResolver *typeres.Resolver, options Options) *IRConverter {
-	return &IRConverter{
+func NewIRConverter(typeResolver *typeres.Resolver) *IrConverter {
+	return &IrConverter{
 		typeResolver: typeResolver,
-		options:      options,
 	}
 }
 
-func (b *IRConverter) convertConstructor(irCons *ir.Constructor) constructorDef {
+func (b *IrConverter) convertConstructor(irCons *ir.Constructor) constructorDef {
 	result := constructorDef{
 		argDefs:      irCons.Args,
 		typeArgs:     irCons.TypeArgs,
@@ -43,7 +41,7 @@ func (b *IRConverter) convertConstructor(irCons *ir.Constructor) constructorDef 
 	return result
 }
 
-func (b *IRConverter) convertService(irSvc *ir.Service, cfg *di.Config) *serviceDef {
+func (b *IrConverter) convertService(irSvc *ir.Service, cfg *di.Config) *serviceDef {
 	svcDef := &serviceDef{
 		id:       irSvc.ID,
 		typeName: irSvc.Type,
@@ -62,7 +60,7 @@ func (b *IRConverter) convertService(irSvc *ir.Service, cfg *di.Config) *service
 	return svcDef
 }
 
-func (b *IRConverter) Convert(irContainer *ir.Container, cfg *di.Config) (*genContext, error) {
+func (b *IrConverter) convert(irContainer *ir.Container, cfg *di.Config) (*genContext, error) {
 	services := make(map[string]*serviceDef)
 	// Convert IR services to serviceDef
 	for id, irSvc := range irContainer.Services {

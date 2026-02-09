@@ -1,4 +1,4 @@
-package generator
+package generator_test
 
 import (
 	"strings"
@@ -6,10 +6,6 @@ import (
 
 	"github.com/asp24/gendi"
 )
-
-func ptr[T any](v T) *T {
-	return &v
-}
 
 func TestDecoratorOnAlias(t *testing.T) {
 	cfg := &di.Config{
@@ -37,12 +33,7 @@ func TestDecoratorOnAlias(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	// Verify that both base and decorator constructors are used in generated code
 	if !strings.Contains(out, "NewServiceBase(") {
@@ -83,12 +74,7 @@ func TestDecoratorWithPublicTagHasPrivateGetter(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	// Verify that the private getter for the decorator exists (required by tag getter)
 	if !strings.Contains(out, "func (c *Container) getSvcDecorator()") {
@@ -125,12 +111,7 @@ func TestDecoratorSharesStorageWithBase(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	// Verify that storage is attached to the decorator (base is an alias)
 	if !strings.Contains(out, "svc_svc_decorator ") {

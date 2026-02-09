@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/generator"
+	"github.com/asp24/gendi/pipeline"
 	"github.com/asp24/gendi/srcloc"
 	"github.com/asp24/gendi/yaml"
 )
@@ -39,19 +39,18 @@ func Generate(cfg Config, passes []di.Pass) error {
 		return fmt.Errorf("apply passes: %w", err)
 	}
 
-	gen := generator.New(cfg.GeneratorOptions)
-	code, err := gen.Generate(diCfg)
+	code, err := pipeline.Generate(diCfg, cfg.Options)
 	if err != nil {
 		return fmt.Errorf("generate: %w", err)
 	}
 
-	// After Finalize(), cfg.GeneratorOptions.Out is the full output file path
-	if err := WriteTargetFile(cfg.GeneratorOptions.Out, code); err != nil {
+	// After Finalize(), cfg.Options.Out is the full output file path
+	if err := WriteTargetFile(cfg.Options.Out, code); err != nil {
 		return fmt.Errorf("write target file: %w", err)
 	}
 
-	if cfg.GeneratorOptions.Verbose {
-		_, _ = fmt.Fprintf(os.Stderr, "generated %s\n", cfg.GeneratorOptions.Out)
+	if cfg.Options.Verbose {
+		_, _ = fmt.Fprintf(os.Stderr, "generated %s\n", cfg.Options.Out)
 	}
 
 	return nil

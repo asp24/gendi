@@ -1,21 +1,53 @@
-package generator
+package generator_test
 
 import (
 	"strings"
 	"testing"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/generator"
+	"github.com/asp24/gendi/pipeline"
 	"github.com/asp24/gendi/yaml"
 )
 
-// testOptions creates finalized options for testing
-func testOptions(t *testing.T) Options {
+func testEmitOptions(t *testing.T) (pipeline.Options, generator.EmitOptions) {
 	t.Helper()
-	opts := Options{Out: ".", Package: "di"}
+	opts := pipeline.Options{Out: ".", Package: "di"}
 	if err := opts.Finalize(); err != nil {
 		t.Fatalf("finalize options: %v", err)
 	}
-	return opts
+	emitOpts := generator.EmitOptions{
+		Package:       opts.Package,
+		Container:     opts.Container,
+		OutputPkgPath: opts.OutputPkgPath,
+		BuildTags:     opts.BuildTags,
+	}
+	return opts, emitOpts
+}
+
+func generate(t *testing.T, cfg *di.Config) string {
+	t.Helper()
+	opts, emitOpts := testEmitOptions(t)
+	compiled, err := pipeline.Build(cfg, opts.ModuleRoot)
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+	code, err := generator.Emit(compiled.Config, compiled.IR, compiled.TypeResolver, emitOpts)
+	if err != nil {
+		t.Fatalf("emit failed: %v", err)
+	}
+	return string(code)
+}
+
+func generateErr(t *testing.T, cfg *di.Config) error {
+	t.Helper()
+	opts, emitOpts := testEmitOptions(t)
+	compiled, err := pipeline.Build(cfg, opts.ModuleRoot)
+	if err != nil {
+		return err
+	}
+	_, err = generator.Emit(compiled.Config, compiled.IR, compiled.TypeResolver, emitOpts)
+	return err
 }
 
 func TestRequiresPublicService(t *testing.T) {
@@ -28,8 +60,7 @@ func TestRequiresPublicService(t *testing.T) {
 			},
 		},
 	}
-	gen := New(testOptions(t))
-	_, err := gen.Generate(cfg)
+	err := generateErr(t, cfg)
 	if err == nil || !strings.Contains(err.Error(), "at least one public service or tag") {
 		t.Fatalf("expected public service error, got %v", err)
 	}
@@ -60,12 +91,7 @@ func TestReachabilityAndPublicGetters(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	if !strings.Contains(out, "GetB") {
 		t.Fatalf("expected public getter for b")
@@ -104,12 +130,7 @@ func TestPublicTagGetter(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	if !strings.Contains(out, "GetTaggedWithSvcTag") {
 		t.Fatalf("expected public tag getter to be generated")
@@ -159,12 +180,7 @@ func TestTaggedInjectionConversion(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	if !strings.Contains(out, "getTaggedWithTestTag") {
 		t.Fatalf("expected private tag getter to be used")
@@ -204,12 +220,7 @@ func TestParameterProviderCodegen(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 	if !strings.Contains(out, "NewContainer") {
 		t.Fatalf("expected container constructor when parameters are present")
 	}
@@ -239,12 +250,7 @@ func TestDurationParameterCodegen(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 	if !strings.Contains(out, "GetDuration(\"timeout\")") {
 		t.Fatalf("expected duration parameter lookup")
 	}
@@ -265,12 +271,8 @@ func TestNullLiteralArgument(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	if !strings.Contains(string(code), "NewB(nil)") {
+	out := generate(t, cfg)
+	if !strings.Contains(out, "NewB(nil)") {
 		t.Fatalf("expected nil literal for null argument")
 	}
 }
@@ -300,12 +302,7 @@ func TestServiceAliasCodegen(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 	if !strings.Contains(out, "GetLoggerAlias") {
 		t.Fatalf("expected alias public getter")
 	}
@@ -352,12 +349,7 @@ func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 	if !strings.Contains(out, "getSvcDecoratorB") {
 		t.Fatalf("expected private getter for outer decorator")
 	}
@@ -408,12 +400,7 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 	if !strings.Contains(out, "getSvcDecoratorA") {
 		t.Fatalf("expected private getter for referenced decorator")
 	}
@@ -435,8 +422,7 @@ func TestServiceTypeAssignableOverride(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	if _, err := gen.Generate(cfg); err != nil {
+	if err := generateErr(t, cfg); err != nil {
 		t.Fatalf("generate failed: %v", err)
 	}
 }
@@ -464,8 +450,7 @@ func TestDecoratorAssignableToDeclaredBaseType(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	if _, err := gen.Generate(cfg); err != nil {
+	if err := generateErr(t, cfg); err != nil {
 		t.Fatalf("generate failed: %v", err)
 	}
 }
@@ -485,19 +470,11 @@ func TestGenericFunctionConstructor(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
-	// Check that the generic function is called with type arguments
 	if !strings.Contains(out, "NewChan[generics.Event]") {
 		t.Fatalf("expected generic function call with type arguments, got:\n%s", out)
 	}
-
-	// Check that the return type is correct (chan Event)
 	if !strings.Contains(out, "chan generics.Event") {
 		t.Fatalf("expected chan Event return type, got:\n%s", out)
 	}
@@ -518,19 +495,11 @@ func TestGenericPoolConstructor(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
-	// Check that the generic function is called with type arguments
 	if !strings.Contains(out, "NewPool[generics.Message]") {
 		t.Fatalf("expected generic function call with type arguments, got:\n%s", out)
 	}
-
-	// Check that the return type is correct (*Pool[Message])
 	if !strings.Contains(out, "*generics.Pool[generics.Message]") {
 		t.Fatalf("expected *Pool[Message] return type, got:\n%s", out)
 	}
@@ -551,14 +520,8 @@ func TestGenericSliceTypeArg(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
-	// Check that the generic function is called with slice type argument
 	if !strings.Contains(out, "NewSlice[[]generics.Event]") {
 		t.Fatalf("expected generic function call with slice type argument, got:\n%s", out)
 	}
@@ -576,19 +539,11 @@ func TestGenericMapTypeArgs(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
-	// Check that the generic function is called with map type arguments
 	if !strings.Contains(out, "NewMap[string, generics.Event]") {
 		t.Fatalf("expected generic function call with map type arguments, got:\n%s", out)
 	}
-
-	// Check that the return type is correct
 	if !strings.Contains(out, "map[string]generics.Event") {
 		t.Fatalf("expected map[string]Event return type, got:\n%s", out)
 	}
@@ -609,19 +564,11 @@ func TestGenericChanTypeArg(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
-	// Check that the generic function is called with chan type argument
 	if !strings.Contains(out, "NewChan[chan generics.Event]") {
 		t.Fatalf("expected generic function call with chan type argument, got:\n%s", out)
 	}
-
-	// Check that the return type is correct (chan chan Event)
 	if !strings.Contains(out, "chan chan generics.Event") {
 		t.Fatalf("expected chan chan Event return type, got:\n%s", out)
 	}
@@ -632,7 +579,6 @@ func TestGenericFunctionWithoutTypeArgsError(t *testing.T) {
 		Services: map[string]di.Service{
 			"events": {
 				Constructor: di.Constructor{
-					// Missing type arguments - should fail
 					Func: "github.com/asp24/gendi/generator/testdata/generics.NewChan",
 					Args: []di.Argument{
 						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(100)},
@@ -643,8 +589,7 @@ func TestGenericFunctionWithoutTypeArgsError(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	_, err := gen.Generate(cfg)
+	err := generateErr(t, cfg)
 	if err == nil {
 		t.Fatal("expected error for generic function without type arguments")
 	}
@@ -657,7 +602,6 @@ func TestGenericTypeWithTypeArgs(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{
 			"pool": {
-				// Service with explicit generic type (pointer because NewPool returns *Pool[T])
 				Type: "*github.com/asp24/gendi/generator/testdata/generics.Pool[github.com/asp24/gendi/generator/testdata/generics.Message]",
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/generics.NewPool[github.com/asp24/gendi/generator/testdata/generics.Message]",
@@ -670,14 +614,8 @@ func TestGenericTypeWithTypeArgs(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
-	// Check that the generic type is used correctly
 	if !strings.Contains(out, "*generics.Pool[generics.Message]") {
 		t.Fatalf("expected *Pool[Message] type, got:\n%s", out)
 	}
@@ -687,7 +625,6 @@ func TestGenericTypeWithoutTypeArgsError(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{
 			"pool": {
-				// Missing type arguments on generic type - should fail
 				Type: "github.com/asp24/gendi/generator/testdata/generics.Pool",
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/generics.NewPool[github.com/asp24/gendi/generator/testdata/generics.Message]",
@@ -700,8 +637,7 @@ func TestGenericTypeWithoutTypeArgsError(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	_, err := gen.Generate(cfg)
+	err := generateErr(t, cfg)
 	if err == nil {
 		t.Fatal("expected error for generic type without type arguments")
 	}
@@ -714,7 +650,6 @@ func TestNonGenericTypeWithTypeArgsError(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{
 			"event": {
-				// Non-generic type with type arguments - should fail
 				Type: "github.com/asp24/gendi/generator/testdata/generics.Event[string]",
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/generics.NewChan[github.com/asp24/gendi/generator/testdata/generics.Event]",
@@ -727,8 +662,7 @@ func TestNonGenericTypeWithTypeArgsError(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	_, err := gen.Generate(cfg)
+	err := generateErr(t, cfg)
 	if err == nil {
 		t.Fatal("expected error for non-generic type with type arguments")
 	}
@@ -743,12 +677,7 @@ func TestSpreadWithServiceRef(t *testing.T) {
 		t.Fatalf("load config: %v", err)
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	if !strings.Contains(out, "NewServer(") {
 		t.Fatal("expected NewServer call")
@@ -756,7 +685,6 @@ func TestSpreadWithServiceRef(t *testing.T) {
 	if !strings.Contains(out, "...") {
 		t.Fatal("expected spread operator ... in generated code")
 	}
-	// Verify that all_handlers is fetched and spread
 	if !strings.Contains(out, "getAllHandlers()") {
 		t.Fatal("expected getAllHandlers call")
 	}
@@ -768,12 +696,7 @@ func TestSpreadWithTagged(t *testing.T) {
 		t.Fatalf("load config: %v", err)
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	if !strings.Contains(out, "NewServer(") {
 		t.Fatal("expected NewServer call")
@@ -781,7 +704,6 @@ func TestSpreadWithTagged(t *testing.T) {
 	if !strings.Contains(out, "...") {
 		t.Fatal("expected spread operator ... in generated code")
 	}
-	// Verify that tagged handlers are used
 	if !strings.Contains(out, "handler") {
 		t.Fatal("expected handler services to be generated")
 	}
@@ -802,12 +724,7 @@ func TestGoRefArgument(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	if !strings.Contains(out, "os.Stdout") {
 		t.Fatalf("expected os.Stdout in generated code, got:\n%s", out)
@@ -832,12 +749,7 @@ func TestGoRefArgumentWithPackageLevelVar(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	if !strings.Contains(out, "app.DefaultPrefix") {
 		t.Fatalf("expected app.DefaultPrefix in generated code, got:\n%s", out)
@@ -854,7 +766,6 @@ func TestGoRefArgumentTypeMismatch(t *testing.T) {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
-						// os.Stdout is *os.File which implements io.Writer, but not string
 						{Kind: di.ArgGoRef, Value: "os.Stdout"},
 					},
 				},
@@ -863,8 +774,7 @@ func TestGoRefArgumentTypeMismatch(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	_, err := gen.Generate(cfg)
+	err := generateErr(t, cfg)
 	if err == nil {
 		t.Fatal("expected type mismatch error")
 	}
@@ -894,12 +804,7 @@ func TestFieldAccessOnService(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	if !strings.Contains(out, ".Host") {
 		t.Fatalf("expected .Host field access in generated code, got:\n%s", out)
@@ -929,12 +834,7 @@ func TestFieldAccessNested(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	if !strings.Contains(out, ".Database.DSN") {
 		t.Fatalf("expected .Database.DSN field access in generated code, got:\n%s", out)
@@ -956,12 +856,7 @@ func TestFieldAccessOnGoRef(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	if !strings.Contains(out, "http.DefaultClient.Timeout") {
 		t.Fatalf("expected http.DefaultClient.Timeout in generated code, got:\n%s", out)
@@ -980,7 +875,6 @@ func TestFieldAccessTypeMismatch(t *testing.T) {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
 					Args: []di.Argument{
-						// config.Host is string, but NewTimer expects time.Duration
 						{Kind: di.ArgFieldAccessService, Value: "config.Host"},
 					},
 				},
@@ -989,8 +883,7 @@ func TestFieldAccessTypeMismatch(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	_, err := gen.Generate(cfg)
+	err := generateErr(t, cfg)
 	if err == nil {
 		t.Fatal("expected type mismatch error")
 	}
@@ -1019,8 +912,7 @@ func TestFieldAccessUnknownField(t *testing.T) {
 		},
 	}
 
-	gen := New(testOptions(t))
-	_, err := gen.Generate(cfg)
+	err := generateErr(t, cfg)
 	if err == nil {
 		t.Fatal("expected unknown field error")
 	}
@@ -1035,12 +927,7 @@ func TestSpreadWithMixedArgs(t *testing.T) {
 		t.Fatalf("load config: %v", err)
 	}
 
-	gen := New(testOptions(t))
-	code, err := gen.Generate(cfg)
-	if err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-	out := string(code)
+	out := generate(t, cfg)
 
 	if !strings.Contains(out, "NewServer(") {
 		t.Fatal("expected NewServer call")
@@ -1048,7 +935,6 @@ func TestSpreadWithMixedArgs(t *testing.T) {
 	if !strings.Contains(out, "...") {
 		t.Fatal("expected spread operator ... in generated code")
 	}
-	// Verify both regular args and spread
 	if !strings.Contains(out, "getHandlerA()") {
 		t.Fatal("expected getHandlerA call for regular arg")
 	}

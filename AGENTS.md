@@ -253,14 +253,13 @@ cfg, err = di.ApplyPasses(cfg, passes)
 
 ### Generating Container
 ```go
-opts := generator.Options{
+opts := pipeline.Options{
     Out:     "./internal/di",
     Package: "di",
 }
 opts.Finalize()
 
-gen := generator.New(cfg, opts)
-code, err := gen.Generate()
+code, err := pipeline.Generate(cfg, opts)
 ```
 
 ### Generated Container Usage

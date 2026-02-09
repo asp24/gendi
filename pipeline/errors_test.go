@@ -1,4 +1,4 @@
-package generator
+package pipeline_test
 
 import (
 	"errors"
@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"testing"
 
-	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/pipeline"
 	"github.com/asp24/gendi/yaml"
 )
 
@@ -100,21 +100,17 @@ func TestErrorCases(t *testing.T) {
 				t.Fatalf("unexpected load error: %v", err)
 			}
 
-			// Apply internal passes
-			cfg, err = di.ApplyInternalPasses(cfg)
-			if err != nil {
-				t.Fatalf("unexpected pass error: %v", err)
-			}
-
-			// Generate
-			opts := Options{
+			opts := pipeline.Options{
 				Package:    "main",
 				ModuleRoot: tmpDir,
+				Out:        tmpDir,
+				ModulePath: "test",
 			}
-			opts.Finalize()
+			if err := opts.Finalize(); err != nil {
+				t.Fatalf("finalize options: %v", err)
+			}
 
-			gen := New(opts)
-			_, err = gen.Generate(cfg)
+			_, err = pipeline.Generate(cfg, opts)
 
 			if tt.phase == "generate" {
 				if err == nil {
@@ -134,18 +130,15 @@ func TestErrorCases(t *testing.T) {
 	}
 }
 
-// prepareErrorTestDir creates a temporary test directory with go.mod for error tests
 func prepareErrorTestDir(t *testing.T, srcDir string) string {
 	t.Helper()
 
 	tmpDir := t.TempDir()
 
-	// Copy files from srcDir to tmpDir
 	if err := copyDir(srcDir, tmpDir, nil); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create go.mod
 	goModPath := filepath.Join(tmpDir, "go.mod")
 	moduleRoot, err := getModuleRoot()
 	if err != nil {
@@ -165,7 +158,6 @@ replace github.com/asp24/gendi => %s
 		t.Fatal(err)
 	}
 
-	// Create a stub main.go if it doesn't exist
 	mainGoPath := filepath.Join(tmpDir, "main.go")
 	if _, err := os.Stat(mainGoPath); errors.Is(err, os.ErrNotExist) {
 		if err := os.WriteFile(mainGoPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
@@ -176,7 +168,6 @@ replace github.com/asp24/gendi => %s
 	return tmpDir
 }
 
-// copyDir recursively copies a directory
 func copyDir(src, dst string, exclude []string) error {
 	entries, err := os.ReadDir(src)
 	if err != nil {
@@ -187,7 +178,6 @@ func copyDir(src, dst string, exclude []string) error {
 		srcPath := filepath.Join(src, entry.Name())
 		dstPath := filepath.Join(dst, entry.Name())
 
-		// Check if file is excluded
 		for _, ex := range exclude {
 			if entry.Name() == ex {
 				continue
@@ -210,7 +200,6 @@ func copyDir(src, dst string, exclude []string) error {
 	return nil
 }
 
-// copyFile copies a single file
 func copyFile(src, dst string) error {
 	data, err := os.ReadFile(src)
 	if err != nil {
@@ -219,9 +208,7 @@ func copyFile(src, dst string) error {
 	return os.WriteFile(dst, data, 0644)
 }
 
-// getModuleRoot returns the root directory of the gendi module
 func getModuleRoot() (string, error) {
-	// Walk up from current directory to find go.mod
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", err

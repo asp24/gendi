@@ -1,4 +1,4 @@
-package generator
+package pipeline
 
 import (
 	"errors"
@@ -44,8 +44,8 @@ func (o *Options) computeOutput(out string) (string, error) {
 }
 
 // Finalize resolves all autoconfiguration and validates required fields.
-// This consolidates all generator-specific "magic" in one place.
-// Call this before passing Options to New().
+// This consolidates all pipeline-specific "magic" in one place.
+// Call this before passing Options to Generate().
 func (o *Options) Finalize() error {
 	// 1. Validate required fields
 	if o.Out == "" {

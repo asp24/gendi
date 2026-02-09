@@ -10,8 +10,7 @@ import (
 
 	"golang.org/x/tools/imports"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/generator"
+	"github.com/asp24/gendi/pipeline"
 	"github.com/asp24/gendi/yaml"
 )
 
@@ -27,14 +26,8 @@ func runEmbeddedTest(t *testing.T, testName string, expectedOutput string, wantC
 		t.Fatalf("failed to load config: %v", err)
 	}
 
-	// Apply internal passes
-	cfg, err = di.ApplyInternalPasses(cfg)
-	if err != nil {
-		t.Fatalf("failed to apply internal passes: %v", err)
-	}
-
 	// Generate container code
-	opts := generator.Options{
+	opts := pipeline.Options{
 		Out:        tmpDir,
 		Package:    "main",
 		ModulePath: "test",
@@ -44,8 +37,7 @@ func runEmbeddedTest(t *testing.T, testName string, expectedOutput string, wantC
 		t.Fatalf("failed to finalize options: %v", err)
 	}
 
-	gen := generator.New(opts)
-	code, err := gen.Generate(cfg)
+	code, err := pipeline.Generate(cfg, opts)
 	if err != nil {
 		if wantCompileErr {
 			return // Expected error
