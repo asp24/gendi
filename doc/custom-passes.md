@@ -622,6 +622,7 @@ const (
     ArgParam
     ArgTagged
     ArgSpread
+    ArgGoRef
 )
 
 // Tag represents a tag definition

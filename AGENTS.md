@@ -123,6 +123,7 @@ Constructor arguments use special syntax:
 - `!tagged:tag.name` - Tagged services collection
 - `!spread:@service` - Spread slice into variadic parameters
 - `!spread:!tagged:tag` - Spread tagged collection into variadic parameters
+- `!go:pkg.Var` - Go package-level variable or constant (e.g., `!go:os.Stdout`, `!go:log.LstdFlags`)
 - `@service.Method` - Method constructor
 - `literal` - YAML scalar literal
 
@@ -181,6 +182,7 @@ Features:
 `$this` is replaced with the Go package path of the config file's directory:
 - In `type` field: `*$this.Logger` → `*github.com/user/app.Logger`
 - In `func` field: `$this.NewLogger` → `github.com/user/app.NewLogger`
+- In `!go:` args: `!go:$this.DefaultLevel` → `!go:github.com/user/app.DefaultLevel`
 - Eliminates repetitive package paths
 
 ## Testing Strategy

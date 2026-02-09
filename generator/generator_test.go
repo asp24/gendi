@@ -787,6 +787,92 @@ func TestSpreadWithTagged(t *testing.T) {
 	}
 }
 
+func TestGoRefArgument(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"writer": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewWriter",
+					Args: []di.Argument{
+						{Kind: di.ArgGoRef, Value: "os.Stdout"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(testOptions(t))
+	code, err := gen.Generate(cfg)
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	if !strings.Contains(out, "os.Stdout") {
+		t.Fatalf("expected os.Stdout in generated code, got:\n%s", out)
+	}
+	if !strings.Contains(out, "NewWriter(os.Stdout)") {
+		t.Fatalf("expected NewWriter(os.Stdout) call, got:\n%s", out)
+	}
+}
+
+func TestGoRefArgumentWithPackageLevelVar(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"logger": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+					Args: []di.Argument{
+						{Kind: di.ArgGoRef, Value: "github.com/asp24/gendi/generator/testdata/app.DefaultPrefix"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(testOptions(t))
+	code, err := gen.Generate(cfg)
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	if !strings.Contains(out, "app.DefaultPrefix") {
+		t.Fatalf("expected app.DefaultPrefix in generated code, got:\n%s", out)
+	}
+	if !strings.Contains(out, "NewLogger(app.DefaultPrefix)") {
+		t.Fatalf("expected NewLogger(app.DefaultPrefix) call, got:\n%s", out)
+	}
+}
+
+func TestGoRefArgumentTypeMismatch(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"logger": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+					Args: []di.Argument{
+						// os.Stdout is *os.File which implements io.Writer, but not string
+						{Kind: di.ArgGoRef, Value: "os.Stdout"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(testOptions(t))
+	_, err := gen.Generate(cfg)
+	if err == nil {
+		t.Fatal("expected type mismatch error")
+	}
+	if !strings.Contains(err.Error(), "not assignable") {
+		t.Fatalf("expected assignability error, got: %v", err)
+	}
+}
+
 func TestSpreadWithMixedArgs(t *testing.T) {
 	cfg, err := yaml.LoadConfig("testdata/spread/mixed_args.yaml")
 	if err != nil {

@@ -6,11 +6,14 @@ import (
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/srcloc"
+	"github.com/asp24/gendi/typeres"
 	"github.com/asp24/gendi/yaml"
 )
 
 // argResolver resolves constructor arguments
-type argResolver struct{}
+type argResolver struct {
+	typeResolver TypeResolver
+}
 
 // resolve resolves a single constructor argument
 func (r *argResolver) resolve(container *Container, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
@@ -103,6 +106,22 @@ func (r *argResolver) resolve(container *Container, svcID string, idx int, arg d
 
 		irArg.Kind = SpreadArg
 		irArg.Inner = innerResolved
+
+	case di.ArgGoRef:
+		pkgPath, name, _, err := typeres.SplitQualifiedNameWithTypeParams(arg.Value)
+		if err != nil {
+			return nil, srcloc.WrapError(arg.SourceLoc, fmt.Sprintf("service %q arg[%d]: invalid go reference %q", svcID, idx, arg.Value), err)
+		}
+		obj, err := r.typeResolver.LookupVar(pkgPath, name)
+		if err != nil {
+			return nil, srcloc.WrapError(arg.SourceLoc, fmt.Sprintf("service %q arg[%d]", svcID, idx), err)
+		}
+		if !types.AssignableTo(obj.Type(), paramType) {
+			return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: go reference %q type %s is not assignable to %s",
+				svcID, idx, arg.Value, obj.Type(), paramType)
+		}
+		irArg.Kind = GoRefArg
+		irArg.GoRef = &GoRef{Object: obj}
 
 	default: // Literal
 		// Validate that this is actually a literal argument

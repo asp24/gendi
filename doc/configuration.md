@@ -550,6 +550,16 @@ services:
       method: "@factory.CreateChild"  # → factory.CreateChild (no $this needed)
 ```
 
+**Use in `!go:` arguments:**
+```yaml
+services:
+  logger:
+    constructor:
+      func: "$this.NewLogger"
+      args:
+        - "!go:$this.DefaultLevel"  # → !go:github.com/myapp/log.DefaultLevel
+```
+
 **Benefits:**
 - Eliminates repetitive package paths
 - Makes configuration more portable
@@ -664,6 +674,7 @@ Constructor arguments support multiple syntaxes:
 | `!tagged:tag` | Tagged collection | `!tagged:handler` |
 | `!spread:@service` | Spread service slice | `!spread:@handlers` |
 | `!spread:!tagged:tag` | Spread tagged slice | `!spread:!tagged:middleware` |
+| `!go:pkg.Symbol` | Go package-level var/const | `!go:os.Stdout` |
 | `@service.Method` | Method constructor | `@factory.Create` |
 | `"string"` | String literal | `"localhost"` |
 | `123` | Integer literal | `8080` |

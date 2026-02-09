@@ -217,6 +217,26 @@ func findMatchingBracket(s string, start int) int {
 	return -1
 }
 
+// LookupVar looks up a package-level variable or constant by package path and name.
+func (r *Resolver) LookupVar(pkgPath, name string) (types.Object, error) {
+	pkg, err := r.cache.Get(pkgPath)
+	if err != nil {
+		return nil, err
+	}
+
+	obj := pkg.Scope().Lookup(name)
+	if obj == nil {
+		return nil, fmt.Errorf("symbol %s not found in %s", name, pkgPath)
+	}
+
+	switch obj.(type) {
+	case *types.Var, *types.Const:
+		return obj, nil
+	default:
+		return nil, fmt.Errorf("%s in %s is not a variable or constant", name, pkgPath)
+	}
+}
+
 // LookupMethod looks up a method on a type.
 func (r *Resolver) LookupMethod(recv types.Type, name string) (*types.Func, error) {
 	obj, _, _ := types.LookupFieldOrMethod(recv, true, nil, name)

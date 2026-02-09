@@ -41,6 +41,15 @@ func collectPackagePaths(cfg *di.Config) ([]string, error) {
 			pkgs := collectTypePackages(svc.Type)
 			addAll(pkgs)
 		}
+		// Collect packages from !go: argument references
+		for _, arg := range svc.Constructor.Args {
+			if arg.Kind == di.ArgGoRef {
+				pkg, _, _, err := typeres.SplitQualifiedNameWithTypeParams(arg.Value)
+				if err == nil {
+					add(pkg)
+				}
+			}
+		}
 	}
 	for _, param := range cfg.Parameters {
 		if param.Type != "" {

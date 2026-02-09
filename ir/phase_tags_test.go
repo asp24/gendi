@@ -216,6 +216,10 @@ func (m *mockResolver) InstantiateFunc(fn *types.Func, typeArgs []string) (*type
 	return nil, nil, nil
 }
 
+func (m *mockResolver) LookupVar(pkgPath, name string) (types.Object, error) {
+	return nil, nil
+}
+
 type autoconfigureTagResolver struct{}
 
 func (a *autoconfigureTagResolver) LookupType(typeStr string) (types.Type, error) {
@@ -237,4 +241,8 @@ func (a *autoconfigureTagResolver) LookupMethod(recv types.Type, name string) (*
 
 func (a *autoconfigureTagResolver) InstantiateFunc(fn *types.Func, typeArgs []string) (*types.Signature, []types.Type, error) {
 	return nil, nil, nil
+}
+
+func (a *autoconfigureTagResolver) LookupVar(pkgPath, name string) (types.Object, error) {
+	return nil, nil
 }
