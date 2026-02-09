@@ -8,7 +8,7 @@ import (
 
 // privateGetterRenderer renders a private getter function for a service.
 type privateGetterRenderer interface {
-	render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error
+	render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *GenContext, svc *serviceDef) error
 }
 
 // selectPrivateGetterRenderer chooses the appropriate renderer based on service properties.
@@ -28,7 +28,7 @@ func selectPrivateGetterRenderer(svc *serviceDef, resType types.Type) privateGet
 // aliasGetterRenderer renders a getter that delegates to an alias target.
 type aliasGetterRenderer struct{}
 
-func (g *aliasGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error {
+func (g *aliasGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *GenContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
 	getterTypeStr := rnd.importManager.typeString(svc.GetterType())
 
@@ -47,7 +47,7 @@ func (g *aliasGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ct
 // Uses the field directly for caching (nil check).
 type sharedPtrGetterRenderer struct{}
 
-func (g *sharedPtrGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error {
+func (g *sharedPtrGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, _ *GenContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
 	getterTypeStr := rnd.importManager.typeString(svc.GetterType())
 	fieldName := rnd.identGenerator.Field(svc.id)
@@ -67,7 +67,7 @@ func (g *sharedPtrGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer
 // Uses a separate Init flag for caching.
 type sharedValueGetterRenderer struct{}
 
-func (g *sharedValueGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error {
+func (g *sharedValueGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, _ *GenContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
 	getterTypeStr := rnd.importManager.typeString(svc.GetterType())
 	fieldName := rnd.identGenerator.Field(svc.id)
@@ -91,7 +91,7 @@ func (g *sharedValueGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRender
 // No caching - builds a new instance on every call.
 type nonSharedGetterRenderer struct{}
 
-func (g *nonSharedGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error {
+func (g *nonSharedGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, _ *GenContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
 	getterTypeStr := rnd.importManager.typeString(svc.GetterType())
 

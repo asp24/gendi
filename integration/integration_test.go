@@ -26,7 +26,7 @@ func runEmbeddedTest(t *testing.T, testName string, expectedOutput string, wantC
 		t.Fatalf("failed to load config: %v", err)
 	}
 
-	// Generate container code
+	// Emit container code
 	opts := pipeline.Options{
 		Out:        tmpDir,
 		Package:    "main",
@@ -37,7 +37,7 @@ func runEmbeddedTest(t *testing.T, testName string, expectedOutput string, wantC
 		t.Fatalf("failed to finalize options: %v", err)
 	}
 
-	code, err := pipeline.Generate(cfg, opts)
+	code, err := pipeline.Emit(cfg, opts)
 	if err != nil {
 		if wantCompileErr {
 			return // Expected error

@@ -5,47 +5,34 @@ import (
 	"testing"
 
 	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/generator"
 	"github.com/asp24/gendi/pipeline"
 )
 
-func testEmitOptions(t *testing.T) (pipeline.Options, generator.EmitOptions) {
+func testEmitOptions(t *testing.T) pipeline.Options {
 	t.Helper()
 	opts := pipeline.Options{Out: ".", Package: "di"}
 	if err := opts.Finalize(); err != nil {
 		t.Fatalf("finalize options: %v", err)
 	}
-	emitOpts := generator.EmitOptions{
-		Package:       opts.Package,
-		Container:     opts.Container,
-		OutputPkgPath: opts.OutputPkgPath,
-		BuildTags:     opts.BuildTags,
-	}
-	return opts, emitOpts
+
+	return opts
 }
 
 func generate(t *testing.T, cfg *di.Config) string {
 	t.Helper()
-	opts, emitOpts := testEmitOptions(t)
-	compiled, err := pipeline.Build(cfg, opts.ModuleRoot)
-	if err != nil {
-		t.Fatalf("build failed: %v", err)
-	}
-	code, err := generator.Emit(compiled.Config, compiled.IR, compiled.TypeResolver, emitOpts)
+
+	code, err := pipeline.Emit(cfg, testEmitOptions(t))
 	if err != nil {
 		t.Fatalf("emit failed: %v", err)
 	}
+
 	return string(code)
 }
 
 func generateErr(t *testing.T, cfg *di.Config) error {
 	t.Helper()
-	opts, emitOpts := testEmitOptions(t)
-	compiled, err := pipeline.Build(cfg, opts.ModuleRoot)
-	if err != nil {
-		return err
-	}
-	_, err = generator.Emit(compiled.Config, compiled.IR, compiled.TypeResolver, emitOpts)
+
+	_, err := pipeline.Emit(cfg, testEmitOptions(t))
 	return err
 }
 

@@ -39,7 +39,7 @@ func Generate(cfg Config, passes []di.Pass) error {
 		return fmt.Errorf("apply passes: %w", err)
 	}
 
-	code, err := pipeline.Generate(diCfg, cfg.Options)
+	code, err := pipeline.Emit(diCfg, cfg.Options)
 	if err != nil {
 		return fmt.Errorf("generate: %w", err)
 	}

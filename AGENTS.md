@@ -259,7 +259,7 @@ opts := pipeline.Options{
 }
 opts.Finalize()
 
-code, err := pipeline.Generate(cfg, opts)
+code, err := pipeline.Emit(cfg, opts)
 ```
 
 ### Generated Container Usage

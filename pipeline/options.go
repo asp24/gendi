@@ -45,7 +45,7 @@ func (o *Options) computeOutput(out string) (string, error) {
 
 // Finalize resolves all autoconfiguration and validates required fields.
 // This consolidates all pipeline-specific "magic" in one place.
-// Call this before passing Options to Generate().
+// Call this before passing Options to Emit().
 func (o *Options) Finalize() error {
 	// 1. Validate required fields
 	if o.Out == "" {

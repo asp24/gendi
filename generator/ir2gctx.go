@@ -60,7 +60,7 @@ func (b *IrConverter) convertService(irSvc *ir.Service, cfg *di.Config) *service
 	return svcDef
 }
 
-func (b *IrConverter) convert(irContainer *ir.Container, cfg *di.Config) (*genContext, error) {
+func (b *IrConverter) Convert(irContainer *ir.Container, cfg *di.Config) (*GenContext, error) {
 	services := make(map[string]*serviceDef)
 	// Convert IR services to serviceDef
 	for id, irSvc := range irContainer.Services {
@@ -68,7 +68,7 @@ func (b *IrConverter) convert(irContainer *ir.Container, cfg *di.Config) (*genCo
 		services[id] = svcDef
 	}
 
-	ctx := &genContext{
+	ctx := &GenContext{
 		services:          services,
 		orderedServiceIDs: irContainer.ServiceIDsPostOrder(),
 		paramGetters:      irContainer.ParamGetters(),

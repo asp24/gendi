@@ -35,7 +35,7 @@ func NewContainerRenderer(
 	}
 }
 
-func (r *ContainerRenderer) assignNames(ctx *genContext) error {
+func (r *ContainerRenderer) assignNames(ctx *GenContext) error {
 	if err := r.getterRegistry.Assign(ctx.orderedServiceIDs, ctx.services); err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func (r *ContainerRenderer) assignNames(ctx *genContext) error {
 	return nil
 }
 
-func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *genContext, hasParams bool) error {
+func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *GenContext, hasParams bool) error {
 	fmt.Fprintf(b, "type %s struct {\n", r.containerName)
 	fmt.Fprintf(b, "\tmu sync.Mutex\n")
 	fmt.Fprintf(b, "\tparams parameters.Provider\n")
@@ -100,7 +100,7 @@ func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *genConte
 	return nil
 }
 
-func (r *ContainerRenderer) renderBuildFunctions(b *bytes.Buffer, ctx *genContext) error {
+func (r *ContainerRenderer) renderBuildFunctions(b *bytes.Buffer, ctx *GenContext) error {
 	// Render build functions for each service
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
@@ -114,7 +114,7 @@ func (r *ContainerRenderer) renderBuildFunctions(b *bytes.Buffer, ctx *genContex
 	return nil
 }
 
-func (r *ContainerRenderer) renderGetterFunctions(b *bytes.Buffer, ctx *genContext) error {
+func (r *ContainerRenderer) renderGetterFunctions(b *bytes.Buffer, ctx *GenContext) error {
 	// Render private getters (includes desugared tag services)
 	for _, id := range ctx.orderedServiceIDs {
 		svc := ctx.services[id]
@@ -140,18 +140,18 @@ func (r *ContainerRenderer) renderGetterFunctions(b *bytes.Buffer, ctx *genConte
 	return nil
 }
 
-func (r *ContainerRenderer) renderBuild(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+func (r *ContainerRenderer) renderBuild(b *bytes.Buffer, ctx *GenContext, svc *serviceDef) error {
 	renderer := selectBuildRenderer(svc)
 	return renderer.render(b, r, ctx, svc)
 }
 
-func (r *ContainerRenderer) renderPrivateGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+func (r *ContainerRenderer) renderPrivateGetter(b *bytes.Buffer, ctx *GenContext, svc *serviceDef) error {
 	resType := svc.GetterType()
 	renderer := selectPrivateGetterRenderer(svc, resType)
 	return renderer.render(b, r, ctx, svc)
 }
 
-func (r *ContainerRenderer) renderGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+func (r *ContainerRenderer) renderGetter(b *bytes.Buffer, ctx *GenContext, svc *serviceDef) error {
 	getter := r.getterRegistry.PublicService(svc.id)
 	typeStr := r.importManager.typeString(svc.GetterType())
 
@@ -163,7 +163,7 @@ func (r *ContainerRenderer) renderGetter(b *bytes.Buffer, ctx *genContext, svc *
 	return nil
 }
 
-func (r *ContainerRenderer) renderMustGetter(b *bytes.Buffer, ctx *genContext, svc *serviceDef) error {
+func (r *ContainerRenderer) renderMustGetter(b *bytes.Buffer, ctx *GenContext, svc *serviceDef) error {
 	getter := r.getterRegistry.PublicService(svc.id)
 	mustGetter := r.getterRegistry.MustService(svc.id)
 	typeStr := r.importManager.typeString(svc.GetterType())
@@ -179,7 +179,7 @@ func (r *ContainerRenderer) renderMustGetter(b *bytes.Buffer, ctx *genContext, s
 	return nil
 }
 
-func (r *ContainerRenderer) constructorCall(ctx *genContext, svc *serviceDef, returnsErr bool) ([]string, string, error) {
+func (r *ContainerRenderer) constructorCall(ctx *GenContext, svc *serviceDef, returnsErr bool) ([]string, string, error) {
 	var stmts []string
 	var args []string
 	cons := svc.constructor
@@ -222,7 +222,7 @@ func (r *ContainerRenderer) constructorCall(ctx *genContext, svc *serviceDef, re
 	return stmts, fmt.Sprintf("%s.%s(%s)", recvExpr, cons.funcObj.Name(), strings.Join(args, ", ")), nil
 }
 
-func (r *ContainerRenderer) buildArg(ctx *genContext, svc *serviceDef, arg *ir.Argument, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
+func (r *ContainerRenderer) buildArg(ctx *GenContext, svc *serviceDef, arg *ir.Argument, returnsErr bool, argIndex int, paramType types.Type) (string, []string, error) {
 	builder := getArgumentBuilder(arg.Kind)
 	buildCtx := &argBuildContext{
 		rnd:        r,
@@ -240,7 +240,7 @@ func (r *ContainerRenderer) getterBuildExpr(svc *serviceDef) string {
 	return "c." + r.identGenerator.Build(svc.id) + "()"
 }
 
-func (r *ContainerRenderer) Render(cfg *di.Config, ctx *genContext, body *bytes.Buffer) error {
+func (r *ContainerRenderer) Render(cfg *di.Config, ctx *GenContext, body *bytes.Buffer) error {
 	r.importManager.ReserveAliases("sync", "fmt")
 
 	if err := r.assignNames(ctx); err != nil {

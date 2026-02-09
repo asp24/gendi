@@ -10,7 +10,7 @@ import (
 // buildFunctionRenderer renders a build function for a service.
 type buildFunctionRenderer interface {
 	buildSignature(rnd *ContainerRenderer, svc *serviceDef) (signature string)
-	render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error
+	render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *GenContext, svc *serviceDef) error
 }
 
 // selectBuildRenderer chooses the appropriate renderer based on service properties.
@@ -41,7 +41,7 @@ func (r *regularBuildRenderer) buildSignature(rnd *ContainerRenderer, svc *servi
 	return signature
 }
 
-func (r *regularBuildRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *genContext, svc *serviceDef) error {
+func (r *regularBuildRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, ctx *GenContext, svc *serviceDef) error {
 	signature := r.buildSignature(rnd, svc)
 	retType := rnd.importManager.typeString(svc.typeName)
 	returnsErr := buildNeedsErrorHandling(svc)

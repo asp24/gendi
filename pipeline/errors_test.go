@@ -110,7 +110,7 @@ func TestErrorCases(t *testing.T) {
 				t.Fatalf("finalize options: %v", err)
 			}
 
-			_, err = pipeline.Generate(cfg, opts)
+			_, err = pipeline.Emit(cfg, opts)
 
 			if tt.phase == "generate" {
 				if err == nil {

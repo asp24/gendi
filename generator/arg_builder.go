@@ -12,7 +12,7 @@ import (
 // argBuildContext bundles parameters for building constructor arguments.
 type argBuildContext struct {
 	rnd        *ContainerRenderer
-	genCtx     *genContext
+	genCtx     *GenContext
 	service    *serviceDef
 	argument   *ir.Argument
 	returnsErr bool
@@ -231,12 +231,12 @@ func (b *fieldAccessBuilder) build(ctx *argBuildContext) (string, []string, erro
 // This registry pattern allows adding new argument types without modifying lookup logic.
 // Note: TaggedArg is no longer needed as tags are desugared to services in the IR phase.
 var argumentBuilderRegistry = map[ir.ArgumentKind]argumentBuilder{
-	ir.ServiceRefArg:    &serviceRefBuilder{},
-	ir.ParamRefArg:      &paramRefBuilder{},
-	ir.LiteralArg:       &literalBuilder{},
-	ir.SpreadArg:        &spreadBuilder{},
-	ir.GoRefArg:         &goRefBuilder{},
-	ir.FieldAccessArg:   &fieldAccessBuilder{},
+	ir.ServiceRefArg:  &serviceRefBuilder{},
+	ir.ParamRefArg:    &paramRefBuilder{},
+	ir.LiteralArg:     &literalBuilder{},
+	ir.SpreadArg:      &spreadBuilder{},
+	ir.GoRefArg:       &goRefBuilder{},
+	ir.FieldAccessArg: &fieldAccessBuilder{},
 }
 
 // getArgumentBuilder returns the appropriate builder for the argument kind.
