@@ -9,6 +9,7 @@ import (
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/srcloc"
+	"github.com/asp24/gendi/typeres"
 )
 
 // Parser converts raw YAML structures to di.Config.
@@ -46,6 +47,7 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 		cfg.Parameters[name] = di.Parameter{
 			Type:      param.Type,
 			Value:     lit,
+			Packages:  typeres.CollectTypePackages(param.Type),
 			SourceLoc: srcloc.NewLocation(filePath, param.Node),
 		}
 	}
@@ -62,6 +64,7 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 			SortBy:        tag.SortBy,
 			Public:        tag.Public,
 			Autoconfigure: tag.Autoconfigure,
+			Packages:      typeres.CollectTypePackages(elementType),
 			SourceLoc:     srcloc.NewLocation(filePath, tag.Node),
 		}
 	}
@@ -186,6 +189,10 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 		}
 	}
 
+	// Populate Packages after $this substitution
+	svc.Packages = typeres.CollectTypePackages(svc.Type)
+	svc.Constructor.Packages = typeres.CollectFuncPackages(svc.Constructor.Func)
+
 	if len(raw.Constructor.Args) > 0 {
 		svc.Constructor.Args = make([]di.Argument, len(raw.Constructor.Args))
 		for i, arg := range raw.Constructor.Args {
@@ -198,8 +205,15 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 				converted.Value = strings.Replace(converted.Value, "$this.", thisPackage+".", 1)
 			}
 			// Substitute $this in !field:!go: argument values
-			if thisPackage != "" && converted.Kind == di.ArgFieldAccess && strings.Contains(converted.Value, "!go:") && strings.Contains(converted.Value, "$this.") {
+			if thisPackage != "" && converted.Kind == di.ArgFieldAccessGo && strings.Contains(converted.Value, "$this.") {
 				converted.Value = strings.Replace(converted.Value, "$this.", thisPackage+".", 1)
+			}
+			// Populate Packages after $this substitution
+			switch converted.Kind {
+			case di.ArgGoRef:
+				converted.Packages = typeres.CollectGoRefPackages(converted.Value)
+			case di.ArgFieldAccessGo:
+				converted.Packages = typeres.CollectFieldAccessGoPackages(converted.Value)
 			}
 			svc.Constructor.Args[i] = converted
 		}

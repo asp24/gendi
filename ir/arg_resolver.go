@@ -108,8 +108,20 @@ func (r *argResolver) resolve(container *Container, svcID string, idx int, arg d
 		irArg.Kind = SpreadArg
 		irArg.Inner = innerResolved
 
-	case di.ArgFieldAccess:
-		fa, err := r.resolveFieldAccess(container, svcID, idx, arg)
+	case di.ArgFieldAccessService:
+		fa, err := r.resolveFieldAccessOnService(container, svcID, idx, arg, arg.Value)
+		if err != nil {
+			return nil, err
+		}
+		if !types.AssignableTo(fa.ResultType, paramType) {
+			return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: field access result type %s is not assignable to %s",
+				svcID, idx, fa.ResultType, paramType)
+		}
+		irArg.Kind = FieldAccessArg
+		irArg.FieldAccess = fa
+
+	case di.ArgFieldAccessGo:
+		fa, err := r.resolveFieldAccessOnGoRef(svcID, idx, arg, arg.Value)
 		if err != nil {
 			return nil, err
 		}
@@ -150,21 +162,6 @@ func (r *argResolver) resolve(container *Container, svcID string, idx int, arg d
 	}
 
 	return irArg, nil
-}
-
-// resolveFieldAccess resolves a !field: argument to a FieldAccess struct.
-// The value can be either @service.Field.Chain or !go:pkg.Symbol.Field.Chain.
-func (r *argResolver) resolveFieldAccess(container *Container, svcID string, idx int, arg di.Argument) (*FieldAccess, error) {
-	value := arg.Value
-
-	switch {
-	case strings.HasPrefix(value, "@"):
-		return r.resolveFieldAccessOnService(container, svcID, idx, arg, value[1:])
-	case strings.HasPrefix(value, "!go:"):
-		return r.resolveFieldAccessOnGoRef(svcID, idx, arg, value[len("!go:"):])
-	default:
-		return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: !field: value must start with @ or !go:, got %q", svcID, idx, value)
-	}
 }
 
 // resolveFieldAccessOnService resolves !field:@service.Field.Chain.

@@ -885,8 +885,8 @@ func TestFieldAccessOnService(t *testing.T) {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewServerWithAddr",
 					Args: []di.Argument{
-						{Kind: di.ArgFieldAccess, Value: "@config.Host"},
-						{Kind: di.ArgFieldAccess, Value: "@config.Port"},
+						{Kind: di.ArgFieldAccessService, Value: "config.Host"},
+						{Kind: di.ArgFieldAccessService, Value: "config.Port"},
 					},
 				},
 				Public: true,
@@ -921,7 +921,7 @@ func TestFieldAccessNested(t *testing.T) {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
-						{Kind: di.ArgFieldAccess, Value: "@config.Database.DSN"},
+						{Kind: di.ArgFieldAccessService, Value: "config.Database.DSN"},
 					},
 				},
 				Public: true,
@@ -948,7 +948,7 @@ func TestFieldAccessOnGoRef(t *testing.T) {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
 					Args: []di.Argument{
-						{Kind: di.ArgFieldAccess, Value: "!go:net/http.DefaultClient.Timeout"},
+						{Kind: di.ArgFieldAccessGo, Value: "net/http.DefaultClient.Timeout"},
 					},
 				},
 				Public: true,
@@ -981,7 +981,7 @@ func TestFieldAccessTypeMismatch(t *testing.T) {
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
 					Args: []di.Argument{
 						// config.Host is string, but NewTimer expects time.Duration
-						{Kind: di.ArgFieldAccess, Value: "@config.Host"},
+						{Kind: di.ArgFieldAccessService, Value: "config.Host"},
 					},
 				},
 				Public: true,
@@ -1011,7 +1011,7 @@ func TestFieldAccessUnknownField(t *testing.T) {
 				Constructor: di.Constructor{
 					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
-						{Kind: di.ArgFieldAccess, Value: "@config.NonExistentField"},
+						{Kind: di.ArgFieldAccessService, Value: "config.NonExistentField"},
 					},
 				},
 				Public: true,
