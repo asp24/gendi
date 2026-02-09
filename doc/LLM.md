@@ -20,10 +20,12 @@ Constructor args:
 - `!spread:@service` spread slice into variadic
 - `!spread:!tagged:tag` spread tagged collection into variadic
 - `!go:pkg.Symbol` Go package-level var/const (e.g. `!go:os.Stdout`)
+- `!field:@service.Field` field access on service (e.g. `!field:@config.Host`)
+- `!field:!go:pkg.Symbol.Field` field access on Go symbol (e.g. `!field:!go:http.DefaultClient.Timeout`)
 - `@service.Method` method constructor
 - literal scalars (string/int/float/bool/null)
 
-`$this.` in `type`, `func`, `method` fields and `!go:` arguments resolves to the Go package path of the config file.
+`$this.` in `type`, `func`, `method` fields, `!go:` arguments, and `!field:!go:` arguments resolves to the Go package path of the config file.
 
 Imports support `exclude`:
 ```yaml

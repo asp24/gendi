@@ -800,6 +800,189 @@ func TestThisSubstitutionInTagElementTypeNoPackage(t *testing.T) {
 	}
 }
 
+func TestConvertLiteralTypes(t *testing.T) {
+	p := NewParser()
+
+	tests := []struct {
+		name    string
+		node    yaml.Node
+		wantErr string
+	}{
+		{
+			name: "float",
+			node: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!float", Value: "3.14"},
+		},
+		{
+			name: "bool",
+			node: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "true"},
+		},
+		{
+			name: "null",
+			node: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!null"},
+		},
+		{
+			name:    "unsupported",
+			node:    yaml.Node{Kind: yaml.ScalarNode, Tag: "!!binary", Value: "data"},
+			wantErr: "unsupported literal type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.convertLiteral(&tt.node)
+			if tt.wantErr != "" {
+				if err == nil || !contains(err.Error(), tt.wantErr) {
+					t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestConvertConfigWithDirAndFile(t *testing.T) {
+	p := NewParser()
+
+	t.Run("parameter_missing_type", func(t *testing.T) {
+		raw := &RawConfig{
+			Parameters: map[string]RawParameter{
+				"bad": {Value: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "x"}},
+			},
+		}
+		_, err := p.ConvertConfigWithDirAndFile(raw, "", "")
+		if err == nil || !contains(err.Error(), "type is required") {
+			t.Fatalf("expected 'type is required' error, got: %v", err)
+		}
+	})
+
+	t.Run("parameter_bad_literal", func(t *testing.T) {
+		raw := &RawConfig{
+			Parameters: map[string]RawParameter{
+				"bad": {Type: "int", Value: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!binary", Value: "x"}},
+			},
+		}
+		_, err := p.ConvertConfigWithDirAndFile(raw, "", "")
+		if err == nil {
+			t.Fatal("expected error for bad literal type")
+		}
+	})
+
+	t.Run("parameter_ok", func(t *testing.T) {
+		raw := &RawConfig{
+			Parameters: map[string]RawParameter{
+				"host": {Type: "string", Value: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "localhost"}},
+			},
+		}
+		cfg, err := p.ConvertConfigWithDirAndFile(raw, "", "")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.Parameters["host"].Type != "string" {
+			t.Fatal("expected parameter 'host' with type string")
+		}
+	})
+
+	t.Run("default_applied_to_services", func(t *testing.T) {
+		raw := &RawConfig{
+			Services: map[string]*RawService{
+				"_default": {Shared: boolPtr(false)},
+				"svc": {
+					Constructor: RawConstructor{Func: "pkg.New"},
+				},
+			},
+		}
+		cfg, err := p.ConvertConfigWithDirAndFile(raw, "", "")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.Services["svc"].Shared != false {
+			t.Fatal("expected shared=false from _default")
+		}
+		if _, ok := cfg.Services["_default"]; ok {
+			t.Fatal("_default should not appear in output services")
+		}
+	})
+
+	t.Run("default_invalid", func(t *testing.T) {
+		raw := &RawConfig{
+			Services: map[string]*RawService{
+				"_default": {Type: "bad"},
+			},
+		}
+		_, err := p.ConvertConfigWithDirAndFile(raw, "", "")
+		if err == nil || !contains(err.Error(), "_default") {
+			t.Fatalf("expected _default error, got: %v", err)
+		}
+	})
+
+	t.Run("service_convert_error", func(t *testing.T) {
+		badNode := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!binary", Value: "x"}
+		raw := &RawConfig{
+			Services: map[string]*RawService{
+				"bad": {
+					Constructor: RawConstructor{
+						Args: []RawArgument{{Node: badNode}},
+					},
+				},
+			},
+		}
+		_, err := p.ConvertConfigWithDirAndFile(raw, "", "")
+		if err == nil {
+			t.Fatal("expected service conversion error")
+		}
+	})
+}
+
+func TestConvertArgumentEmpty(t *testing.T) {
+	p := NewParser()
+	_, err := p.convertArgument(&RawArgument{})
+	if err == nil || !contains(err.Error(), "must have a value") {
+		t.Fatalf("expected 'must have a value' error, got: %v", err)
+	}
+}
+
+func TestThisSubstitutionInGoAndFieldArgs(t *testing.T) {
+	p := NewParser()
+
+	t.Run("go_ref_this", func(t *testing.T) {
+		goVal := "!go:$this.DefaultLevel"
+		raw := &RawService{
+			Constructor: RawConstructor{
+				Func: "pkg.New",
+				Args: []RawArgument{{Value: &goVal}},
+			},
+		}
+		svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/app", "")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if svc.Constructor.Args[0].Value != "github.com/app.DefaultLevel" {
+			t.Fatalf("expected substituted go ref, got: %s", svc.Constructor.Args[0].Value)
+		}
+	})
+
+	t.Run("field_go_ref_this", func(t *testing.T) {
+		fieldVal := "!field:!go:$this.DefaultCfg.Host"
+		raw := &RawService{
+			Constructor: RawConstructor{
+				Func: "pkg.New",
+				Args: []RawArgument{{Value: &fieldVal}},
+			},
+		}
+		svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/app", "")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		expected := "!go:github.com/app.DefaultCfg.Host"
+		if svc.Constructor.Args[0].Value != expected {
+			t.Fatalf("expected %q, got: %q", expected, svc.Constructor.Args[0].Value)
+		}
+	})
+}
+
 func TestTagAutoconfigureParsed(t *testing.T) {
 	raw := &RawConfig{
 		Tags: map[string]RawTag{

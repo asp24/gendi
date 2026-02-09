@@ -136,6 +136,7 @@ const (
 	ArgTagged
 	ArgSpread
 	ArgGoRef
+	ArgFieldAccess
 )
 
 // Argument represents a constructor argument.

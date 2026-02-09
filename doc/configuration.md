@@ -560,6 +560,16 @@ services:
         - "!go:$this.DefaultLevel"  # → !go:github.com/myapp/log.DefaultLevel
 ```
 
+**Use in `!field:!go:` arguments:**
+```yaml
+services:
+  server:
+    constructor:
+      func: "$this.NewServer"
+      args:
+        - "!field:!go:$this.DefaultConfig.Host"  # → !field:!go:github.com/myapp.DefaultConfig.Host
+```
+
 **Benefits:**
 - Eliminates repetitive package paths
 - Makes configuration more portable
@@ -675,6 +685,8 @@ Constructor arguments support multiple syntaxes:
 | `!spread:@service` | Spread service slice | `!spread:@handlers` |
 | `!spread:!tagged:tag` | Spread tagged slice | `!spread:!tagged:middleware` |
 | `!go:pkg.Symbol` | Go package-level var/const | `!go:os.Stdout` |
+| `!field:@service.Field` | Service field access | `!field:@config.Host` |
+| `!field:!go:pkg.Symbol.Field` | Go symbol field access | `!field:!go:http.DefaultClient.Timeout` |
 | `@service.Method` | Method constructor | `@factory.Create` |
 | `"string"` | String literal | `"localhost"` |
 | `123` | Integer literal | `8080` |

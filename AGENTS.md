@@ -124,6 +124,8 @@ Constructor arguments use special syntax:
 - `!spread:@service` - Spread slice into variadic parameters
 - `!spread:!tagged:tag` - Spread tagged collection into variadic parameters
 - `!go:pkg.Var` - Go package-level variable or constant (e.g., `!go:os.Stdout`, `!go:log.LstdFlags`)
+- `!field:@service.Field` - Field access on a service (e.g., `!field:@config.Host`, `!field:@config.Database.DSN`)
+- `!field:!go:pkg.Symbol.Field` - Field access on a Go package-level variable (e.g., `!field:!go:http.DefaultClient.Timeout`)
 - `@service.Method` - Method constructor
 - `literal` - YAML scalar literal
 
@@ -183,6 +185,7 @@ Features:
 - In `type` field: `*$this.Logger` → `*github.com/user/app.Logger`
 - In `func` field: `$this.NewLogger` → `github.com/user/app.NewLogger`
 - In `!go:` args: `!go:$this.DefaultLevel` → `!go:github.com/user/app.DefaultLevel`
+- In `!field:!go:` args: `!field:!go:$this.DefaultConfig.Host` → `!field:!go:github.com/user/app.DefaultConfig.Host`
 - Eliminates repetitive package paths
 
 ## Testing Strategy

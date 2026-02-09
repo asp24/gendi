@@ -27,6 +27,10 @@ func (r *dependencyBuilderPhase) collectDependencies(arg *Argument, deps map[str
 		}
 		// Note: TaggedArg is not handled here because it's already desugared to ServiceRefArg
 		// by the time this phase runs.
+	case FieldAccessArg:
+		if arg.FieldAccess != nil && arg.FieldAccess.Service != nil {
+			deps[arg.FieldAccess.Service.ID] = arg.FieldAccess.Service
+		}
 	}
 }
 

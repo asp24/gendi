@@ -873,6 +873,162 @@ func TestGoRefArgumentTypeMismatch(t *testing.T) {
 	}
 }
 
+func TestFieldAccessOnService(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"config": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.LoadConfig",
+				},
+			},
+			"server": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServerWithAddr",
+					Args: []di.Argument{
+						{Kind: di.ArgFieldAccess, Value: "@config.Host"},
+						{Kind: di.ArgFieldAccess, Value: "@config.Port"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(testOptions(t))
+	code, err := gen.Generate(cfg)
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	if !strings.Contains(out, ".Host") {
+		t.Fatalf("expected .Host field access in generated code, got:\n%s", out)
+	}
+	if !strings.Contains(out, ".Port") {
+		t.Fatalf("expected .Port field access in generated code, got:\n%s", out)
+	}
+}
+
+func TestFieldAccessNested(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"config": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.LoadConfig",
+				},
+			},
+			"logger": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+					Args: []di.Argument{
+						{Kind: di.ArgFieldAccess, Value: "@config.Database.DSN"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(testOptions(t))
+	code, err := gen.Generate(cfg)
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	if !strings.Contains(out, ".Database.DSN") {
+		t.Fatalf("expected .Database.DSN field access in generated code, got:\n%s", out)
+	}
+}
+
+func TestFieldAccessOnGoRef(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"timer": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
+					Args: []di.Argument{
+						{Kind: di.ArgFieldAccess, Value: "!go:net/http.DefaultClient.Timeout"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(testOptions(t))
+	code, err := gen.Generate(cfg)
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+	out := string(code)
+
+	if !strings.Contains(out, "http.DefaultClient.Timeout") {
+		t.Fatalf("expected http.DefaultClient.Timeout in generated code, got:\n%s", out)
+	}
+}
+
+func TestFieldAccessTypeMismatch(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"config": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.LoadConfig",
+				},
+			},
+			"timer": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
+					Args: []di.Argument{
+						// config.Host is string, but NewTimer expects time.Duration
+						{Kind: di.ArgFieldAccess, Value: "@config.Host"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(testOptions(t))
+	_, err := gen.Generate(cfg)
+	if err == nil {
+		t.Fatal("expected type mismatch error")
+	}
+	if !strings.Contains(err.Error(), "not assignable") {
+		t.Fatalf("expected assignability error, got: %v", err)
+	}
+}
+
+func TestFieldAccessUnknownField(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"config": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.LoadConfig",
+				},
+			},
+			"logger": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+					Args: []di.Argument{
+						{Kind: di.ArgFieldAccess, Value: "@config.NonExistentField"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	gen := New(testOptions(t))
+	_, err := gen.Generate(cfg)
+	if err == nil {
+		t.Fatal("expected unknown field error")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("expected 'not found' error, got: %v", err)
+	}
+}
+
 func TestSpreadWithMixedArgs(t *testing.T) {
 	cfg, err := yaml.LoadConfig("testdata/spread/mixed_args.yaml")
 	if err != nil {

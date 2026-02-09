@@ -184,15 +184,59 @@ func (b *goRefBuilder) build(ctx *argBuildContext) (string, []string, error) {
 	return alias + "." + obj.Name(), nil, nil
 }
 
+// fieldAccessBuilder handles field access arguments on services or Go symbols
+type fieldAccessBuilder struct{}
+
+func (b *fieldAccessBuilder) build(ctx *argBuildContext) (string, []string, error) {
+	fa := ctx.argument.FieldAccess
+	fieldChain := strings.Join(fa.FieldNames, ".")
+
+	if fa.Service != nil {
+		// Service target: fetch service, then access field chain
+		dep := ctx.genCtx.services[fa.Service.ID]
+		if dep == nil {
+			return "", nil, fmt.Errorf("unknown service %q", fa.Service.ID)
+		}
+
+		call := fmt.Sprintf("c.%s()", dep.privateGetterName)
+		depVar := ctx.rnd.identGenerator.Var(fmt.Sprintf("arg%d", ctx.argIndex), dep.id)
+		if ctx.returnsErr {
+			stmts := []string{
+				fmt.Sprintf("%s, err := %s", depVar, call),
+				serviceArgError(ctx.service.id, ctx.argIndex),
+			}
+			return depVar + "." + fieldChain, stmts, nil
+		}
+		stmts := []string{fmt.Sprintf("%s, _ := %s", depVar, call)}
+		return depVar + "." + fieldChain, stmts, nil
+	}
+
+	if fa.GoRef != nil {
+		// Go symbol target: static expression
+		obj := fa.GoRef.Object
+		alias := ctx.rnd.importManager.qualifier(obj.Pkg())
+		var base string
+		if alias == "" {
+			base = obj.Name()
+		} else {
+			base = alias + "." + obj.Name()
+		}
+		return base + "." + fieldChain, nil, nil
+	}
+
+	return "", nil, fmt.Errorf("field access has neither service nor go ref target")
+}
+
 // argumentBuilderRegistry maps argument kinds to their builder implementations.
 // This registry pattern allows adding new argument types without modifying lookup logic.
 // Note: TaggedArg is no longer needed as tags are desugared to services in the IR phase.
 var argumentBuilderRegistry = map[ir.ArgumentKind]argumentBuilder{
-	ir.ServiceRefArg: &serviceRefBuilder{},
-	ir.ParamRefArg:   &paramRefBuilder{},
-	ir.LiteralArg:    &literalBuilder{},
-	ir.SpreadArg:     &spreadBuilder{},
-	ir.GoRefArg:      &goRefBuilder{},
+	ir.ServiceRefArg:    &serviceRefBuilder{},
+	ir.ParamRefArg:      &paramRefBuilder{},
+	ir.LiteralArg:       &literalBuilder{},
+	ir.SpreadArg:        &spreadBuilder{},
+	ir.GoRefArg:         &goRefBuilder{},
+	ir.FieldAccessArg:   &fieldAccessBuilder{},
 }
 
 // getArgumentBuilder returns the appropriate builder for the argument kind.

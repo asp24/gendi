@@ -186,13 +186,22 @@ type Argument struct {
 	Parameter *Parameter   // For ParamRef
 	Tag       *Tag         // For Tagged
 	Literal   LiteralValue // For Literal
-	Inner     *Argument    // For Spread (wraps another argument)
-	GoRef     *GoRef       // For GoRef
+	Inner       *Argument    // For Spread (wraps another argument)
+	GoRef       *GoRef       // For GoRef
+	FieldAccess *FieldAccess // For FieldAccess
 }
 
 // GoRef holds a reference to a package-level variable or constant.
 type GoRef struct {
 	Object types.Object // *types.Var or *types.Const
+}
+
+// FieldAccess holds a field access expression on a service or Go symbol.
+type FieldAccess struct {
+	Service    *Service  // Non-nil for @service targets
+	GoRef      *GoRef    // Non-nil for !go: targets
+	FieldNames []string  // Field chain, e.g. ["Database", "DSN"]
+	ResultType types.Type // Type of the final field
 }
 
 // ArgumentKind indicates the type of argument.
@@ -205,6 +214,7 @@ const (
 	TaggedArg
 	SpreadArg
 	GoRefArg
+	FieldAccessArg
 )
 
 // LiteralValue holds a typed literal value.

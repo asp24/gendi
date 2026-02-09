@@ -1,0 +1,12 @@
+services:
+  config:
+    constructor:
+      func: "test.LoadConfig"
+
+  server:
+    constructor:
+      func: "test.NewServer"
+      args:
+        - "!field:@config.Host"
+        - "!field:@config.Database.DSN"
+    public: true
