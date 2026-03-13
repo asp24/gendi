@@ -174,7 +174,7 @@ Pre-configured services for common stdlib types (HTTP clients, loggers, channels
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib
+  - github.com/asp24/gendi/stdlib/gendi.yaml
 
 services:
   my_service:

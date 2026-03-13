@@ -8,7 +8,7 @@ Import the stdlib services in your gendi configuration:
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib
+  - github.com/asp24/gendi/stdlib/gendi.yaml
 ```
 
 This imports pre-configured services for HTTP clients, loggers, and I/O.
@@ -17,7 +17,7 @@ This imports pre-configured services for HTTP clients, loggers, and I/O.
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib
+  - github.com/asp24/gendi/stdlib/gendi.yaml
 
 services:
   my_service:
@@ -302,7 +302,7 @@ Override default parameters in your configuration:
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib
+  - github.com/asp24/gendi/stdlib/gendi.yaml
 
 parameters:
   # Override HTTP timeout
@@ -446,7 +446,7 @@ services:
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib
+  - github.com/asp24/gendi/stdlib/gendi.yaml
 
 parameters:
   stdlib.http.timeout:
@@ -465,7 +465,7 @@ services:
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib
+  - github.com/asp24/gendi/stdlib/gendi.yaml
 
 parameters:
   stdlib.slog.level:
@@ -503,7 +503,7 @@ services:
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib
+  - github.com/asp24/gendi/stdlib/gendi.yaml
 
 parameters:
   stdlib.http.timeout:

@@ -2,7 +2,7 @@
 #
 # Import this file in your gendi.yaml:
 #   imports:
-#     - "github.com/asp24/gendi/stdlib"
+#     - "github.com/asp24/gendi/stdlib/gendi.yaml"
 #
 # Then reference services like @stdlib.http_client or use
 # the factories directly in your own service definitions.
