@@ -344,6 +344,8 @@ tags:
 
 ### Tagged Services
 
+Each tag entry is either a string (shorthand for `{name: "..."}`) or a mapping with `name` and optional attributes:
+
 ```yaml
 services:
   handler1:
@@ -359,6 +361,12 @@ services:
     tags:
       - name: "handler"
         priority: 200
+
+  handler3:
+    constructor:
+      func: "github.com/myapp.NewHandler3"
+    tags:
+      - "handler"  # string shorthand — no attributes
 
   server:
     constructor:

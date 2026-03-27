@@ -25,6 +25,12 @@ services:
         priority: 100
 ```
 
+Tags support a string shorthand — a plain string is equivalent to `{name: "..."}`:
+```yaml
+    tags:
+      - payment.provider          # same as {name: payment.provider}
+```
+
 Only explicitly declared tags can be public.
 
 Supported fields on tag declarations:

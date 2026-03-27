@@ -140,7 +140,7 @@ Decorators wrap existing services using `@.inner` reference. Multiple decorators
 
 ### Tagged Injection
 
-Services can be tagged and collected as `[]ElementType`. Tags support:
+Services can be tagged and collected as `[]ElementType`. Tag entries can be a string (shorthand for `{name: "..."}`) or a mapping with `name` and attributes. Tags support:
 - Optional `element_type` (inferred from usage if omitted, required when public)
 - Sorting by attribute (e.g., `sort_by: "priority"`)
 - Public getters when `public: true`

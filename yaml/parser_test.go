@@ -346,6 +346,50 @@ services:
 	}
 }
 
+func TestServiceTagStringShorthand(t *testing.T) {
+	yamlContent := `
+services:
+  test.service:
+    type: string
+    tags:
+      - marker.tag
+      - name: handler.http
+        priority: 10
+`
+
+	var raw RawConfig
+	if err := yaml.Unmarshal([]byte(yamlContent), &raw); err != nil {
+		t.Fatalf("failed to unmarshal YAML: %v", err)
+	}
+
+	svc, ok := raw.Services["test.service"]
+	if !ok {
+		t.Fatal("service 'test.service' not found")
+	}
+
+	if len(svc.Tags) != 2 {
+		t.Fatalf("expected 2 tags, got %d", len(svc.Tags))
+	}
+
+	// First tag: string shorthand
+	tag1 := svc.Tags[0]
+	if tag1.Name != "marker.tag" {
+		t.Errorf("expected tag name 'marker.tag', got '%s'", tag1.Name)
+	}
+	if len(tag1.Attributes) != 0 {
+		t.Errorf("expected no attributes, got %v", tag1.Attributes)
+	}
+
+	// Second tag: map syntax
+	tag2 := svc.Tags[1]
+	if tag2.Name != "handler.http" {
+		t.Errorf("expected tag name 'handler.http', got '%s'", tag2.Name)
+	}
+	if priority, ok := tag2.Attributes["priority"].(int); !ok || priority != 10 {
+		t.Errorf("expected priority=10, got %v", tag2.Attributes["priority"])
+	}
+}
+
 func TestValidateDefaultsRejectsInvalidFields(t *testing.T) {
 	tests := []struct {
 		name        string

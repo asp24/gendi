@@ -15,12 +15,13 @@ services:
     decorates: other.service
     decoration_priority: 10
     tags:
+      - tag.name                  # string shorthand (name only, no attributes)
       - name: tag.name
         priority: 10              # any field except 'name' becomes an attribute
         custom_field: value
 ```
 
-Service tags are a list of mappings. Each tag must include `name`. Other fields are stored as tag attributes.
+Service tags are a list. Each entry is either a string (shorthand for `{name: "..."}`) or a mapping with `name` and optional attributes.
 
 ## Service Defaults (`_default`)
 

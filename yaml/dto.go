@@ -121,8 +121,21 @@ func (t *RawServiceTag) UnmarshalYAML(node *yaml.Node) error {
 	// Preserve node for location tracking
 	t.Node = node
 
+	if node.Kind == yaml.ScalarNode {
+		var name string
+		if err := node.Decode(&name); err != nil {
+			return fmt.Errorf("failed to decode tag name: %w", err)
+		}
+		if name == "" {
+			return fmt.Errorf("tag name is required")
+		}
+		t.Name = name
+		t.Attributes = make(map[string]interface{})
+		return nil
+	}
+
 	if node.Kind != yaml.MappingNode {
-		return fmt.Errorf("tag must be a mapping")
+		return fmt.Errorf("tag must be a string or mapping")
 	}
 
 	t.Attributes = make(map[string]interface{})
