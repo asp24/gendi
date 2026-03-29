@@ -240,11 +240,10 @@ var argumentBuilderRegistry = map[ir.ArgumentKind]argumentBuilder{
 }
 
 // getArgumentBuilder returns the appropriate builder for the argument kind.
-// Returns a literal builder as default for unknown argument kinds.
 func getArgumentBuilder(kind ir.ArgumentKind) argumentBuilder {
-	if builder, ok := argumentBuilderRegistry[kind]; ok {
-		return builder
+	builder, ok := argumentBuilderRegistry[kind]
+	if !ok {
+		panic(fmt.Sprintf("no argument builder registered for kind %d", kind))
 	}
-	// Default to literal builder for unknown kinds
-	return &literalBuilder{}
+	return builder
 }
