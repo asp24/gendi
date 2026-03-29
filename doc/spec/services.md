@@ -87,6 +87,7 @@ Rules:
 - `@.inner` is only available inside decorators
 - Decorators are ordered by `decoration_priority`
 - Decorator type must be compatible with the decorated service type
+- The decorator does not inherit tags of the decorated base service
 
 ## Aliases
 

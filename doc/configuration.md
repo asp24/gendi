@@ -312,6 +312,7 @@ services:
 - Multiple decorators on same service are ordered by `decoration_priority` (descending)
 - Service ID of decorator becomes the alias after decoration
 - Original service is renamed to `<decorator>.inner`
+- The decorator does not inherit tags of the decorated base service
 
 ## Tags
 
