@@ -82,12 +82,12 @@ func (i *RawImport) UnmarshalYAML(node *yaml.Node) error {
 			return err
 		}
 		if decoded.Path == "" {
-			return fmt.Errorf("import path is required")
+			return nodeErrorf(node, "import path is required")
 		}
 		*i = RawImport(decoded)
 		return nil
 	default:
-		return fmt.Errorf("import must be a string or mapping")
+		return nodeErrorf(node, "import must be a string or mapping")
 	}
 }
 
@@ -120,25 +120,23 @@ type RawServiceTag struct {
 func (t *RawServiceTag) UnmarshalYAML(node *yaml.Node) error {
 	// Preserve node for location tracking
 	t.Node = node
+	t.Attributes = make(map[string]interface{})
 
 	if node.Kind == yaml.ScalarNode {
 		var name string
 		if err := node.Decode(&name); err != nil {
-			return fmt.Errorf("failed to decode tag name: %w", err)
+			return wrapNodeError(node, "failed to decode tag name", err)
 		}
 		if name == "" {
-			return fmt.Errorf("tag name is required")
+			return nodeErrorf(node, "tag name is required")
 		}
 		t.Name = name
-		t.Attributes = make(map[string]interface{})
 		return nil
 	}
 
 	if node.Kind != yaml.MappingNode {
-		return fmt.Errorf("tag must be a string or mapping")
+		return nodeErrorf(node, "tag must be a string or mapping")
 	}
-
-	t.Attributes = make(map[string]interface{})
 
 	// Iterate over key-value pairs in the mapping
 	for i := 0; i < len(node.Content); i += 2 {
@@ -150,20 +148,20 @@ func (t *RawServiceTag) UnmarshalYAML(node *yaml.Node) error {
 		if key == "name" {
 			// Decode name field
 			if err := valueNode.Decode(&t.Name); err != nil {
-				return fmt.Errorf("failed to decode tag name: %w", err)
+				return wrapNodeError(node, "failed to decode tag name", err)
 			}
 		} else {
 			// All other fields are attributes
 			var value interface{}
 			if err := valueNode.Decode(&value); err != nil {
-				return fmt.Errorf("failed to decode tag attribute %q: %w", key, err)
+				return wrapNodeError(valueNode, fmt.Sprintf("failed to decode tag attribute %q", key), err)
 			}
 			t.Attributes[key] = value
 		}
 	}
 
 	if t.Name == "" {
-		return fmt.Errorf("tag name is required")
+		return nodeErrorf(node, "tag name is required")
 	}
 
 	return nil
@@ -211,7 +209,7 @@ func (s *RawService) UnmarshalYAML(node *yaml.Node) error {
 		s.Node = node
 		return nil
 	default:
-		return fmt.Errorf("service must be a mapping or alias")
+		return nodeErrorf(node, "service must be a mapping or alias")
 	}
 }
 

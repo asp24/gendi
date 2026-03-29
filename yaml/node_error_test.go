@@ -79,3 +79,113 @@ func TestWrapNodeError(t *testing.T) {
 		t.Error("Err should be inner")
 	}
 }
+
+func TestRawImport_UnmarshalYAML_NodeError(t *testing.T) {
+	tests := []struct {
+		name     string
+		yaml     string
+		wantMsg  string
+		wantLine int
+	}{
+		{
+			name:     "missing path in mapping",
+			yaml:     "exclude:\n  - foo",
+			wantMsg:  "import path is required",
+			wantLine: 1,
+		},
+		{
+			name:     "wrong node type",
+			yaml:     "[1, 2]",
+			wantMsg:  "import must be a string or mapping",
+			wantLine: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var node yaml.Node
+			if err := yaml.Unmarshal([]byte(tt.yaml), &node); err != nil {
+				t.Fatal(err)
+			}
+			var imp RawImport
+			err := imp.UnmarshalYAML(node.Content[0])
+
+			var ne *NodeError
+			if !errors.As(err, &ne) {
+				t.Fatalf("expected NodeError, got %T: %v", err, err)
+			}
+			if ne.Msg != tt.wantMsg {
+				t.Errorf("Msg = %q, want %q", ne.Msg, tt.wantMsg)
+			}
+			if ne.Node.Line != tt.wantLine {
+				t.Errorf("Line = %d, want %d", ne.Node.Line, tt.wantLine)
+			}
+		})
+	}
+}
+
+func TestRawService_UnmarshalYAML_NodeError(t *testing.T) {
+	yamlInput := "[1, 2]"
+	var node yaml.Node
+	if err := yaml.Unmarshal([]byte(yamlInput), &node); err != nil {
+		t.Fatal(err)
+	}
+	var svc RawService
+	err := svc.UnmarshalYAML(node.Content[0])
+
+	var ne *NodeError
+	if !errors.As(err, &ne) {
+		t.Fatalf("expected NodeError, got %T: %v", err, err)
+	}
+	if ne.Msg != "service must be a mapping or alias" {
+		t.Errorf("Msg = %q", ne.Msg)
+	}
+}
+
+func TestRawServiceTag_UnmarshalYAML_NodeError(t *testing.T) {
+	tests := []struct {
+		name     string
+		yaml     string
+		wantMsg  string
+		wantLine int
+	}{
+		{
+			name:     "empty scalar name",
+			yaml:     `""`,
+			wantMsg:  "tag name is required",
+			wantLine: 1,
+		},
+		{
+			name:     "wrong node type",
+			yaml:     "[1, 2]",
+			wantMsg:  "tag must be a string or mapping",
+			wantLine: 1,
+		},
+		{
+			name:     "missing name in mapping",
+			yaml:     "priority: 10",
+			wantMsg:  "tag name is required",
+			wantLine: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var node yaml.Node
+			if err := yaml.Unmarshal([]byte(tt.yaml), &node); err != nil {
+				t.Fatal(err)
+			}
+			var tag RawServiceTag
+			err := tag.UnmarshalYAML(node.Content[0])
+
+			var ne *NodeError
+			if !errors.As(err, &ne) {
+				t.Fatalf("expected NodeError, got %T: %v", err, err)
+			}
+			if ne.Msg != tt.wantMsg {
+				t.Errorf("Msg = %q, want %q", ne.Msg, tt.wantMsg)
+			}
+			if ne.Node.Line != tt.wantLine {
+				t.Errorf("Line = %d, want %d", ne.Node.Line, tt.wantLine)
+			}
+		})
+	}
+}
