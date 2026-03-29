@@ -106,12 +106,20 @@ func (c *Container) buildServerPrefixed() (*app.PrefixedServer, error) {
 }
 
 func (c *Container) buildServerRef() (*app.Server, error) {
-	arg0_all_handlers, _ := c.getAllHandlers()
+	var zero *app.Server
+	arg0_all_handlers, err := c.getAllHandlers()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "server.ref", '\x00', err)
+	}
 	return app.NewServer(arg0_all_handlers...), nil
 }
 
 func (c *Container) buildServerTagged() (*app.Server, error) {
-	arg0___tagged_with_handler, _ := c.getTaggedWithHandler()
+	var zero *app.Server
+	arg0___tagged_with_handler, err := c.getTaggedWithHandler()
+	if err != nil {
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "server.tagged", '\x00', err)
+	}
 	return app.NewServer(arg0___tagged_with_handler...), nil
 }
 
