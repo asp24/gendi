@@ -164,6 +164,10 @@ func LoadConfig() *AppConfig {
 	}
 }
 
+func LoadConfigWithError() (*AppConfig, error) {
+	return LoadConfig(), nil
+}
+
 func NewServerWithAddr(host string, port int) *Server {
 	return &Server{}
 }

@@ -912,6 +912,36 @@ func TestFieldAccessOnService(t *testing.T) {
 	}
 }
 
+func TestFieldAccessOnServicePropagatesDependencyErrors(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"config": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.LoadConfigWithError",
+				},
+			},
+			"server": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+					Args: []di.Argument{
+						{Kind: di.ArgFieldAccessService, Value: "config.Host"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	out := generate(t, cfg)
+
+	if !strings.Contains(out, ", err := c.getConfig()") {
+		t.Fatalf("expected field access to propagate config getter errors, got:\n%s", out)
+	}
+	if strings.Contains(out, ", _ := c.getConfig()") {
+		t.Fatalf("expected field access to avoid discarding config getter errors, got:\n%s", out)
+	}
+}
+
 func TestFieldAccessNested(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{
