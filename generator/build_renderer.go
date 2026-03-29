@@ -18,13 +18,29 @@ func selectBuildRenderer(svc *serviceDef) buildFunctionRenderer {
 	return &regularBuildRenderer{}
 }
 
+func argNeedsErrorHandling(arg *ir.Argument) bool {
+	if arg == nil {
+		return false
+	}
+
+	switch arg.Kind {
+	case ir.ServiceRefArg, ir.TaggedArg, ir.ParamRefArg:
+		return true
+	case ir.FieldAccessArg:
+		return arg.FieldAccess != nil && arg.FieldAccess.Service != nil
+	case ir.SpreadArg:
+		return argNeedsErrorHandling(arg.Inner)
+	default:
+		return false
+	}
+}
+
 func buildNeedsErrorHandling(svc *serviceDef) bool {
 	if svc.constructor.returnsError || svc.constructor.kind == "method" {
 		return true
 	}
 	for _, arg := range svc.constructor.argDefs {
-		switch arg.Kind {
-		case ir.ServiceRefArg, ir.TaggedArg, ir.ParamRefArg:
+		if argNeedsErrorHandling(arg) {
 			return true
 		}
 	}
