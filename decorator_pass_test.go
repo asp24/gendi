@@ -155,6 +155,61 @@ func TestDecoratorPassChain(t *testing.T) {
 	}
 }
 
+func TestDecoratorPassEqualPriorityUsesIDTieBreak(t *testing.T) {
+	cfg := &Config{
+		Services: map[string]Service{
+			"base": {
+				Constructor: Constructor{
+					Func: "app.NewBase",
+				},
+			},
+			"decorator.a": {
+				Decorates:          "base",
+				DecorationPriority: 10,
+				Constructor: Constructor{
+					Func: "app.NewDecoratorA",
+					Args: []Argument{{Kind: ArgInner}},
+				},
+			},
+			"decorator.b": {
+				Decorates:          "base",
+				DecorationPriority: 10,
+				Constructor: Constructor{
+					Func: "app.NewDecoratorB",
+					Args: []Argument{{Kind: ArgInner}},
+				},
+			},
+		},
+	}
+
+	pass := &DecoratorPass{}
+	result, err := pass.Process(cfg)
+	if err != nil {
+		t.Fatalf("DecoratorPass failed: %v", err)
+	}
+
+	baseSvc := result.Services["base"]
+	if baseSvc.Alias != "decorator.b" {
+		t.Fatalf("expected base to be alias to lexicographically later outer decorator, got: %q", baseSvc.Alias)
+	}
+
+	decA := result.Services["decorator.a"]
+	if len(decA.Constructor.Args) != 1 {
+		t.Fatalf("expected decorator.a to have 1 arg")
+	}
+	if decA.Constructor.Args[0].Value != "decorator.a.inner" {
+		t.Fatalf("expected decorator.a to reference its inner service first, got: %q", decA.Constructor.Args[0].Value)
+	}
+
+	decB := result.Services["decorator.b"]
+	if len(decB.Constructor.Args) != 1 {
+		t.Fatalf("expected decorator.b to have 1 arg")
+	}
+	if decB.Constructor.Args[0].Value != "decorator.a" {
+		t.Fatalf("expected decorator.b to wrap decorator.a on equal priority tie, got: %q", decB.Constructor.Args[0].Value)
+	}
+}
+
 func TestDecoratorPassSharedPropagation(t *testing.T) {
 	cfg := &Config{
 		Services: map[string]Service{

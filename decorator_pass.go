@@ -91,13 +91,18 @@ func (p *DecoratorPass) buildState(cfg *Config) (*decoratorPassState, error) {
 		state.decoratorToPriority[id] = svc.DecorationPriority
 	}
 
-	// Sort decorators by priority (lower priority first, stable sort by ID)
+	// Sort decorators by priority, then by ID for deterministic tie-breaking.
 	for baseID, decs := range state.baseToDecorators {
 		if len(decs) <= 1 {
 			continue
 		}
-		sort.SliceStable(decs, func(i, j int) bool {
-			return state.decoratorToPriority[decs[i]] < state.decoratorToPriority[decs[j]]
+		sort.Slice(decs, func(i, j int) bool {
+			pi := state.decoratorToPriority[decs[i]]
+			pj := state.decoratorToPriority[decs[j]]
+			if pi != pj {
+				return pi < pj
+			}
+			return decs[i] < decs[j]
 		})
 		state.baseToDecorators[baseID] = decs
 	}
