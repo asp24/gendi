@@ -3,6 +3,7 @@ package di
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // DecoratorPass transforms decorator services into plain services and aliases.
@@ -74,6 +75,9 @@ func (p *DecoratorPass) buildState(cfg *Config) (*decoratorPassState, error) {
 	}
 
 	for id, svc := range cfg.Services {
+		if strings.HasSuffix(id, ".inner") {
+			return nil, fmt.Errorf("service ID %q cannot use reserved .inner suffix", id)
+		}
 		if svc.Decorates == "" {
 			continue
 		}

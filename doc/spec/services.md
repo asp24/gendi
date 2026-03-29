@@ -23,6 +23,9 @@ services:
 
 Service tags are a list. Each entry is either a string (shorthand for `{name: "..."}`) or a mapping with `name` and optional attributes.
 
+Service ID rules:
+- User-defined service IDs must not end with `.inner`; that suffix is reserved for decorator expansion internals
+
 ## Service Defaults (`_default`)
 
 `_default` sets default values for `shared`, `public`, and `autoconfigure`:

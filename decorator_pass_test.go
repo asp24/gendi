@@ -452,3 +452,24 @@ func TestDecoratorPassRejectsSpreadInner(t *testing.T) {
 		t.Fatalf("expected unsupported spread-inner error, got: %v", err)
 	}
 }
+
+func TestDecoratorPassRejectsReservedInnerSuffixServiceID(t *testing.T) {
+	cfg := &Config{
+		Services: map[string]Service{
+			"decorator.inner": {
+				Constructor: Constructor{
+					Func: "app.NewInner",
+				},
+			},
+		},
+	}
+
+	pass := &DecoratorPass{}
+	_, err := pass.Process(cfg)
+	if err == nil {
+		t.Fatalf("expected error for reserved .inner suffix")
+	}
+	if !strings.Contains(err.Error(), "cannot use reserved .inner suffix") {
+		t.Fatalf("expected reserved .inner suffix error, got: %v", err)
+	}
+}
