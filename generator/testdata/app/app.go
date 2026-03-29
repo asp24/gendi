@@ -123,6 +123,10 @@ func GetAllHandlers(a, b *HandlerA) []Handler {
 	return []Handler{a, b}
 }
 
+func GetAllHandlersWithError(a, b *HandlerA) ([]Handler, error) {
+	return GetAllHandlers(a, b), nil
+}
+
 // Server with variadic handlers parameter
 type Server struct {
 	Handlers []Handler

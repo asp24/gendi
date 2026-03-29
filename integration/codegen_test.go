@@ -705,6 +705,45 @@ func TestSpreadWithServiceRef(t *testing.T) {
 	}
 }
 
+func TestSpreadWithServiceRefPropagatesDependencyErrors(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"handler.a": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerA",
+				},
+			},
+			"all_handlers": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.GetAllHandlersWithError",
+					Args: []di.Argument{
+						{Kind: di.ArgServiceRef, Value: "handler.a"},
+						{Kind: di.ArgServiceRef, Value: "handler.a"},
+					},
+				},
+			},
+			"server": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServer",
+					Args: []di.Argument{
+						{Kind: di.ArgSpread, Value: "@all_handlers"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	out := generate(t, cfg)
+
+	if !strings.Contains(out, ", err := c.getAllHandlers()") {
+		t.Fatalf("expected spread arg to propagate all_handlers getter errors, got:\n%s", out)
+	}
+	if strings.Contains(out, ", _ := c.getAllHandlers()") {
+		t.Fatalf("expected spread arg to avoid discarding all_handlers getter errors, got:\n%s", out)
+	}
+}
+
 func TestSpreadWithTagged(t *testing.T) {
 	cfg := &di.Config{
 		Tags: map[string]di.Tag{
