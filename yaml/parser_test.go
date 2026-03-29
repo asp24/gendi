@@ -15,9 +15,9 @@ func TestParseServiceAlias(t *testing.T) {
 		Alias: "@foo",
 	}
 	p := NewParser()
-	svc, err := p.convertService(raw, nil)
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "", "")
 	if err != nil {
-		t.Fatalf("convertService failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 	if svc.Alias != "foo" {
 		t.Errorf("expected alias 'foo', got '%s'", svc.Alias)
@@ -29,9 +29,9 @@ func TestParseServiceAliasDirect(t *testing.T) {
 		Alias: "foo", // direct ID, no @
 	}
 	p := NewParser()
-	svc, err := p.convertService(raw, nil)
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "", "")
 	if err != nil {
-		t.Fatalf("convertService failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 	if svc.Alias != "foo" {
 		t.Errorf("expected alias 'foo', got '%s'", svc.Alias)
@@ -44,9 +44,9 @@ func TestParseArgumentReference(t *testing.T) {
 		Value: &val,
 	}
 	p := NewParser()
-	arg, err := p.convertArgument(raw)
+	arg, err := p.convertArgumentWithFile(raw, "")
 	if err != nil {
-		t.Fatalf("convertArgument failed: %v", err)
+		t.Fatalf("convertArgumentWithFile failed: %v", err)
 	}
 	if arg.Kind != di.ArgServiceRef {
 		t.Errorf("expected kind ArgServiceRef, got %v", arg.Kind)
@@ -62,9 +62,9 @@ func TestParseArgumentLiteralString(t *testing.T) {
 		Value: &val,
 	}
 	p := NewParser()
-	arg, err := p.convertArgument(raw)
+	arg, err := p.convertArgumentWithFile(raw, "")
 	if err != nil {
-		t.Fatalf("convertArgument failed: %v", err)
+		t.Fatalf("convertArgumentWithFile failed: %v", err)
 	}
 	if arg.Kind != di.ArgLiteral {
 		t.Errorf("expected kind ArgLiteral, got %v", arg.Kind)
@@ -84,9 +84,9 @@ func TestParseArgumentLiteralNode(t *testing.T) {
 		Node: &node,
 	}
 	p := NewParser()
-	arg, err := p.convertArgument(raw)
+	arg, err := p.convertArgumentWithFile(raw, "")
 	if err != nil {
-		t.Fatalf("convertArgument failed: %v", err)
+		t.Fatalf("convertArgumentWithFile failed: %v", err)
 	}
 	if arg.Kind != di.ArgLiteral {
 		t.Errorf("expected kind ArgLiteral, got %v", arg.Kind)
@@ -206,9 +206,9 @@ func TestServiceDefaults(t *testing.T) {
 	p := NewParser()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, err := p.convertService(tt.service, tt.defaults)
+			svc, err := p.convertServiceWithPackageAndFile(tt.service, tt.defaults, "", "")
 			if err != nil {
-				t.Fatalf("convertService failed: %v", err)
+				t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 			}
 
 			if svc.Shared != resolveBoolPtr(tt.expectedShared) {
@@ -242,9 +242,9 @@ func TestServiceTagFlattened(t *testing.T) {
 	}
 
 	p := NewParser()
-	svc, err := p.convertService(raw, nil)
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "", "")
 	if err != nil {
-		t.Fatalf("convertService failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 
 	if len(svc.Tags) != 1 {
@@ -278,9 +278,9 @@ func TestServiceTagOnlyName(t *testing.T) {
 	}
 
 	p := NewParser()
-	svc, err := p.convertService(raw, nil)
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "", "")
 	if err != nil {
-		t.Fatalf("convertService failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 
 	if len(svc.Tags) != 1 {
@@ -528,9 +528,9 @@ func TestThisSubstitutionInFunc(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
 	if err != nil {
-		t.Fatalf("convertServiceWithPackage failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 
 	expected := "github.com/example/app.NewService"
@@ -547,9 +547,9 @@ func TestThisSubstitutionInMethod(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
 	if err != nil {
-		t.Fatalf("convertServiceWithPackage failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 
 	expected := "github.com/example/app.@service.Method"
@@ -567,9 +567,9 @@ func TestThisSubstitutionNoPackage(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	svc, err := p.convertServiceWithPackage(raw, nil, "")
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "", "")
 	if err != nil {
-		t.Fatalf("convertServiceWithPackage failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 
 	// Should remain unchanged when thisPackage is empty
@@ -587,9 +587,9 @@ func TestThisSubstitutionNotAtStart(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
 	if err != nil {
-		t.Fatalf("convertServiceWithPackage failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 
 	// Should remain unchanged since $this is not at the start
@@ -605,9 +605,9 @@ func TestThisSubstitutionNoConstructor(t *testing.T) {
 		Alias: "@other",
 	}
 	p := NewParser()
-	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
 	if err != nil {
-		t.Fatalf("convertServiceWithPackage failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 
 	// Should not crash, constructor fields should be empty
@@ -627,9 +627,9 @@ func TestThisSubstitutionInType(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
 	if err != nil {
-		t.Fatalf("convertServiceWithPackage failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 
 	expected := "github.com/example/app.Logger"
@@ -646,9 +646,9 @@ func TestThisSubstitutionInTypePointer(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
 	if err != nil {
-		t.Fatalf("convertServiceWithPackage failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 
 	// Should substitute $this even with pointer prefix
@@ -666,9 +666,9 @@ func TestThisSubstitutionInTypeSlice(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
 	if err != nil {
-		t.Fatalf("convertServiceWithPackage failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 
 	expected := "[]github.com/example/app.Logger"
@@ -685,9 +685,9 @@ func TestThisSubstitutionInTypeMap(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
 	if err != nil {
-		t.Fatalf("convertServiceWithPackage failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 
 	expected := "map[string]github.com/example/app.Logger"
@@ -705,9 +705,9 @@ func TestThisSubstitutionInTypeAndFunc(t *testing.T) {
 		},
 	}
 	p := NewParser()
-	svc, err := p.convertServiceWithPackage(raw, nil, "github.com/example/app")
+	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
 	if err != nil {
-		t.Fatalf("convertServiceWithPackage failed: %v", err)
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
 	}
 
 	expectedType := "github.com/example/app.Logger"
@@ -982,7 +982,7 @@ func TestConvertConfigWithDirAndFile(t *testing.T) {
 
 func TestConvertArgumentEmpty(t *testing.T) {
 	p := NewParser()
-	_, err := p.convertArgument(&RawArgument{})
+	_, err := p.convertArgumentWithFile(&RawArgument{}, "")
 	if err == nil || !contains(err.Error(), "must have a value") {
 		t.Fatalf("expected 'must have a value' error, got: %v", err)
 	}

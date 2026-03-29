@@ -98,14 +98,6 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 	return cfg, nil
 }
 
-func (p *Parser) convertService(raw *RawService, defaults *ServiceDefaults) (di.Service, error) {
-	return p.convertServiceWithPackage(raw, defaults, "")
-}
-
-func (p *Parser) convertServiceWithPackage(raw *RawService, defaults *ServiceDefaults, thisPackage string) (di.Service, error) {
-	return p.convertServiceWithPackageAndFile(raw, defaults, thisPackage, "")
-}
-
 func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *ServiceDefaults, thisPackage string, filePath string) (di.Service, error) {
 	// Apply defaults if not explicitly set
 	defaultShared := true
@@ -220,10 +212,6 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 	}
 
 	return svc, nil
-}
-
-func (p *Parser) convertArgument(raw *RawArgument) (di.Argument, error) {
-	return p.convertArgumentWithFile(raw, "")
 }
 
 func (p *Parser) convertArgumentWithFile(raw *RawArgument, filePath string) (di.Argument, error) {
