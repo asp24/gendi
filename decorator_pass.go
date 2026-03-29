@@ -85,6 +85,9 @@ func (p *DecoratorPass) buildState(cfg *Config) (*decoratorPassState, error) {
 		if base.Decorates != "" {
 			return nil, fmt.Errorf("decorator %q cannot be decorated", svc.Decorates)
 		}
+		if err := p.validateDecoratorArgs(id, svc.Constructor.Args); err != nil {
+			return nil, err
+		}
 
 		state.decoratorToBase[id] = svc.Decorates
 		state.baseToDecorators[svc.Decorates] = append(state.baseToDecorators[svc.Decorates], id)
@@ -108,6 +111,16 @@ func (p *DecoratorPass) buildState(cfg *Config) (*decoratorPassState, error) {
 	}
 
 	return state, nil
+}
+
+func (p *DecoratorPass) validateDecoratorArgs(decoratorID string, args []Argument) error {
+	for i, arg := range args {
+		if arg.Kind == ArgSpread && arg.Value == "@.inner" {
+			return fmt.Errorf("decorator %q arg[%d]: !spread:@.inner is not supported; use @.inner directly", decoratorID, i)
+		}
+	}
+
+	return nil
 }
 
 func (p *DecoratorPass) expandOne(cfg *Config, baseID, decoratorID string) error {

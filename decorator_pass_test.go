@@ -422,3 +422,33 @@ func TestDecoratorPassMultipleArgsWithInner(t *testing.T) {
 		t.Fatalf("expected third arg to be %%timeout%%")
 	}
 }
+
+func TestDecoratorPassRejectsSpreadInner(t *testing.T) {
+	cfg := &Config{
+		Services: map[string]Service{
+			"base": {
+				Constructor: Constructor{
+					Func: "app.NewBase",
+				},
+			},
+			"decorator": {
+				Decorates: "base",
+				Constructor: Constructor{
+					Func: "app.NewDecorator",
+					Args: []Argument{
+						{Kind: ArgSpread, Value: "@.inner"},
+					},
+				},
+			},
+		},
+	}
+
+	pass := &DecoratorPass{}
+	_, err := pass.Process(cfg)
+	if err == nil {
+		t.Fatalf("expected error for !spread:@.inner")
+	}
+	if !strings.Contains(err.Error(), "!spread:@.inner is not supported") {
+		t.Fatalf("expected unsupported spread-inner error, got: %v", err)
+	}
+}

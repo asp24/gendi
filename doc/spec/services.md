@@ -85,6 +85,7 @@ service.decorator:
 Rules:
 - Base getter returns the outermost decorator
 - `@.inner` is only available inside decorators
+- `@.inner` must be used as a direct argument; forms like `!spread:@.inner` are invalid
 - Decorators are ordered by `decoration_priority`
 - Decorator type must be compatible with the decorated service type
 - The decorator does not inherit tags of the decorated base service

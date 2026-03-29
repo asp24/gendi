@@ -1125,6 +1125,36 @@ func TestDecoratorOnAlias(t *testing.T) {
 	}
 }
 
+func TestDecoratorSpreadInnerRejected(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"svc": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+				},
+				Public: true,
+			},
+			"svc.decorator": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
+					Args: []di.Argument{
+						{Kind: di.ArgSpread, Value: "@.inner"},
+					},
+				},
+				Decorates: "svc",
+			},
+		},
+	}
+
+	err := generateErr(t, cfg)
+	if err == nil {
+		t.Fatal("expected unsupported !spread:@.inner error")
+	}
+	if !strings.Contains(err.Error(), "!spread:@.inner is not supported") {
+		t.Fatalf("expected unsupported spread-inner error, got: %v", err)
+	}
+}
+
 func TestDecoratorWithPublicTagHasPrivateGetter(t *testing.T) {
 	cfg := &di.Config{
 		Tags: map[string]di.Tag{

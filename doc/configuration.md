@@ -646,6 +646,8 @@ services:
     decorates: base_service
 ```
 
+`@.inner` must be passed directly as an argument. Composed forms such as `!spread:@.inner` are invalid.
+
 ### Spread Operator
 
 Unpack slices into variadic parameters using `!spread:`:
