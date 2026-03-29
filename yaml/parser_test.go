@@ -3,6 +3,7 @@ package yaml
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -467,7 +468,7 @@ func TestValidateDefaultsRejectsInvalidFields(t *testing.T) {
 			} else {
 				if err == nil {
 					t.Errorf("expected error containing %q, got nil", tt.expectError)
-				} else if !contains(err.Error(), tt.expectError) {
+				} else if !strings.Contains(err.Error(), tt.expectError) {
 					t.Errorf("expected error containing %q, got: %v", tt.expectError, err)
 				}
 			}
@@ -487,360 +488,143 @@ func resolveBoolPtr(b *bool) bool {
 	return *b
 }
 
-func boolPtrEqual(a, b *bool) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	return *a == *b
-}
 
-func boolPtrStr(b *bool) string {
-	if b == nil {
-		return "nil"
-	}
-	if *b {
-		return "true"
-	}
-	return "false"
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && s[:len(substr)] == substr || len(s) > len(substr) && findSubstr(s, substr)
-}
-
-func findSubstr(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
-func TestThisSubstitutionInFunc(t *testing.T) {
-	raw := &RawService{
-		Type: "string",
-		Constructor: RawConstructor{
-			Func: "$this.NewService",
+func TestThisSubstitutionInConstructor(t *testing.T) {
+	tests := []struct {
+		name       string
+		raw        *RawService
+		thisPkg    string
+		wantFunc   string
+		wantMethod string
+	}{
+		{
+			name:     "func substituted",
+			raw:      &RawService{Type: "string", Constructor: RawConstructor{Func: "$this.NewService"}},
+			thisPkg:  "github.com/example/app",
+			wantFunc: "github.com/example/app.NewService",
+		},
+		{
+			name:       "method substituted",
+			raw:        &RawService{Type: "string", Constructor: RawConstructor{Method: "$this.@service.Method"}},
+			thisPkg:    "github.com/example/app",
+			wantMethod: "github.com/example/app.@service.Method",
+		},
+		{
+			name:     "no package leaves $this unchanged",
+			raw:      &RawService{Type: "string", Constructor: RawConstructor{Func: "$this.NewService"}},
+			thisPkg:  "",
+			wantFunc: "$this.NewService",
+		},
+		{
+			name:     "$this not at start stays unchanged",
+			raw:      &RawService{Type: "string", Constructor: RawConstructor{Func: "github.com/other/$this.NewService"}},
+			thisPkg:  "github.com/example/app",
+			wantFunc: "github.com/other/$this.NewService",
+		},
+		{
+			name:    "alias has no constructor",
+			raw:     &RawService{Alias: "@other"},
+			thisPkg: "github.com/example/app",
+		},
+		{
+			name:     "both type and func substituted",
+			raw:      &RawService{Type: "$this.Logger", Constructor: RawConstructor{Func: "$this.NewLogger"}},
+			thisPkg:  "github.com/example/app",
+			wantFunc: "github.com/example/app.NewLogger",
 		},
 	}
+
 	p := NewParser()
-	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
-	if err != nil {
-		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
-	}
-
-	expected := "github.com/example/app.NewService"
-	if svc.Constructor.Func != expected {
-		t.Errorf("expected constructor func '%s', got '%s'", expected, svc.Constructor.Func)
-	}
-}
-
-func TestThisSubstitutionInMethod(t *testing.T) {
-	raw := &RawService{
-		Type: "string",
-		Constructor: RawConstructor{
-			Method: "$this.@service.Method",
-		},
-	}
-	p := NewParser()
-	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
-	if err != nil {
-		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
-	}
-
-	expected := "github.com/example/app.@service.Method"
-	if svc.Constructor.Method != expected {
-		t.Errorf("expected constructor method '%s', got '%s'", expected, svc.Constructor.Method)
-	}
-}
-
-func TestThisSubstitutionNoPackage(t *testing.T) {
-	// When no package is provided, $this should remain unchanged
-	raw := &RawService{
-		Type: "string",
-		Constructor: RawConstructor{
-			Func: "$this.NewService",
-		},
-	}
-	p := NewParser()
-	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "", "")
-	if err != nil {
-		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
-	}
-
-	// Should remain unchanged when thisPackage is empty
-	if svc.Constructor.Func != "$this.NewService" {
-		t.Errorf("expected constructor func '$this.NewService', got '%s'", svc.Constructor.Func)
-	}
-}
-
-func TestThisSubstitutionNotAtStart(t *testing.T) {
-	// $this should only be substituted when at the start
-	raw := &RawService{
-		Type: "string",
-		Constructor: RawConstructor{
-			Func: "github.com/other/$this.NewService",
-		},
-	}
-	p := NewParser()
-	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
-	if err != nil {
-		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
-	}
-
-	// Should remain unchanged since $this is not at the start
-	expected := "github.com/other/$this.NewService"
-	if svc.Constructor.Func != expected {
-		t.Errorf("expected constructor func '%s', got '%s'", expected, svc.Constructor.Func)
-	}
-}
-
-func TestThisSubstitutionNoConstructor(t *testing.T) {
-	// Test with alias (no constructor)
-	raw := &RawService{
-		Alias: "@other",
-	}
-	p := NewParser()
-	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
-	if err != nil {
-		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
-	}
-
-	// Should not crash, constructor fields should be empty
-	if svc.Constructor.Func != "" {
-		t.Errorf("expected empty constructor func, got '%s'", svc.Constructor.Func)
-	}
-	if svc.Constructor.Method != "" {
-		t.Errorf("expected empty constructor method, got '%s'", svc.Constructor.Method)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, err := p.convertServiceWithPackageAndFile(tt.raw, nil, tt.thisPkg, "")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.wantFunc != "" && svc.Constructor.Func != tt.wantFunc {
+				t.Errorf("Func = %q, want %q", svc.Constructor.Func, tt.wantFunc)
+			}
+			if tt.wantMethod != "" && svc.Constructor.Method != tt.wantMethod {
+				t.Errorf("Method = %q, want %q", svc.Constructor.Method, tt.wantMethod)
+			}
+		})
 	}
 }
 
 func TestThisSubstitutionInType(t *testing.T) {
-	raw := &RawService{
-		Type: "$this.Logger",
-		Constructor: RawConstructor{
-			Func: "example.com/pkg.NewLogger",
-		},
+	tests := []struct {
+		name     string
+		typ      string
+		wantType string
+	}{
+		{"plain", "$this.Logger", "github.com/example/app.Logger"},
+		{"pointer", "*$this.Logger", "*github.com/example/app.Logger"},
+		{"slice", "[]$this.Logger", "[]github.com/example/app.Logger"},
+		{"map value", "map[string]$this.Logger", "map[string]github.com/example/app.Logger"},
 	}
+
 	p := NewParser()
-	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
-	if err != nil {
-		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
-	}
-
-	expected := "github.com/example/app.Logger"
-	if svc.Type != expected {
-		t.Errorf("expected type '%s', got '%s'", expected, svc.Type)
-	}
-}
-
-func TestThisSubstitutionInTypePointer(t *testing.T) {
-	raw := &RawService{
-		Type: "*$this.Logger",
-		Constructor: RawConstructor{
-			Func: "example.com/pkg.NewLogger",
-		},
-	}
-	p := NewParser()
-	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
-	if err != nil {
-		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
-	}
-
-	// Should substitute $this even with pointer prefix
-	expected := "*github.com/example/app.Logger"
-	if svc.Type != expected {
-		t.Errorf("expected type '%s', got '%s'", expected, svc.Type)
-	}
-}
-
-func TestThisSubstitutionInTypeSlice(t *testing.T) {
-	raw := &RawService{
-		Type: "[]$this.Logger",
-		Constructor: RawConstructor{
-			Func: "example.com/pkg.NewLoggers",
-		},
-	}
-	p := NewParser()
-	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
-	if err != nil {
-		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
-	}
-
-	expected := "[]github.com/example/app.Logger"
-	if svc.Type != expected {
-		t.Errorf("expected type '%s', got '%s'", expected, svc.Type)
-	}
-}
-
-func TestThisSubstitutionInTypeMap(t *testing.T) {
-	raw := &RawService{
-		Type: "map[string]$this.Logger",
-		Constructor: RawConstructor{
-			Func: "example.com/pkg.NewLoggerMap",
-		},
-	}
-	p := NewParser()
-	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
-	if err != nil {
-		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
-	}
-
-	expected := "map[string]github.com/example/app.Logger"
-	if svc.Type != expected {
-		t.Errorf("expected type '%s', got '%s'", expected, svc.Type)
-	}
-}
-
-func TestThisSubstitutionInTypeAndFunc(t *testing.T) {
-	// Test that both type and func are substituted
-	raw := &RawService{
-		Type: "$this.Logger",
-		Constructor: RawConstructor{
-			Func: "$this.NewLogger",
-		},
-	}
-	p := NewParser()
-	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
-	if err != nil {
-		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
-	}
-
-	expectedType := "github.com/example/app.Logger"
-	if svc.Type != expectedType {
-		t.Errorf("expected type '%s', got '%s'", expectedType, svc.Type)
-	}
-
-	expectedFunc := "github.com/example/app.NewLogger"
-	if svc.Constructor.Func != expectedFunc {
-		t.Errorf("expected constructor func '%s', got '%s'", expectedFunc, svc.Constructor.Func)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			raw := &RawService{
+				Type:        tt.typ,
+				Constructor: RawConstructor{Func: "pkg.New"},
+			}
+			svc, err := p.convertServiceWithPackageAndFile(raw, nil, "github.com/example/app", "")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if svc.Type != tt.wantType {
+				t.Errorf("Type = %q, want %q", svc.Type, tt.wantType)
+			}
+		})
 	}
 }
 
 func TestThisSubstitutionInTagElementType(t *testing.T) {
-	// Create a temp directory with go.mod
-	tempDir := t.TempDir()
-	modFile := filepath.Join(tempDir, "go.mod")
-	if err := os.WriteFile(modFile, []byte("module github.com/example/app\n\ngo 1.21\n"), 0o644); err != nil {
-		t.Fatalf("failed to write go.mod: %v", err)
+	tests := []struct {
+		name        string
+		elementType string
+		configDir   string
+		want        string
+	}{
+		{"plain", "$this.Notifier", "WITH_MOD", "github.com/example/app.Notifier"},
+		{"pointer", "*$this.Handler", "WITH_MOD", "*github.com/example/app.Handler"},
+		{"slice", "[]$this.Middleware", "WITH_MOD", "[]github.com/example/app.Middleware"},
+		{"no package", "$this.Notifier", "", "$this.Notifier"},
 	}
 
-	raw := &RawConfig{
-		Tags: map[string]RawTag{
-			"notifier": {
-				ElementType: "$this.Notifier",
-				Public:      true,
-			},
-		},
-	}
 	p := NewParser()
-	cfg, err := p.ConvertConfigWithDirAndFile(raw, tempDir, "")
-	if err != nil {
-		t.Fatalf("convertConfigWithDir failed: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configDir := tt.configDir
+			if configDir == "WITH_MOD" {
+				tempDir := t.TempDir()
+				modFile := filepath.Join(tempDir, "go.mod")
+				if err := os.WriteFile(modFile, []byte("module github.com/example/app\n\ngo 1.21\n"), 0o644); err != nil {
+					t.Fatalf("failed to write go.mod: %v", err)
+				}
+				configDir = tempDir
+			}
 
-	tag, ok := cfg.Tags["notifier"]
-	if !ok {
-		t.Fatal("tag 'notifier' not found")
-	}
+			raw := &RawConfig{
+				Tags: map[string]RawTag{
+					"test.tag": {ElementType: tt.elementType},
+				},
+			}
+			cfg, err := p.ConvertConfigWithDirAndFile(raw, configDir, "")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
-	expected := "github.com/example/app.Notifier"
-	if tag.ElementType != expected {
-		t.Errorf("expected element_type '%s', got '%s'", expected, tag.ElementType)
-	}
-}
-
-func TestThisSubstitutionInTagElementTypePointer(t *testing.T) {
-	// Create a temp directory with go.mod
-	tempDir := t.TempDir()
-	modFile := filepath.Join(tempDir, "go.mod")
-	if err := os.WriteFile(modFile, []byte("module github.com/example/app\n\ngo 1.21\n"), 0o644); err != nil {
-		t.Fatalf("failed to write go.mod: %v", err)
-	}
-
-	raw := &RawConfig{
-		Tags: map[string]RawTag{
-			"handler": {
-				ElementType: "*$this.Handler",
-			},
-		},
-	}
-	p := NewParser()
-	cfg, err := p.ConvertConfigWithDirAndFile(raw, tempDir, "")
-	if err != nil {
-		t.Fatalf("convertConfigWithDir failed: %v", err)
-	}
-
-	tag, ok := cfg.Tags["handler"]
-	if !ok {
-		t.Fatal("tag 'handler' not found")
-	}
-
-	expected := "*github.com/example/app.Handler"
-	if tag.ElementType != expected {
-		t.Errorf("expected element_type '%s', got '%s'", expected, tag.ElementType)
-	}
-}
-
-func TestThisSubstitutionInTagElementTypeSlice(t *testing.T) {
-	// Create a temp directory with go.mod
-	tempDir := t.TempDir()
-	modFile := filepath.Join(tempDir, "go.mod")
-	if err := os.WriteFile(modFile, []byte("module github.com/example/app\n\ngo 1.21\n"), 0o644); err != nil {
-		t.Fatalf("failed to write go.mod: %v", err)
-	}
-
-	raw := &RawConfig{
-		Tags: map[string]RawTag{
-			"middleware": {
-				ElementType: "[]$this.Middleware",
-			},
-		},
-	}
-	p := NewParser()
-	cfg, err := p.ConvertConfigWithDirAndFile(raw, tempDir, "")
-	if err != nil {
-		t.Fatalf("convertConfigWithDir failed: %v", err)
-	}
-
-	tag, ok := cfg.Tags["middleware"]
-	if !ok {
-		t.Fatal("tag 'middleware' not found")
-	}
-
-	expected := "[]github.com/example/app.Middleware"
-	if tag.ElementType != expected {
-		t.Errorf("expected element_type '%s', got '%s'", expected, tag.ElementType)
-	}
-}
-
-func TestThisSubstitutionInTagElementTypeNoPackage(t *testing.T) {
-	// When no package is provided, $this should remain unchanged
-	raw := &RawConfig{
-		Tags: map[string]RawTag{
-			"notifier": {
-				ElementType: "$this.Notifier",
-			},
-		},
-	}
-	p := NewParser()
-	cfg, err := p.ConvertConfigWithDirAndFile(raw, "", "")
-	if err != nil {
-		t.Fatalf("convertConfigWithDir failed: %v", err)
-	}
-
-	tag, ok := cfg.Tags["notifier"]
-	if !ok {
-		t.Fatal("tag 'notifier' not found")
-	}
-
-	// Should remain unchanged when configDir is empty
-	if tag.ElementType != "$this.Notifier" {
-		t.Errorf("expected element_type '$this.Notifier', got '%s'", tag.ElementType)
+			tag, ok := cfg.Tags["test.tag"]
+			if !ok {
+				t.Fatal("tag not found")
+			}
+			if tag.ElementType != tt.want {
+				t.Errorf("ElementType = %q, want %q", tag.ElementType, tt.want)
+			}
+		})
 	}
 }
 
@@ -875,7 +659,7 @@ func TestConvertLiteralTypes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := p.convertLiteral(&tt.node)
 			if tt.wantErr != "" {
-				if err == nil || !contains(err.Error(), tt.wantErr) {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
 				}
 				return
@@ -897,7 +681,7 @@ func TestConvertConfigWithDirAndFile(t *testing.T) {
 			},
 		}
 		_, err := p.ConvertConfigWithDirAndFile(raw, "", "")
-		if err == nil || !contains(err.Error(), "type is required") {
+		if err == nil || !strings.Contains(err.Error(), "type is required") {
 			t.Fatalf("expected 'type is required' error, got: %v", err)
 		}
 	})
@@ -957,7 +741,7 @@ func TestConvertConfigWithDirAndFile(t *testing.T) {
 			},
 		}
 		_, err := p.ConvertConfigWithDirAndFile(raw, "", "")
-		if err == nil || !contains(err.Error(), "_default") {
+		if err == nil || !strings.Contains(err.Error(), "_default") {
 			t.Fatalf("expected _default error, got: %v", err)
 		}
 	})
@@ -983,7 +767,7 @@ func TestConvertConfigWithDirAndFile(t *testing.T) {
 func TestConvertArgumentEmpty(t *testing.T) {
 	p := NewParser()
 	_, err := p.convertArgumentWithFile(&RawArgument{}, "")
-	if err == nil || !contains(err.Error(), "must have a value") {
+	if err == nil || !strings.Contains(err.Error(), "must have a value") {
 		t.Fatalf("expected 'must have a value' error, got: %v", err)
 	}
 }
