@@ -1,12 +1,14 @@
 package yaml
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/asp24/gendi/imprt"
+	"github.com/asp24/gendi/srcloc"
 )
 
 type stubResolver struct {
@@ -429,6 +431,63 @@ imports:
 	}
 	if _, ok := cfg.Parameters["test"]; ok {
 		t.Error("expected test parameter to be excluded")
+	}
+}
+
+func TestLoad_UnmarshalError_HasLocation(t *testing.T) {
+	tests := []struct {
+		name     string
+		yaml     string
+		wantLine int
+		wantMsg  string
+	}{
+		{
+			name:     "import missing path",
+			yaml:     "imports:\n  - exclude:\n      - foo",
+			wantLine: 2,
+			wantMsg:  "import path is required",
+		},
+		{
+			name:     "service wrong type",
+			yaml:     "services:\n  my_svc:\n    - item",
+			wantLine: 3,
+			wantMsg:  "service must be a mapping or alias",
+		},
+		{
+			name:     "tag missing name",
+			yaml:     "services:\n  my_svc:\n    constructor:\n      func: fmt.Println\n    tags:\n      - \"\"",
+			wantLine: 6,
+			wantMsg:  "tag name is required",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := writeFile(t, dir, "gendi.yaml", tt.yaml)
+
+			loader := NewConfigLoaderYaml(stubResolver{}, NewParser())
+			_, err := loader.Load(path)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+
+			var locErr *srcloc.Error
+			if !errors.As(err, &locErr) {
+				t.Fatalf("expected srcloc.Error, got %T: %v", err, err)
+			}
+			if locErr.Loc == nil {
+				t.Fatal("expected non-nil location")
+			}
+			if locErr.Loc.Line != tt.wantLine {
+				t.Errorf("Line = %d, want %d", locErr.Loc.Line, tt.wantLine)
+			}
+			if locErr.Message != tt.wantMsg {
+				t.Errorf("Message = %q, want %q", locErr.Message, tt.wantMsg)
+			}
+			if locErr.Loc.File == "" {
+				t.Error("expected non-empty File in location")
+			}
+		})
 	}
 }
 

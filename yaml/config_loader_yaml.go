@@ -1,6 +1,7 @@
 package yaml
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/imprt"
+	"github.com/asp24/gendi/srcloc"
 )
 
 // ConfigLoaderYaml loads YAML configuration files with import resolution.
@@ -62,6 +64,11 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 
 	raw, err := l.parseRaw(data)
 	if err != nil {
+		var ne *NodeError
+		if errors.As(err, &ne) {
+			loc := srcloc.NewLocation(abs, ne.Node)
+			return nil, srcloc.WrapError(loc, ne.Msg, ne.Err)
+		}
 		return nil, fmt.Errorf("parse %s: %w", abs, err)
 	}
 
