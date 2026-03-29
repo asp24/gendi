@@ -6,7 +6,7 @@ import (
 )
 
 // DecoratorPass transforms decorator services into plain services and aliases.
-// This is an internal mandatory pass that runs before user passes.
+// This is an internal mandatory pass applied during the pipeline build after a user passes.
 //
 // Transformation example:
 //
