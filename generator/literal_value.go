@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/asp24/gendi/ir"
 )
@@ -26,7 +27,11 @@ func literalValueExpr(lit ir.LiteralValue) (string, error) {
 		if !ok {
 			return "", fmt.Errorf("float literal must be float64")
 		}
-		return fmt.Sprintf("%v", v), nil
+		s := strconv.FormatFloat(v, 'g', -1, 64)
+		if !strings.ContainsAny(s, ".e") {
+			s += ".0"
+		}
+		return s, nil
 	case ir.BoolLiteral:
 		v, ok := lit.Value.(bool)
 		if !ok {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/xmaps"
@@ -24,7 +25,11 @@ func (r *ParametersRenderer) literalExpr(lit di.Literal) (string, error) {
 	case di.LiteralInt:
 		return fmt.Sprintf("%d", lit.Int()), nil
 	case di.LiteralFloat:
-		return fmt.Sprintf("%v", lit.Float()), nil
+		s := strconv.FormatFloat(lit.Float(), 'g', -1, 64)
+		if !strings.ContainsAny(s, ".e") {
+			s += ".0"
+		}
+		return s, nil
 	case di.LiteralBool:
 		return fmt.Sprintf("%t", lit.Bool()), nil
 	case di.LiteralNull:
