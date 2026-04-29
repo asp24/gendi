@@ -217,6 +217,10 @@ This project uses short, imperative, unscoped commit messages:
 4. **Type safety**: Constructor signatures are strictly validated, no `any` or `interface{}` service types
 5. **Deterministic output**: Generated code is consistent and reproducible
 
+## Code Style
+
+- Do not create package-level helper functions that are called from only one place. If the helper belongs to an object, make it a method on that object instead.
+
 ## Custom Compiler Passes
 
 For project-specific conventions, create custom passes:
