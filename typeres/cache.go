@@ -32,7 +32,7 @@ func (c *Cache) Get(path string) (*types.Package, error) {
 	return nil, fmt.Errorf("package %q not loaded", path)
 }
 
-// Load loads packages by their import paths and caches them along with their dependencies.
+// Load loads packages by their import paths and caches their type information.
 func (c *Cache) Load(paths []string) error {
 	if len(paths) == 0 {
 		return nil
@@ -40,11 +40,7 @@ func (c *Cache) Load(paths []string) error {
 
 	cfg := &packages.Config{
 		Mode: packages.NeedName |
-			packages.NeedTypes |
-			packages.NeedTypesInfo |
-			packages.NeedSyntax |
-			packages.NeedImports |
-			packages.NeedDeps,
+			packages.NeedTypes,
 		Dir: c.moduleRoot,
 	}
 
@@ -65,7 +61,7 @@ func (c *Cache) Load(paths []string) error {
 	return nil
 }
 
-// cacheTree recursively caches a package and all its dependencies.
+// cacheTree caches a package and any imports populated by go/packages.
 func (c *Cache) cacheTree(seen map[string]bool, pkg *packages.Package) {
 	if pkg == nil {
 		return
