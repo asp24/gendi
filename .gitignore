@@ -3,5 +3,4 @@
 /.idea
 ./advanced
 ./basic
-go.sum
 justfile
