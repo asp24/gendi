@@ -1,5 +1,9 @@
 # gendi - Compile-Time Dependency Injection for Go
 
+[![CI](https://github.com/asp24/gendi/actions/workflows/ci.yml/badge.svg)](https://github.com/asp24/gendi/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/asp24/gendi)](https://goreportcard.com/report/github.com/asp24/gendi)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
+
 `gendi` is a compile-time dependency injection container generator for Go. It reads YAML configuration files and generates type-safe, efficient container code with full compile-time validation.
 
 ## Features
