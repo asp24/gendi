@@ -182,10 +182,10 @@ type Argument struct {
 	Type types.Type // Expected parameter type
 
 	// Value based on kind
-	Service   *Service     // For ServiceRef
-	Parameter *Parameter   // For ParamRef
-	Tag       *Tag         // For Tagged
-	Literal   LiteralValue // For Literal
+	Service     *Service     // For ServiceRef
+	Parameter   *Parameter   // For ParamRef
+	Tag         *Tag         // For Tagged
+	Literal     LiteralValue // For Literal
 	Inner       *Argument    // For Spread (wraps another argument)
 	GoRef       *GoRef       // For GoRef
 	FieldAccess *FieldAccess // For FieldAccess
@@ -198,9 +198,9 @@ type GoRef struct {
 
 // FieldAccess holds a field access expression on a service or Go symbol.
 type FieldAccess struct {
-	Service    *Service  // Non-nil for @service targets
-	GoRef      *GoRef    // Non-nil for !go: targets
-	FieldNames []string  // Field chain, e.g. ["Database", "DSN"]
+	Service    *Service   // Non-nil for @service targets
+	GoRef      *GoRef     // Non-nil for !go: targets
+	FieldNames []string   // Field chain, e.g. ["Database", "DSN"]
 	ResultType types.Type // Type of the final field
 }
 

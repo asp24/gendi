@@ -488,7 +488,6 @@ func resolveBoolPtr(b *bool) bool {
 	return *b
 }
 
-
 func TestThisSubstitutionInConstructor(t *testing.T) {
 	tests := []struct {
 		name       string

@@ -117,4 +117,3 @@ func CollectFieldAccessGoPackages(value string) []string {
 	}
 	return nil
 }
-

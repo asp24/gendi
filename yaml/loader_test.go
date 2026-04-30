@@ -73,7 +73,7 @@ func TestLoadConfigAbsoluteImport(t *testing.T) {
 imports:
   - path: %q
 `, importPath))
-	writeTestFile(t,rootPath, root)
+	writeTestFile(t, rootPath, root)
 
 	cfg, err := LoadConfig(rootPath)
 	if err != nil {
@@ -96,7 +96,7 @@ services:
     constructor:
       func: "example.NewA"
 `)
-	writeTestFile(t,baseAPath, baseA)
+	writeTestFile(t, baseAPath, baseA)
 
 	baseB := strings.TrimSpace(`
 services:
@@ -107,13 +107,13 @@ services:
     constructor:
       func: "example.NewExtra"
 `)
-	writeTestFile(t,baseBPath, baseB)
+	writeTestFile(t, baseBPath, baseB)
 
 	root := strings.TrimSpace(`
 imports:
   - "./base_*.yaml"
 `)
-	writeTestFile(t,rootPath, root)
+	writeTestFile(t, rootPath, root)
 
 	cfg, err := LoadConfig(rootPath)
 	if err != nil {
@@ -146,7 +146,7 @@ services:
     constructor:
       func: "example.NewA"
 `)
-	writeTestFile(t,baseAPath, baseA)
+	writeTestFile(t, baseAPath, baseA)
 
 	baseB := strings.TrimSpace(`
 services:
@@ -157,13 +157,13 @@ services:
     constructor:
       func: "example.NewExtraRecursive"
 `)
-	writeTestFile(t,baseBPath, baseB)
+	writeTestFile(t, baseBPath, baseB)
 
 	root := strings.TrimSpace(`
 imports:
   - "./configs/**/*.yaml"
 `)
-	writeTestFile(t,rootPath, root)
+	writeTestFile(t, rootPath, root)
 
 	cfg, err := LoadConfig(rootPath)
 	if err != nil {
@@ -187,7 +187,7 @@ func TestLoadConfigAbsoluteImportGlob(t *testing.T) {
 imports:
   - path: %q
 `, importPath))
-	writeTestFile(t,rootPath, root)
+	writeTestFile(t, rootPath, root)
 
 	cfg, err := LoadConfig(rootPath)
 	if err != nil {
@@ -210,7 +210,7 @@ func TestLoadConfigAbsoluteImportGlobRecursive(t *testing.T) {
 imports:
   - path: %q
 `, importPath))
-	writeTestFile(t,rootPath, root)
+	writeTestFile(t, rootPath, root)
 
 	cfg, err := LoadConfig(rootPath)
 	if err != nil {
