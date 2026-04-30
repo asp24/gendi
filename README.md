@@ -210,6 +210,10 @@ services:
 - Go 1.25.4 or later
 - No runtime dependencies for generated code (except `github.com/asp24/gendi/parameters`)
 
+## License
+
+gendi is licensed under the [Apache License 2.0](./LICENSE).
+
 ## Related Projects
 
 - [google/wire](https://github.com/google/wire) - Compile-time DI with code generation
