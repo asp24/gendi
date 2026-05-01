@@ -68,14 +68,17 @@ func Run(flags *flag.FlagSet, passes []di.Pass) error {
 	return Generate(cfg, passes)
 }
 
-func MustRun(flags *flag.FlagSet, passes []di.Pass) {
-	err := Run(flags, passes)
+func PrintErrorAndExit(err error) {
 	if err == nil {
-		return
+		os.Exit(0)
 	}
 
 	errRenderer := srcloc.NewRenderer()
 	_, _ = os.Stderr.WriteString(errRenderer.RenderError(err, 4))
 
 	os.Exit(1)
+}
+
+func MustRun(flags *flag.FlagSet, passes []di.Pass) {
+	PrintErrorAndExit(Run(flags, passes))
 }
