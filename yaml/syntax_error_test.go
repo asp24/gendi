@@ -242,3 +242,86 @@ func TestBlockScalar_Arg_Folded(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+func TestE2E_LoadConfigPath_NoDoubleLocation(t *testing.T) {
+	// Triggers convertLiteral overflow inside a parameter value.
+	// Chain: convertLiteral -> parser:43 (no wrapping for parameter
+	// value-decode location since convertLiteral already locates) ->
+	// parser:45 AddContext("parameter %q") ->
+	// loader:100 AddContext("convert %s") ->
+	// (caller would invoke cli:34 AddContext("load config"))
+	yaml := `parameters:
+  bignum:
+    type: int
+    value: 9999999999999999999
+`
+	path := writeYAML(t, yaml)
+	absPath, _ := filepath.Abs(path)
+
+	loaderErr := func() error {
+		_, err := LoadConfig(path)
+		return err
+	}()
+	if loaderErr == nil {
+		t.Fatal("expected loader error")
+	}
+
+	// Simulate cli:34 wrapper.
+	withCLI := srcloc.AddContext(loaderErr, "load config")
+
+	var le *srcloc.Error
+	if !errors.As(withCLI, &le) {
+		t.Fatalf("expected *srcloc.Error, got %T: %v", withCLI, withCLI)
+	}
+	if le.Loc == nil {
+		t.Fatal("expected non-nil Loc")
+	}
+	if le.Loc.File != absPath {
+		t.Errorf("Loc.File = %q, want %q", le.Loc.File, absPath)
+	}
+
+	msg := withCLI.Error()
+
+	// Structural single-location guarantee: the `file:line:col:`
+	// header appears exactly once, at the start. The path string
+	// itself may appear again later because the loader's `convert <abs>`
+	// AddContext prefix happens to contain it; that is just a prefix
+	// string, not a second Loc.
+	header := le.Loc.String() + ":"
+	if !strings.HasPrefix(msg, header) {
+		t.Errorf("expected message to start with %q, got %q", header, msg)
+	}
+	if strings.Count(msg, header) != 1 {
+		t.Errorf("expected location header %q exactly once in %q", header, msg)
+	}
+
+	// Visible prefix preserves wrapper context in outermost-first order.
+	expectedSubstrings := []string{
+		"load config",
+		"convert " + absPath,
+		"parameter \"bignum\"",
+	}
+	for _, want := range expectedSubstrings {
+		if !strings.Contains(msg, want) {
+			t.Errorf("missing %q in %q", want, msg)
+		}
+	}
+
+	// Outermost prefix comes first after the location prefix.
+	loadIdx := strings.Index(msg, "load config")
+	convertIdx := strings.Index(msg, "convert ")
+	paramIdx := strings.Index(msg, "parameter ")
+	if !(loadIdx < convertIdx && convertIdx < paramIdx) {
+		t.Errorf("prefix ordering wrong in %q (load=%d convert=%d param=%d)",
+			msg, loadIdx, convertIdx, paramIdx)
+	}
+
+	// Renderer produces snippet with caret on the bignum line.
+	rendered := srcloc.NewRenderer().RenderError(withCLI, 2)
+	if !strings.Contains(rendered, "^") {
+		t.Errorf("expected caret in:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "9999999999999999999") {
+		t.Errorf("expected source line in:\n%s", rendered)
+	}
+}
