@@ -5,3 +5,4 @@
 ./basic
 justfile
 /docs/superpowers
+/.codex
