@@ -12,6 +12,15 @@ import (
 	"github.com/asp24/gendi/typeres"
 )
 
+// locFromYamlNode is a temporary adapter; replaced by newLocation in
+// Task 5 once goccy migration is complete.
+func locFromYamlNode(filePath string, n *yaml.Node) *srcloc.Location {
+	if n == nil {
+		return nil
+	}
+	return srcloc.NewLocation(filePath, n.Line, n.Column)
+}
+
 // Parser converts raw YAML structures to di.Config.
 type Parser struct{}
 
@@ -48,7 +57,7 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 			Type:      param.Type,
 			Value:     lit,
 			Packages:  typeres.CollectTypePackages(param.Type),
-			SourceLoc: srcloc.NewLocation(filePath, param.Node),
+			SourceLoc: locFromYamlNode(filePath, param.Node),
 		}
 	}
 
@@ -65,7 +74,7 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 			Public:        tag.Public,
 			Autoconfigure: tag.Autoconfigure,
 			Packages:      typeres.CollectTypePackages(elementType),
-			SourceLoc:     srcloc.NewLocation(filePath, tag.Node),
+			SourceLoc:     locFromYamlNode(filePath, tag.Node),
 		}
 	}
 
@@ -138,7 +147,7 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 		Autoconfigure:      autoconfigure,
 		Decorates:          raw.Decorates,
 		DecorationPriority: raw.DecorationPriority,
-		SourceLoc:          srcloc.NewLocation(filePath, raw.Node),
+		SourceLoc:          locFromYamlNode(filePath, raw.Node),
 	}
 
 	if raw.Alias != "" {
@@ -155,7 +164,7 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 		svc.Tags[i] = di.ServiceTag{
 			Name:       tag.Name,
 			Attributes: tag.Attributes,
-			SourceLoc:  srcloc.NewLocation(filePath, tag.Node),
+			SourceLoc:  locFromYamlNode(filePath, tag.Node),
 		}
 	}
 
@@ -163,7 +172,7 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 	svc.Constructor = di.Constructor{
 		Func:      raw.Constructor.Func,
 		Method:    raw.Constructor.Method,
-		SourceLoc: srcloc.NewLocation(filePath, raw.Constructor.Node),
+		SourceLoc: locFromYamlNode(filePath, raw.Constructor.Node),
 	}
 
 	// Substitute $this with the resolved package path
@@ -215,7 +224,7 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 }
 
 func (p *Parser) convertArgumentWithFile(raw *RawArgument, filePath string) (di.Argument, error) {
-	loc := srcloc.NewLocation(filePath, raw.Node)
+	loc := locFromYamlNode(filePath, raw.Node)
 
 	if raw.Value != nil {
 		kind, val := ParseArgumentString(*raw.Value)

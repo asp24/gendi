@@ -1,10 +1,6 @@
 package srcloc
 
-import (
-	"fmt"
-
-	"gopkg.in/yaml.v3"
-)
+import "fmt"
 
 // Location represents a position in a YAML source file.
 type Location struct {
@@ -13,16 +9,13 @@ type Location struct {
 	Column int    // 1-based column number
 }
 
-func NewLocation(filePath string, node *yaml.Node) *Location {
-	if filePath == "" || node == nil {
+// NewLocation constructs a Location. Returns nil for empty file or
+// non-positive line.
+func NewLocation(filePath string, line, column int) *Location {
+	if filePath == "" || line < 1 {
 		return nil
 	}
-
-	return &Location{
-		File:   filePath,
-		Line:   node.Line,
-		Column: node.Column,
-	}
+	return &Location{File: filePath, Line: line, Column: column}
 }
 
 // String returns a formatted location string in the form "file:line:column".

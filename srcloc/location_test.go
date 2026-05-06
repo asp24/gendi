@@ -1,38 +1,36 @@
 package srcloc
 
-import (
-	"testing"
-)
+import "testing"
+
+func TestNewLocation(t *testing.T) {
+	loc := NewLocation("/a/b.yaml", 5, 3)
+	if loc == nil {
+		t.Fatal("expected non-nil")
+	}
+	if loc.File != "/a/b.yaml" || loc.Line != 5 || loc.Column != 3 {
+		t.Errorf("unexpected location: %+v", loc)
+	}
+}
+
+func TestNewLocation_EmptyFile_ReturnsNil(t *testing.T) {
+	if NewLocation("", 5, 3) != nil {
+		t.Error("expected nil for empty file")
+	}
+}
+
+func TestNewLocation_ZeroLine_ReturnsNil(t *testing.T) {
+	if NewLocation("/a.yaml", 0, 1) != nil {
+		t.Error("expected nil for zero line")
+	}
+}
 
 func TestLocation_String(t *testing.T) {
-	tests := []struct {
-		name string
-		loc  *Location
-		want string
-	}{
-		{
-			name: "full location",
-			loc:  &Location{File: "/path/to/file.yaml", Line: 42, Column: 10},
-			want: "/path/to/file.yaml:42:10",
-		},
-		{
-			name: "nil location",
-			loc:  nil,
-			want: "",
-		},
-		{
-			name: "zero values",
-			loc:  &Location{File: "", Line: 0, Column: 0},
-			want: ":0:0",
-		},
+	loc := NewLocation("/a.yaml", 5, 3)
+	if got := loc.String(); got != "/a.yaml:5:3" {
+		t.Errorf("String() = %q", got)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.loc.String()
-			if got != tt.want {
-				t.Errorf("Location.String() = %q, want %q", got, tt.want)
-			}
-		})
+	var nilLoc *Location
+	if got := nilLoc.String(); got != "" {
+		t.Errorf("nil String() = %q", got)
 	}
 }

@@ -66,7 +66,7 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 	if err != nil {
 		var ne *NodeError
 		if errors.As(err, &ne) {
-			loc := srcloc.NewLocation(abs, ne.Node)
+			loc := locFromYamlNode(abs, ne.Node)
 			return nil, srcloc.WrapError(loc, ne.Msg, ne.Err)
 		}
 		return nil, fmt.Errorf("parse %s: %w", abs, err)
