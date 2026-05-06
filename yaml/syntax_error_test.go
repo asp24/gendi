@@ -148,3 +148,97 @@ func TestSyntaxError_EmptyFile_DoesNotPanic(t *testing.T) {
 	// nil doc) or a srcloc.Error without panic. The point is: no panic.
 	_, _ = LoadConfig(path)
 }
+
+func TestBlockScalar_Param_Pipe(t *testing.T) {
+	yaml := `parameters:
+  greeting:
+    type: string
+    value: |
+      hello
+      world
+`
+	path := writeYAML(t, yaml)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got := cfg.Parameters["greeting"].Value.String()
+	want := "hello\nworld\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestBlockScalar_Param_Folded(t *testing.T) {
+	yaml := `parameters:
+  greeting:
+    type: string
+    value: >
+      hello
+      world
+`
+	path := writeYAML(t, yaml)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got := cfg.Parameters["greeting"].Value.String()
+	want := "hello world\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestBlockScalar_Arg_Pipe(t *testing.T) {
+	yaml := `services:
+  echo:
+    type: string
+    constructor:
+      func: pkg.New
+      args:
+        - |
+          hello
+          world
+`
+	path := writeYAML(t, yaml)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	args := cfg.Services["echo"].Constructor.Args
+	if len(args) != 1 {
+		t.Fatalf("expected 1 arg, got %d", len(args))
+	}
+	got := args[0].Literal.String()
+	want := "hello\nworld\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestBlockScalar_Arg_Folded(t *testing.T) {
+	yaml := `services:
+  echo:
+    type: string
+    constructor:
+      func: pkg.New
+      args:
+        - >
+          hello
+          world
+`
+	path := writeYAML(t, yaml)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	args := cfg.Services["echo"].Constructor.Args
+	if len(args) != 1 {
+		t.Fatalf("expected 1 arg, got %d", len(args))
+	}
+	got := args[0].Literal.String()
+	want := "hello world\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
