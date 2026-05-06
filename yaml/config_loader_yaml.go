@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
-	ylib "gopkg.in/yaml.v3"
+	yamllib "github.com/goccy/go-yaml"
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/imprt"
@@ -64,12 +64,7 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 
 	raw, err := l.parseRaw(data)
 	if err != nil {
-		var ne *NodeError
-		if errors.As(err, &ne) {
-			loc := locFromYamlNode(abs, ne.Node)
-			return nil, srcloc.WrapError(loc, ne.Msg, ne.Err)
-		}
-		return nil, fmt.Errorf("parse %s: %w", abs, err)
+		return nil, l.toSrclocError(abs, err)
 	}
 
 	merged := di.NewConfig()
@@ -97,7 +92,7 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 
 	cfg, err := l.parser.ConvertConfigWithDirAndFile(raw, baseDir, abs)
 	if err != nil {
-		return nil, fmt.Errorf("convert %s: %w", abs, err)
+		return nil, srcloc.AddContext(err, "convert %s", abs)
 	}
 
 	result := merged.MergeWith(cfg)
@@ -126,10 +121,51 @@ func (l *ConfigLoaderYaml) osReadFile(path string) ([]byte, error) {
 }
 
 // yamlUnmarshal wraps yaml.Unmarshal for testability.
-var defaultYamlUnmarshal = ylib.Unmarshal
+var defaultYamlUnmarshal = yamllib.Unmarshal
 
 func (l *ConfigLoaderYaml) yamlUnmarshal(data []byte, v interface{}) error {
 	return defaultYamlUnmarshal(data, v)
+}
+
+// toSrclocError converts errors from parseRaw into *srcloc.Error, so
+// the existing srcloc.Renderer can render snippet + caret.
+//
+// Three buckets:
+//
+//  1. *NodeError — our DTO-level validation. Pre-existing.
+//  2. yaml.Error (interface) — goccy syntax errors and decode errors
+//     (type mismatch, integer overflow, duplicate key, unknown field,
+//     unexpected node). All implement GetToken / GetMessage.
+//  3. anything else — fallback via srcloc.AddContext (does not
+//     double-locate if the residual error is itself *srcloc.Error).
+func (l *ConfigLoaderYaml) toSrclocError(file string, err error) error {
+	var ne *NodeError
+	if errors.As(err, &ne) {
+		loc := newLocation(file, ne.Node)
+
+		// ne.Err may itself wrap a goccy yaml.Error (e.g. NodeToValue
+		// failed inside a custom UnmarshalYAML). srcloc.WrapError would
+		// call ne.Err.Error(), which routes through goccy's own
+		// formatter and breaks the single-style invariant. Normalize:
+		// strip the wrapped yaml.Error down to its plain message.
+		wrapped := ne.Err
+		var inner yamllib.Error
+		if errors.As(wrapped, &inner) {
+			wrapped = errors.New(inner.GetMessage())
+		}
+		return srcloc.WrapError(loc, ne.Msg, wrapped)
+	}
+
+	var ye yamllib.Error
+	if errors.As(err, &ye) {
+		var loc *srcloc.Location
+		if tok := ye.GetToken(); tok != nil && tok.Position != nil {
+			loc = srcloc.NewLocation(file, tok.Position.Line, tok.Position.Column)
+		}
+		return srcloc.Errorf(loc, "%s", ye.GetMessage())
+	}
+
+	return srcloc.AddContext(err, "parse %s", file)
 }
 
 // filterExcludedFiles removes files matching any exclusion pattern.

@@ -3,14 +3,14 @@ package yaml
 import (
 	"fmt"
 
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml/ast"
 )
 
-// NodeError carries a yaml.Node for location tracking.
-// It is produced during UnmarshalYAML and later enriched with a file path
-// to become a srcloc.Error.
+// NodeError carries a goccy ast.Node for location tracking.
+// It is produced during UnmarshalYAML and later enriched with a file
+// path to become a srcloc.Error inside ConfigLoaderYaml.toSrclocError.
 type NodeError struct {
-	Node *yaml.Node
+	Node ast.Node
 	Msg  string
 	Err  error
 }
@@ -26,14 +26,14 @@ func (e *NodeError) Unwrap() error {
 	return e.Err
 }
 
-func nodeErrorf(node *yaml.Node, format string, args ...any) error {
+func nodeErrorf(node ast.Node, format string, args ...any) error {
 	return &NodeError{
 		Node: node,
 		Msg:  fmt.Sprintf(format, args...),
 	}
 }
 
-func wrapNodeError(node *yaml.Node, msg string, err error) error {
+func wrapNodeError(node ast.Node, msg string, err error) error {
 	return &NodeError{
 		Node: node,
 		Msg:  msg,

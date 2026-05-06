@@ -47,16 +47,16 @@ func TestSyntaxError_BadIndent_ProducesSrclocError(t *testing.T) {
 }
 
 // Spec §Testing #1: exact line/column assertion (catches off-by-one
-// regressions when goccy version changes). The exact values must be
-// confirmed by running this test once after Task 5 lands and updating
-// wantLine/wantCol if the initial implementer's expectation differs by
-// 1 — pick the values goccy reports for v1.19.2 and freeze them.
+// regressions when goccy version changes). Values were confirmed by
+// running against goccy v1.19.2.
 func TestSyntaxError_BadIndent_ExactLocation(t *testing.T) {
 	// Carefully-controlled YAML: the second mapping key under "services"
-	// has one extra space of indent, error is reported at that key.
+	// has one extra space of indent. goccy reports the error at the
+	// second ':' (line 2, column 7) where the inconsistent indent is
+	// detected.
 	//
 	// Line 1: services:
-	// Line 2:  foo: bar       (1-space indent)
+	// Line 2:  foo: bar       (1-space indent — error reported here)
 	// Line 3:   baz: qux      (2-space indent — the conflict)
 	yaml := "services:\n foo: bar\n  baz: qux\n"
 	path := writeYAML(t, yaml)
@@ -72,12 +72,11 @@ func TestSyntaxError_BadIndent_ExactLocation(t *testing.T) {
 	if le.Loc == nil {
 		t.Fatal("nil Loc")
 	}
-	// Replace these with the exact values goccy v1.19.2 reports for the
-	// above YAML. After running the test once, lock these in.
-	const wantLine, wantCol = 3, 3
+	// Locked-in for goccy v1.19.2; bump deliberately if the version pin
+	// in go.mod changes.
+	const wantLine, wantCol = 2, 7
 	if le.Loc.Line != wantLine || le.Loc.Column != wantCol {
-		t.Errorf("Loc = %d:%d, want %d:%d (lock these in once verified for goccy v1.19.2)",
-			le.Loc.Line, le.Loc.Column, wantLine, wantCol)
+		t.Errorf("Loc = %d:%d, want %d:%d", le.Loc.Line, le.Loc.Column, wantLine, wantCol)
 	}
 }
 

@@ -3,7 +3,8 @@ package yaml
 import (
 	"fmt"
 
-	"gopkg.in/yaml.v3"
+	yamllib "github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
 )
 
 // RawConfig is the YAML-specific representation of a config file.
@@ -14,42 +15,33 @@ type RawConfig struct {
 	Services   map[string]*RawService  `yaml:"services"`
 }
 
-func (c *RawConfig) UnmarshalYAML(node *yaml.Node) error {
-	// Use type alias to avoid recursion
+func (c *RawConfig) UnmarshalYAML(node ast.Node) error {
 	type alias RawConfig
 	var decoded alias
-	if err := node.Decode(&decoded); err != nil {
+	if err := yamllib.NodeToValue(node, &decoded); err != nil {
 		return err
 	}
 
-	// Manually extract nodes for parameters and tags from the mapping
-	if node.Kind == yaml.MappingNode {
-		for i := 0; i < len(node.Content); i += 2 {
-			keyNode := node.Content[i]
-			valueNode := node.Content[i+1]
-
-			switch keyNode.Value {
+	if mapping, ok := node.(*ast.MappingNode); ok {
+		for _, kv := range mapping.Values {
+			switch keyString(kv.Key) {
 			case "parameters":
-				// Extract parameter nodes
-				if valueNode.Kind == yaml.MappingNode {
-					for j := 0; j < len(valueNode.Content); j += 2 {
-						paramName := valueNode.Content[j].Value
-						paramValueNode := valueNode.Content[j+1]
-						if param, ok := decoded.Parameters[paramName]; ok {
-							param.Node = paramValueNode
-							decoded.Parameters[paramName] = param
+				if pm, ok := kv.Value.(*ast.MappingNode); ok {
+					for _, pv := range pm.Values {
+						name := keyString(pv.Key)
+						if param, ok := decoded.Parameters[name]; ok {
+							param.Node = pv.Value
+							decoded.Parameters[name] = param
 						}
 					}
 				}
 			case "tags":
-				// Extract tag nodes
-				if valueNode.Kind == yaml.MappingNode {
-					for j := 0; j < len(valueNode.Content); j += 2 {
-						tagName := valueNode.Content[j].Value
-						tagValueNode := valueNode.Content[j+1]
-						if tag, ok := decoded.Tags[tagName]; ok {
-							tag.Node = tagValueNode
-							decoded.Tags[tagName] = tag
+				if tm, ok := kv.Value.(*ast.MappingNode); ok {
+					for _, tv := range tm.Values {
+						name := keyString(tv.Key)
+						if tag, ok := decoded.Tags[name]; ok {
+							tag.Node = tv.Value
+							decoded.Tags[name] = tag
 						}
 					}
 				}
@@ -61,24 +53,34 @@ func (c *RawConfig) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
+// keyString extracts a scalar string from a key node. Returns "" for
+// any non-scalar key (which never occurs in well-formed configs).
+func keyString(n ast.Node) string {
+	if s, ok := n.(*ast.StringNode); ok {
+		return s.Value
+	}
+	return ""
+}
+
 type RawImport struct {
 	Path    string   `yaml:"path"`
 	Exclude []string `yaml:"exclude"`
 }
 
-func (i *RawImport) UnmarshalYAML(node *yaml.Node) error {
-	switch node.Kind {
-	case yaml.ScalarNode:
-		var path string
-		if err := node.Decode(&path); err != nil {
-			return err
-		}
-		i.Path = path
+func (i *RawImport) UnmarshalYAML(node ast.Node) error {
+	switch n := node.(type) {
+	case *ast.StringNode:
+		i.Path = n.Value
 		return nil
-	case yaml.MappingNode:
+	case *ast.LiteralNode:
+		if n.Value != nil {
+			i.Path = n.Value.Value
+		}
+		return nil
+	case *ast.MappingNode:
 		type alias RawImport
 		var decoded alias
-		if err := node.Decode(&decoded); err != nil {
+		if err := yamllib.NodeToValue(node, &decoded); err != nil {
 			return err
 		}
 		if decoded.Path == "" {
@@ -92,11 +94,11 @@ func (i *RawImport) UnmarshalYAML(node *yaml.Node) error {
 }
 
 type RawParameter struct {
-	Type  string    `yaml:"type"`
-	Value yaml.Node `yaml:"value"`
+	Type  string   `yaml:"type"`
+	Value ast.Node `yaml:"value"`
 
-	// Node holds the full parameter mapping node for location tracking
-	Node *yaml.Node `yaml:"-"`
+	// Node holds the full parameter mapping node for location tracking.
+	Node ast.Node `yaml:"-"`
 }
 
 type RawTag struct {
@@ -105,70 +107,60 @@ type RawTag struct {
 	Public        bool   `yaml:"public"`
 	Autoconfigure bool   `yaml:"autoconfigure"`
 
-	// Node holds the tag mapping node for location tracking
-	Node *yaml.Node `yaml:"-"`
+	// Node holds the tag mapping node for location tracking.
+	Node ast.Node `yaml:"-"`
 }
 
 type RawServiceTag struct {
 	Name       string
 	Attributes map[string]interface{}
 
-	// Node holds the tag mapping node for location tracking
-	Node *yaml.Node `yaml:"-"`
+	// Node holds the tag mapping node for location tracking.
+	Node ast.Node `yaml:"-"`
 }
 
-func (t *RawServiceTag) UnmarshalYAML(node *yaml.Node) error {
-	// Preserve node for location tracking
+func (t *RawServiceTag) UnmarshalYAML(node ast.Node) error {
 	t.Node = node
 	t.Attributes = make(map[string]interface{})
 
-	if node.Kind == yaml.ScalarNode {
-		var name string
-		if err := node.Decode(&name); err != nil {
-			return wrapNodeError(node, "failed to decode tag name", err)
-		}
-		if name == "" {
+	switch n := node.(type) {
+	case *ast.StringNode:
+		if n.Value == "" {
 			return nodeErrorf(node, "tag name is required")
 		}
-		t.Name = name
+		t.Name = n.Value
 		return nil
-	}
-
-	if node.Kind != yaml.MappingNode {
+	case *ast.LiteralNode:
+		if n.Value == nil || n.Value.Value == "" {
+			return nodeErrorf(node, "tag name is required")
+		}
+		t.Name = n.Value.Value
+		return nil
+	case *ast.MappingNode:
+		for _, kv := range n.Values {
+			key := keyString(kv.Key)
+			if key == "name" {
+				if err := yamllib.NodeToValue(kv.Value, &t.Name); err != nil {
+					return wrapNodeError(node, "failed to decode tag name", err)
+				}
+			} else {
+				var value interface{}
+				if err := yamllib.NodeToValue(kv.Value, &value); err != nil {
+					return wrapNodeError(kv.Value, fmt.Sprintf("failed to decode tag attribute %q", key), err)
+				}
+				t.Attributes[key] = value
+			}
+		}
+		if t.Name == "" {
+			return nodeErrorf(node, "tag name is required")
+		}
+		return nil
+	default:
 		return nodeErrorf(node, "tag must be a string or mapping")
 	}
-
-	// Iterate over key-value pairs in the mapping
-	for i := 0; i < len(node.Content); i += 2 {
-		keyNode := node.Content[i]
-		valueNode := node.Content[i+1]
-
-		key := keyNode.Value
-
-		if key == "name" {
-			// Decode name field
-			if err := valueNode.Decode(&t.Name); err != nil {
-				return wrapNodeError(node, "failed to decode tag name", err)
-			}
-		} else {
-			// All other fields are attributes
-			var value interface{}
-			if err := valueNode.Decode(&value); err != nil {
-				return wrapNodeError(valueNode, fmt.Sprintf("failed to decode tag attribute %q", key), err)
-			}
-			t.Attributes[key] = value
-		}
-	}
-
-	if t.Name == "" {
-		return nodeErrorf(node, "tag name is required")
-	}
-
-	return nil
 }
 
 // ServiceDefaults holds default values for service configuration.
-// Only shared, public, and autoconfigure fields are allowed in _default section.
 type ServiceDefaults struct {
 	Shared        *bool `yaml:"shared"`
 	Public        *bool `yaml:"public"`
@@ -186,23 +178,26 @@ type RawService struct {
 	Tags               []RawServiceTag `yaml:"tags"`
 	Alias              string          `yaml:"alias"`
 
-	// Node holds the service mapping node for location tracking
-	Node *yaml.Node `yaml:"-"`
+	// Node holds the service mapping node for location tracking.
+	Node ast.Node `yaml:"-"`
 }
 
-func (s *RawService) UnmarshalYAML(node *yaml.Node) error {
-	switch node.Kind {
-	case yaml.ScalarNode:
-		var ref string
-		if err := node.Decode(&ref); err != nil {
-			return err
+func (s *RawService) UnmarshalYAML(node ast.Node) error {
+	switch n := node.(type) {
+	case *ast.StringNode:
+		*s = RawService{Alias: n.Value, Node: node}
+		return nil
+	case *ast.LiteralNode:
+		ref := ""
+		if n.Value != nil {
+			ref = n.Value.Value
 		}
 		*s = RawService{Alias: ref, Node: node}
 		return nil
-	case yaml.MappingNode:
+	case *ast.MappingNode:
 		type alias RawService
 		var decoded alias
-		if err := node.Decode(&decoded); err != nil {
+		if err := yamllib.NodeToValue(node, &decoded); err != nil {
 			return err
 		}
 		*s = RawService(decoded)
@@ -218,43 +213,48 @@ type RawConstructor struct {
 	Method string        `yaml:"method"`
 	Args   []RawArgument `yaml:"args"`
 
-	// Nodes for location tracking
-	Node *yaml.Node `yaml:"-"`
+	// Node points at func/method scalar for location tracking.
+	Node ast.Node `yaml:"-"`
 }
 
-func (c *RawConstructor) UnmarshalYAML(node *yaml.Node) error {
-	// Preserve constructor node
+func (c *RawConstructor) UnmarshalYAML(node ast.Node) error {
 	c.Node = node
 
 	type raw struct {
-		Func   string      `yaml:"func"`
-		Method string      `yaml:"method"`
-		Args   []yaml.Node `yaml:"args"`
+		Func   string `yaml:"func"`
+		Method string `yaml:"method"`
 	}
 	var decoded raw
-	if err := node.Decode(&decoded); err != nil {
+	if err := yamllib.NodeToValue(node, &decoded); err != nil {
 		return err
 	}
 	c.Func = decoded.Func
 	c.Method = decoded.Method
 
-	// Capture Func and Method node locations from the mapping
-	if node.Kind == yaml.MappingNode {
-		for i := 0; i < len(node.Content); i += 2 {
-			keyNode := node.Content[i]
-			switch keyNode.Value {
+	// Walk the AST manually to grab arg nodes. Cannot use
+	// NodeToValue with `Args []ast.Node` because goccy v1.19.2 decodes
+	// null sequence entries as typed-nil interfaces, losing the
+	// *ast.NullNode information needed by convertLiteral.
+	var argNodes []ast.Node
+	if mapping, ok := node.(*ast.MappingNode); ok {
+		for _, kv := range mapping.Values {
+			switch keyString(kv.Key) {
 			case "func", "method":
-				c.Node = node.Content[i+1]
+				c.Node = kv.Value
+			case "args":
+				if seq, ok := kv.Value.(*ast.SequenceNode); ok {
+					argNodes = seq.Values
+				}
 			}
 		}
 	}
 
-	if len(decoded.Args) == 0 {
+	if len(argNodes) == 0 {
 		return nil
 	}
-	c.Args = make([]RawArgument, len(decoded.Args))
-	for i := range decoded.Args {
-		if err := c.Args[i].UnmarshalYAML(&decoded.Args[i]); err != nil {
+	c.Args = make([]RawArgument, len(argNodes))
+	for i := range argNodes {
+		if err := c.Args[i].UnmarshalYAML(argNodes[i]); err != nil {
 			return err
 		}
 	}
@@ -263,18 +263,21 @@ func (c *RawConstructor) UnmarshalYAML(node *yaml.Node) error {
 
 type RawArgument struct {
 	Value *string
-	Node  *yaml.Node
+	Node  ast.Node
 }
 
-func (a *RawArgument) UnmarshalYAML(node *yaml.Node) error {
-	// Always preserve the node for location tracking
+func (a *RawArgument) UnmarshalYAML(node ast.Node) error {
 	a.Node = node
 
-	if node.Kind == yaml.ScalarNode && node.Tag == "!!str" {
-		val := node.Value
+	switch n := node.(type) {
+	case *ast.StringNode:
+		val := n.Value
 		a.Value = &val
-		return nil
+	case *ast.LiteralNode:
+		if n.Value != nil {
+			val := n.Value.Value
+			a.Value = &val
+		}
 	}
-
 	return nil
 }

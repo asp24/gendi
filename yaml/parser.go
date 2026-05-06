@@ -3,23 +3,15 @@ package yaml
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml/ast"
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/srcloc"
 	"github.com/asp24/gendi/typeres"
 )
-
-// locFromYamlNode is a temporary adapter; replaced by newLocation in
-// Task 5 once goccy migration is complete.
-func locFromYamlNode(filePath string, n *yaml.Node) *srcloc.Location {
-	if n == nil {
-		return nil
-	}
-	return srcloc.NewLocation(filePath, n.Line, n.Column)
-}
 
 // Parser converts raw YAML structures to di.Config.
 type Parser struct{}
@@ -47,17 +39,17 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 	// Convert parameters
 	for name, param := range raw.Parameters {
 		if param.Type == "" {
-			return nil, fmt.Errorf("parameter %q: type is required", name)
+			return nil, srcloc.Errorf(newLocation(filePath, param.Node), "parameter %q: type is required", name)
 		}
-		lit, err := p.convertLiteral(&param.Value)
+		lit, err := p.convertLiteral(param.Value, filePath)
 		if err != nil {
-			return nil, fmt.Errorf("parameter %q: %w", name, err)
+			return nil, srcloc.AddContext(err, "parameter %q", name)
 		}
 		cfg.Parameters[name] = di.Parameter{
 			Type:      param.Type,
 			Value:     lit,
 			Packages:  typeres.CollectTypePackages(param.Type),
-			SourceLoc: locFromYamlNode(filePath, param.Node),
+			SourceLoc: newLocation(filePath, param.Node),
 		}
 	}
 
@@ -74,7 +66,7 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 			Public:        tag.Public,
 			Autoconfigure: tag.Autoconfigure,
 			Packages:      typeres.CollectTypePackages(elementType),
-			SourceLoc:     locFromYamlNode(filePath, tag.Node),
+			SourceLoc:     newLocation(filePath, tag.Node),
 		}
 	}
 
@@ -88,7 +80,7 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 		}
 		// Validate that _default only contains allowed fields
 		if err := p.validateDefaults(defaultSvc); err != nil {
-			return nil, fmt.Errorf("_default: %w", err)
+			return nil, srcloc.AddContext(err, "_default")
 		}
 	}
 
@@ -99,7 +91,7 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 		}
 		converted, err := p.convertServiceWithPackageAndFile(svc, defaults, thisPackage, filePath)
 		if err != nil {
-			return nil, fmt.Errorf("service %q: %w", name, err)
+			return nil, srcloc.AddContext(err, "service %q", name)
 		}
 		cfg.Services[name] = converted
 	}
@@ -147,7 +139,7 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 		Autoconfigure:      autoconfigure,
 		Decorates:          raw.Decorates,
 		DecorationPriority: raw.DecorationPriority,
-		SourceLoc:          locFromYamlNode(filePath, raw.Node),
+		SourceLoc:          newLocation(filePath, raw.Node),
 	}
 
 	if raw.Alias != "" {
@@ -164,7 +156,7 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 		svc.Tags[i] = di.ServiceTag{
 			Name:       tag.Name,
 			Attributes: tag.Attributes,
-			SourceLoc:  locFromYamlNode(filePath, tag.Node),
+			SourceLoc:  newLocation(filePath, tag.Node),
 		}
 	}
 
@@ -172,7 +164,7 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 	svc.Constructor = di.Constructor{
 		Func:      raw.Constructor.Func,
 		Method:    raw.Constructor.Method,
-		SourceLoc: locFromYamlNode(filePath, raw.Constructor.Node),
+		SourceLoc: newLocation(filePath, raw.Constructor.Node),
 	}
 
 	// Substitute $this with the resolved package path
@@ -199,7 +191,7 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 		for i, arg := range raw.Constructor.Args {
 			converted, err := p.convertArgumentWithFile(&arg, filePath)
 			if err != nil {
-				return di.Service{}, fmt.Errorf("arg[%d]: %w", i, err)
+				return di.Service{}, srcloc.AddContext(err, "arg[%d]", i)
 			}
 			// Substitute $this in !go: argument values
 			if thisPackage != "" && converted.Kind == di.ArgGoRef && strings.Contains(converted.Value, "$this.") {
@@ -224,7 +216,7 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 }
 
 func (p *Parser) convertArgumentWithFile(raw *RawArgument, filePath string) (di.Argument, error) {
-	loc := locFromYamlNode(filePath, raw.Node)
+	loc := newLocation(filePath, raw.Node)
 
 	if raw.Value != nil {
 		kind, val := ParseArgumentString(*raw.Value)
@@ -243,7 +235,7 @@ func (p *Parser) convertArgumentWithFile(raw *RawArgument, filePath string) (di.
 	}
 
 	if raw.Node != nil {
-		lit, err := p.convertLiteral(raw.Node)
+		lit, err := p.convertLiteral(raw.Node, filePath)
 		if err != nil {
 			return di.Argument{}, err
 		}
@@ -254,35 +246,44 @@ func (p *Parser) convertArgumentWithFile(raw *RawArgument, filePath string) (di.
 		}, nil
 	}
 
-	return di.Argument{}, fmt.Errorf("argument must have a value")
+	return di.Argument{}, srcloc.Errorf(loc, "argument must have a value")
 }
 
-func (p *Parser) convertLiteral(node *yaml.Node) (di.Literal, error) {
-	switch node.Tag {
-	case "!!str":
-		return di.NewStringLiteral(node.Value), nil
-	case "!!int":
-		var v int64
-		if err := node.Decode(&v); err != nil {
-			return di.Literal{}, err
+func (p *Parser) convertLiteral(node ast.Node, filePath string) (di.Literal, error) {
+	loc := newLocation(filePath, node)
+
+	switch n := node.(type) {
+	case *ast.StringNode:
+		return di.NewStringLiteral(n.Value), nil
+	case *ast.LiteralNode:
+		if n.Value == nil {
+			return di.NewStringLiteral(""), nil
 		}
-		return di.NewIntLiteral(v), nil
-	case "!!float":
-		var v float64
-		if err := node.Decode(&v); err != nil {
-			return di.Literal{}, err
+		return di.NewStringLiteral(n.Value.Value), nil
+	case *ast.IntegerNode:
+		switch v := n.Value.(type) {
+		case int64:
+			return di.NewIntLiteral(v), nil
+		case uint64:
+			if v > math.MaxInt64 {
+				return di.Literal{}, srcloc.Errorf(loc, "integer value %d does not fit in int64", v)
+			}
+			return di.NewIntLiteral(int64(v)), nil
+		default:
+			return di.Literal{}, srcloc.Errorf(loc, "unsupported integer kind %T", v)
 		}
-		return di.NewFloatLiteral(v), nil
-	case "!!bool":
-		var v bool
-		if err := node.Decode(&v); err != nil {
-			return di.Literal{}, err
-		}
-		return di.NewBoolLiteral(v), nil
-	case "!!null":
+	case *ast.FloatNode:
+		return di.NewFloatLiteral(n.Value), nil
+	case *ast.InfinityNode:
+		return di.Literal{}, srcloc.Errorf(loc, ".inf is not supported as a literal value")
+	case *ast.NanNode:
+		return di.Literal{}, srcloc.Errorf(loc, ".nan is not supported as a literal value")
+	case *ast.BoolNode:
+		return di.NewBoolLiteral(n.Value), nil
+	case *ast.NullNode:
 		return di.NewNullLiteral(), nil
 	default:
-		return di.Literal{}, fmt.Errorf("unsupported literal type %q", node.Tag)
+		return di.Literal{}, srcloc.Errorf(loc, "unsupported literal type %T", node)
 	}
 }
 
