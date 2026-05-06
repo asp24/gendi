@@ -1,6 +1,7 @@
 package yaml
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/goccy/go-yaml/parser"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/srcloc"
 )
 
 // mustParseNode parses a YAML snippet via goccy and returns the
@@ -860,5 +862,65 @@ func TestTagAutoconfigureParsed(t *testing.T) {
 
 	if !tag.Autoconfigure {
 		t.Fatal("expected tag 'auto.tag' to have autoconfigure enabled")
+	}
+}
+
+func TestConvertLiteral_IntegerOverflow_Located(t *testing.T) {
+	// Value chosen to overflow int64 (max = 9223372036854775807) but
+	// still fit in uint64 (max = 18446744073709551615), so goccy parses
+	// it as IntegerNode{Value: uint64(...)} and convertLiteral hits
+	// the overflow branch. Numbers larger than uint64 max get parsed
+	// as *ast.StringNode by goccy and would not exercise this path.
+	node := mustParseNode(t, "9999999999999999999")
+	p := NewParser()
+	_, err := p.convertLiteral(node, "/x.yaml")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var le *srcloc.Error
+	if !errors.As(err, &le) || le.Loc == nil {
+		t.Fatalf("expected located *srcloc.Error, got %T: %v", err, err)
+	}
+}
+
+func TestConvertLiteral_Inf_Rejected(t *testing.T) {
+	node := mustParseNode(t, ".inf")
+	p := NewParser()
+	_, err := p.convertLiteral(node, "/x.yaml")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var le *srcloc.Error
+	if !errors.As(err, &le) {
+		t.Fatalf("expected *srcloc.Error, got %T", err)
+	}
+	if !strings.Contains(le.Message, ".inf") {
+		t.Errorf("expected .inf in message, got %q", le.Message)
+	}
+}
+
+func TestConvertLiteral_Nan_Rejected(t *testing.T) {
+	node := mustParseNode(t, ".nan")
+	p := NewParser()
+	_, err := p.convertLiteral(node, "/x.yaml")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var le *srcloc.Error
+	if !errors.As(err, &le) {
+		t.Fatalf("expected *srcloc.Error, got %T", err)
+	}
+}
+
+func TestConvertLiteral_Mapping_Rejected(t *testing.T) {
+	node := mustParseNode(t, "{a: b}")
+	p := NewParser()
+	_, err := p.convertLiteral(node, "/x.yaml")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var le *srcloc.Error
+	if !errors.As(err, &le) {
+		t.Fatalf("expected *srcloc.Error, got %T", err)
 	}
 }
