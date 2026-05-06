@@ -12,69 +12,77 @@ func TestAddContext_NilInput(t *testing.T) {
 	}
 }
 
-func TestAddContext_DirectLocatedError_FoldsPrefix(t *testing.T) {
-	loc := &Location{File: "/a/b.yaml", Line: 5, Column: 3}
-	original := &Error{Loc: loc, Message: "bad value"}
-
-	got := AddContext(original, "parameter %q", "foo")
-
-	want := `/a/b.yaml:5:3: parameter "foo": bad value`
-	if got.Error() != want {
-		t.Errorf("Error() = %q, want %q", got.Error(), want)
-	}
-	var le *Error
-	if !errors.As(got, &le) {
-		t.Fatal("expected *Error in chain")
-	}
-	if le.Loc != loc {
-		t.Errorf("Loc not preserved")
-	}
-}
-
-func TestAddContext_PlainError_FallsBack(t *testing.T) {
-	original := errors.New("boom")
-
-	got := AddContext(original, "context")
-
-	if got.Error() != "context: boom" {
-		t.Errorf("Error() = %q, want %q", got.Error(), "context: boom")
-	}
-	if !errors.Is(got, original) {
-		t.Error("errors.Is should find original")
-	}
-}
-
-func TestAddContext_WrappedLocatedError_DoesNotFoldOuter(t *testing.T) {
-	loc := &Location{File: "/a.yaml", Line: 1, Column: 1}
-	inner := &Error{Loc: loc, Message: "inner"}
-	wrapped := fmt.Errorf("outer: %w", inner)
-
-	got := AddContext(wrapped, "prefix")
-
-	// "outer" must be preserved — not silently discarded.
-	if got.Error() != "prefix: outer: /a.yaml:1:1: inner" {
-		t.Errorf("Error() = %q", got.Error())
-	}
-	// Inner *Error still findable by errors.As (so Renderer can find Loc).
-	var le *Error
-	if !errors.As(got, &le) {
-		t.Fatal("expected *Error reachable via errors.As")
-	}
-	if le.Loc != loc {
-		t.Errorf("expected inner Loc, got %v", le.Loc)
-	}
-}
-
-func TestAddContext_PreservesInnerErr(t *testing.T) {
+func TestAddContext(t *testing.T) {
+	loc := &Location{File: "/a.yaml", Line: 5, Column: 3}
+	plain := errors.New("boom")
 	cause := errors.New("cause")
-	original := &Error{Loc: nil, Message: "wrapped", Err: cause}
 
-	got := AddContext(original, "ctx")
-
-	if !errors.Is(got, cause) {
-		t.Error("errors.Is should still find cause")
+	tests := []struct {
+		name string
+		// inErr is built per-row; some rows need to share an existing
+		// *Error pointer to assert it's preserved unchanged.
+		inErr  error
+		format string
+		args   []any
+		// wantMsg is the expected Error() output.
+		wantMsg string
+		// wantLoc, when non-nil, must equal the Loc reachable via
+		// errors.As(result, &*Error).
+		wantLoc *Location
+		// wantUnwrapTarget, when non-nil, must satisfy
+		// errors.Is(result, wantUnwrapTarget).
+		wantUnwrapTarget error
+	}{
+		{
+			name:    "direct *Error folds prefix into Message and keeps Loc",
+			inErr:   &Error{Loc: loc, Message: "bad value"},
+			format:  "parameter %q",
+			args:    []any{"foo"},
+			wantMsg: `/a.yaml:5:3: parameter "foo": bad value`,
+			wantLoc: loc,
+		},
+		{
+			name:             "plain error falls back through fmt.Errorf with %w",
+			inErr:            plain,
+			format:           "context",
+			wantMsg:          "context: boom",
+			wantUnwrapTarget: plain,
+		},
+		{
+			name: "wrapped *Error falls through; outer wrapper preserved",
+			inErr: fmt.Errorf("outer: %w",
+				&Error{Loc: loc, Message: "inner"}),
+			format:  "prefix",
+			wantMsg: "prefix: outer: /a.yaml:5:3: inner",
+			wantLoc: loc, // still reachable via errors.As
+		},
+		{
+			name:             "Err field on direct *Error is preserved through folding",
+			inErr:            &Error{Loc: nil, Message: "wrapped", Err: cause},
+			format:           "ctx",
+			wantMsg:          "ctx: wrapped: cause",
+			wantUnwrapTarget: cause,
+		},
 	}
-	if got.Error() != "ctx: wrapped: cause" {
-		t.Errorf("Error() = %q", got.Error())
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := AddContext(tt.inErr, tt.format, tt.args...)
+			if got.Error() != tt.wantMsg {
+				t.Errorf("Error() = %q, want %q", got.Error(), tt.wantMsg)
+			}
+			if tt.wantLoc != nil {
+				var le *Error
+				if !errors.As(got, &le) {
+					t.Fatal("expected *Error reachable via errors.As")
+				}
+				if le.Loc != tt.wantLoc {
+					t.Errorf("Loc = %v, want %v", le.Loc, tt.wantLoc)
+				}
+			}
+			if tt.wantUnwrapTarget != nil && !errors.Is(got, tt.wantUnwrapTarget) {
+				t.Error("errors.Is should find the unwrap target")
+			}
+		})
 	}
 }

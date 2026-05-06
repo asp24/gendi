@@ -865,62 +865,58 @@ func TestTagAutoconfigureParsed(t *testing.T) {
 	}
 }
 
-func TestConvertLiteral_IntegerOverflow_Located(t *testing.T) {
-	// Value chosen to overflow int64 (max = 9223372036854775807) but
-	// still fit in uint64 (max = 18446744073709551615), so goccy parses
-	// it as IntegerNode{Value: uint64(...)} and convertLiteral hits
-	// the overflow branch. Numbers larger than uint64 max get parsed
-	// as *ast.StringNode by goccy and would not exercise this path.
-	node := mustParseNode(t, "9999999999999999999")
-	p := NewParser()
-	_, err := p.convertLiteral(node, "/x.yaml")
-	if err == nil {
-		t.Fatal("expected error")
+// TestConvertLiteral_LocatedErrors verifies that every rejection branch
+// in convertLiteral produces a *srcloc.Error with a Loc, so the renderer
+// can show snippet + caret for the offending node.
+func TestConvertLiteral_LocatedErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		// yaml is a YAML scalar that triggers the rejection branch.
+		yaml string
+		// wantInMsg, when non-empty, must appear in the error Message.
+		wantInMsg string
+	}{
+		{
+			// Value chosen to overflow int64 (max = 9223372036854775807)
+			// but still fit in uint64 (max = 18446744073709551615), so
+			// goccy parses it as IntegerNode{Value: uint64(...)} and
+			// convertLiteral hits the overflow branch. Numbers larger
+			// than uint64 max get parsed as *ast.StringNode by goccy
+			// and would not exercise this path.
+			name: "integer_overflow",
+			yaml: "9999999999999999999",
+		},
+		{
+			name:      "infinity_rejected",
+			yaml:      ".inf",
+			wantInMsg: ".inf",
+		},
+		{
+			name:      "nan_rejected",
+			yaml:      ".nan",
+			wantInMsg: ".nan",
+		},
+		{
+			name: "mapping_unsupported",
+			yaml: "{a: b}",
+		},
 	}
-	var le *srcloc.Error
-	if !errors.As(err, &le) || le.Loc == nil {
-		t.Fatalf("expected located *srcloc.Error, got %T: %v", err, err)
-	}
-}
 
-func TestConvertLiteral_Inf_Rejected(t *testing.T) {
-	node := mustParseNode(t, ".inf")
 	p := NewParser()
-	_, err := p.convertLiteral(node, "/x.yaml")
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var le *srcloc.Error
-	if !errors.As(err, &le) {
-		t.Fatalf("expected *srcloc.Error, got %T", err)
-	}
-	if !strings.Contains(le.Message, ".inf") {
-		t.Errorf("expected .inf in message, got %q", le.Message)
-	}
-}
-
-func TestConvertLiteral_Nan_Rejected(t *testing.T) {
-	node := mustParseNode(t, ".nan")
-	p := NewParser()
-	_, err := p.convertLiteral(node, "/x.yaml")
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var le *srcloc.Error
-	if !errors.As(err, &le) {
-		t.Fatalf("expected *srcloc.Error, got %T", err)
-	}
-}
-
-func TestConvertLiteral_Mapping_Rejected(t *testing.T) {
-	node := mustParseNode(t, "{a: b}")
-	p := NewParser()
-	_, err := p.convertLiteral(node, "/x.yaml")
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var le *srcloc.Error
-	if !errors.As(err, &le) {
-		t.Fatalf("expected *srcloc.Error, got %T", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			node := mustParseNode(t, tt.yaml)
+			_, err := p.convertLiteral(node, "/x.yaml")
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			var le *srcloc.Error
+			if !errors.As(err, &le) || le.Loc == nil {
+				t.Fatalf("expected located *srcloc.Error, got %T: %v", err, err)
+			}
+			if tt.wantInMsg != "" && !strings.Contains(le.Message, tt.wantInMsg) {
+				t.Errorf("expected %q in Message, got %q", tt.wantInMsg, le.Message)
+			}
+		})
 	}
 }

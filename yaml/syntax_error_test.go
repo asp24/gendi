@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/srcloc"
 )
 
@@ -20,29 +21,54 @@ func writeYAML(t *testing.T, content string) string {
 	return path
 }
 
-func TestSyntaxError_BadIndent_ProducesSrclocError(t *testing.T) {
-	// Indentation under "services" is broken: "foo" and "baz" disagree.
-	yaml := "services:\n foo: bar\n  baz: qux\n"
-	path := writeYAML(t, yaml)
-
-	_, err := LoadConfig(path)
-	if err == nil {
-		t.Fatal("expected error, got nil")
+// TestSyntaxError covers the various ways a malformed YAML config
+// produces a *srcloc.Error with a usable Loc through LoadConfig.
+// Each row asserts the structural shape only — see
+// TestSyntaxError_BadIndent_ExactLocation for the one exact-position
+// regression test against the pinned goccy version.
+func TestSyntaxError(t *testing.T) {
+	tests := []struct {
+		name string
+		yaml string
+	}{
+		{
+			name: "bad_indent",
+			yaml: "services:\n foo: bar\n  baz: qux\n",
+		},
+		{
+			name: "unclosed_quote",
+			yaml: "parameters:\n  bad:\n    type: string\n    value: \"unclosed\n",
+		},
+		{
+			// decoration_priority is int, not string. Triggers a
+			// yaml.Error that is NOT a *yaml.SyntaxError (decode error
+			// path), exercising the toSrclocError yaml.Error branch.
+			name: "decode_type_mismatch",
+			yaml: "services:\n  foo:\n    type: string\n    constructor:\n      func: pkg.New\n    decoration_priority: \"abc\"\n",
+		},
 	}
 
-	var le *srcloc.Error
-	if !errors.As(err, &le) {
-		t.Fatalf("expected *srcloc.Error, got %T: %v", err, err)
-	}
-	if le.Loc == nil {
-		t.Fatal("expected non-nil Loc")
-	}
-	absPath, _ := filepath.Abs(path)
-	if le.Loc.File != absPath {
-		t.Errorf("Loc.File = %q, want %q", le.Loc.File, absPath)
-	}
-	if le.Loc.Line < 1 {
-		t.Errorf("Loc.Line = %d, want >= 1", le.Loc.Line)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := writeYAML(t, tt.yaml)
+
+			_, err := LoadConfig(path)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+
+			var le *srcloc.Error
+			if !errors.As(err, &le) {
+				t.Fatalf("expected *srcloc.Error, got %T: %v", err, err)
+			}
+			if le.Loc == nil {
+				t.Fatal("expected non-nil Loc")
+			}
+			absPath, _ := filepath.Abs(path)
+			if le.Loc.File != absPath {
+				t.Errorf("Loc.File = %q, want %q", le.Loc.File, absPath)
+			}
+		})
 	}
 }
 
@@ -80,49 +106,6 @@ func TestSyntaxError_BadIndent_ExactLocation(t *testing.T) {
 	}
 }
 
-func TestSyntaxError_UnclosedQuote_ProducesSrclocError(t *testing.T) {
-	yaml := `parameters:
-  bad:
-    type: string
-    value: "unclosed
-`
-	path := writeYAML(t, yaml)
-
-	_, err := LoadConfig(path)
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var le *srcloc.Error
-	if !errors.As(err, &le) {
-		t.Fatalf("expected *srcloc.Error, got %T: %v", err, err)
-	}
-	if le.Loc == nil {
-		t.Fatal("expected non-nil Loc")
-	}
-}
-
-func TestSyntaxError_TypeMismatch_ProducesSrclocError(t *testing.T) {
-	// decoration_priority is int, not string. Triggers a yaml.Error
-	// that is NOT a *yaml.SyntaxError (decode error path).
-	yaml := `services:
-  foo:
-    type: string
-    constructor:
-      func: pkg.New
-    decoration_priority: "abc"
-`
-	path := writeYAML(t, yaml)
-
-	_, err := LoadConfig(path)
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var le *srcloc.Error
-	if !errors.As(err, &le) {
-		t.Fatalf("expected *srcloc.Error, got %T: %v", err, err)
-	}
-}
-
 func TestSyntaxError_RenderingProducesSnippet(t *testing.T) {
 	// End-to-end: feed a known-bad YAML, render the error, expect a
 	// caret-style snippet output.
@@ -149,97 +132,70 @@ func TestSyntaxError_EmptyFile_DoesNotPanic(t *testing.T) {
 	_, _ = LoadConfig(path)
 }
 
-func TestBlockScalar_Param_Pipe(t *testing.T) {
-	yaml := `parameters:
-  greeting:
-    type: string
-    value: |
-      hello
-      world
-`
-	path := writeYAML(t, yaml)
-	cfg, err := LoadConfig(path)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+// TestBlockScalar covers the cross-product {parameter value, constructor
+// arg} × {block (|), folded (>)} so that LiteralNode handling stays
+// equivalent to plain string scalars after the goccy migration.
+func TestBlockScalar(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		extract func(t *testing.T, cfg *di.Config) string
+		want    string
+	}{
+		{
+			name: "param_pipe",
+			yaml: "parameters:\n  greeting:\n    type: string\n    value: |\n      hello\n      world\n",
+			extract: func(_ *testing.T, cfg *di.Config) string {
+				return cfg.Parameters["greeting"].Value.String()
+			},
+			want: "hello\nworld\n",
+		},
+		{
+			name: "param_folded",
+			yaml: "parameters:\n  greeting:\n    type: string\n    value: >\n      hello\n      world\n",
+			extract: func(_ *testing.T, cfg *di.Config) string {
+				return cfg.Parameters["greeting"].Value.String()
+			},
+			want: "hello world\n",
+		},
+		{
+			name: "arg_pipe",
+			yaml: "services:\n  echo:\n    type: string\n    constructor:\n      func: pkg.New\n      args:\n        - |\n          hello\n          world\n",
+			extract: func(t *testing.T, cfg *di.Config) string {
+				args := cfg.Services["echo"].Constructor.Args
+				if len(args) != 1 {
+					t.Fatalf("expected 1 arg, got %d", len(args))
+				}
+				return args[0].Literal.String()
+			},
+			want: "hello\nworld\n",
+		},
+		{
+			name: "arg_folded",
+			yaml: "services:\n  echo:\n    type: string\n    constructor:\n      func: pkg.New\n      args:\n        - >\n          hello\n          world\n",
+			extract: func(t *testing.T, cfg *di.Config) string {
+				args := cfg.Services["echo"].Constructor.Args
+				if len(args) != 1 {
+					t.Fatalf("expected 1 arg, got %d", len(args))
+				}
+				return args[0].Literal.String()
+			},
+			want: "hello world\n",
+		},
 	}
-	got := cfg.Parameters["greeting"].Value.String()
-	want := "hello\nworld\n"
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
-	}
-}
 
-func TestBlockScalar_Param_Folded(t *testing.T) {
-	yaml := `parameters:
-  greeting:
-    type: string
-    value: >
-      hello
-      world
-`
-	path := writeYAML(t, yaml)
-	cfg, err := LoadConfig(path)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	got := cfg.Parameters["greeting"].Value.String()
-	want := "hello world\n"
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
-	}
-}
-
-func TestBlockScalar_Arg_Pipe(t *testing.T) {
-	yaml := `services:
-  echo:
-    type: string
-    constructor:
-      func: pkg.New
-      args:
-        - |
-          hello
-          world
-`
-	path := writeYAML(t, yaml)
-	cfg, err := LoadConfig(path)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	args := cfg.Services["echo"].Constructor.Args
-	if len(args) != 1 {
-		t.Fatalf("expected 1 arg, got %d", len(args))
-	}
-	got := args[0].Literal.String()
-	want := "hello\nworld\n"
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
-	}
-}
-
-func TestBlockScalar_Arg_Folded(t *testing.T) {
-	yaml := `services:
-  echo:
-    type: string
-    constructor:
-      func: pkg.New
-      args:
-        - >
-          hello
-          world
-`
-	path := writeYAML(t, yaml)
-	cfg, err := LoadConfig(path)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	args := cfg.Services["echo"].Constructor.Args
-	if len(args) != 1 {
-		t.Fatalf("expected 1 arg, got %d", len(args))
-	}
-	got := args[0].Literal.String()
-	want := "hello world\n"
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := writeYAML(t, tt.yaml)
+			cfg, err := LoadConfig(path)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			got := tt.extract(t, cfg)
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
