@@ -31,7 +31,7 @@ func Generate(cfg Config, passes []di.Pass) error {
 
 	diCfg, err := yaml.LoadConfig(cfg.ConfigPath)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return srcloc.AddContext(err, "load config")
 	}
 
 	diCfg, err = di.ApplyPasses(diCfg, passes)

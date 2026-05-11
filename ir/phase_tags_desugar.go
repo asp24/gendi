@@ -151,6 +151,8 @@ func getServiceTagPriority(svc *Service, tagName string) int {
 				return val
 			case int64:
 				return int(val)
+			case uint64:
+				return int(val)
 			case float64:
 				return int(val)
 			case string:

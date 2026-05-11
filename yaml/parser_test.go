@@ -1,15 +1,34 @@
 package yaml
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"gopkg.in/yaml.v3"
+	yamllib "github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
+	"github.com/goccy/go-yaml/parser"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/srcloc"
 )
+
+// mustParseNode parses a YAML snippet via goccy and returns the
+// document root node. Used by tests that previously hand-built
+// *yaml.Node literals.
+func mustParseNode(t *testing.T, src string) ast.Node {
+	t.Helper()
+	f, err := parser.ParseBytes([]byte(src), 0)
+	if err != nil {
+		t.Fatalf("parse helper for %q: %v", src, err)
+	}
+	if len(f.Docs) == 0 {
+		t.Fatalf("no docs in %q", src)
+	}
+	return f.Docs[0].Body
+}
 
 func TestParseServiceAlias(t *testing.T) {
 	raw := &RawService{
@@ -76,13 +95,8 @@ func TestParseArgumentLiteralString(t *testing.T) {
 }
 
 func TestParseArgumentLiteralNode(t *testing.T) {
-	node := yaml.Node{
-		Kind:  yaml.ScalarNode,
-		Tag:   "!!int",
-		Value: "42",
-	}
 	raw := &RawArgument{
-		Node: &node,
+		Node: mustParseNode(t, "42"),
 	}
 	p := NewParser()
 	arg, err := p.convertArgumentWithFile(raw, "")
@@ -92,7 +106,9 @@ func TestParseArgumentLiteralNode(t *testing.T) {
 	if arg.Kind != di.ArgLiteral {
 		t.Errorf("expected kind ArgLiteral, got %v", arg.Kind)
 	}
-	// Verify integer parsing logic if possible
+	if arg.Literal.Int() != 42 {
+		t.Errorf("expected literal 42, got %d", arg.Literal.Int())
+	}
 }
 
 func TestServiceDefaults(t *testing.T) {
@@ -312,7 +328,7 @@ services:
 `
 
 	var raw RawConfig
-	if err := yaml.Unmarshal([]byte(yamlContent), &raw); err != nil {
+	if err := yamllib.Unmarshal([]byte(yamlContent), &raw); err != nil {
 		t.Fatalf("failed to unmarshal YAML: %v", err)
 	}
 
@@ -330,8 +346,8 @@ services:
 	if tag1.Name != "handler.http" {
 		t.Errorf("expected tag name 'handler.http', got '%s'", tag1.Name)
 	}
-	if priority, ok := tag1.Attributes["priority"].(int); !ok || priority != 10 {
-		t.Errorf("expected priority=10, got %v", tag1.Attributes["priority"])
+	if !attrEqualsInt(tag1.Attributes["priority"], 10) {
+		t.Errorf("expected priority=10, got %v (%T)", tag1.Attributes["priority"], tag1.Attributes["priority"])
 	}
 	if path, ok := tag1.Attributes["path"].(string); !ok || path != "/api/test" {
 		t.Errorf("expected path='/api/test', got %v", tag1.Attributes["path"])
@@ -359,7 +375,7 @@ services:
 `
 
 	var raw RawConfig
-	if err := yaml.Unmarshal([]byte(yamlContent), &raw); err != nil {
+	if err := yamllib.Unmarshal([]byte(yamlContent), &raw); err != nil {
 		t.Fatalf("failed to unmarshal YAML: %v", err)
 	}
 
@@ -386,9 +402,24 @@ services:
 	if tag2.Name != "handler.http" {
 		t.Errorf("expected tag name 'handler.http', got '%s'", tag2.Name)
 	}
-	if priority, ok := tag2.Attributes["priority"].(int); !ok || priority != 10 {
-		t.Errorf("expected priority=10, got %v", tag2.Attributes["priority"])
+	if !attrEqualsInt(tag2.Attributes["priority"], 10) {
+		t.Errorf("expected priority=10, got %v (%T)", tag2.Attributes["priority"], tag2.Attributes["priority"])
 	}
+}
+
+// attrEqualsInt accepts both int (yaml.v3) and uint64/int64 (goccy)
+// representations of decoded YAML integers, so tests survive parser
+// library changes.
+func attrEqualsInt(got any, want int64) bool {
+	switch v := got.(type) {
+	case int:
+		return int64(v) == want
+	case int64:
+		return v == want
+	case uint64:
+		return int64(v) == want
+	}
+	return false
 }
 
 func TestValidateDefaultsRejectsInvalidFields(t *testing.T) {
@@ -632,31 +663,25 @@ func TestConvertLiteralTypes(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		node    yaml.Node
+		yaml    string
 		wantErr string
 	}{
+		{name: "float", yaml: "3.14"},
+		{name: "bool", yaml: "true"},
+		{name: "null", yaml: "null"},
 		{
-			name: "float",
-			node: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!float", Value: "3.14"},
-		},
-		{
-			name: "bool",
-			node: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "true"},
-		},
-		{
-			name: "null",
-			node: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!null"},
-		},
-		{
+			// A mapping where a scalar is expected — exercises the
+			// "unsupported literal type" branch in convertLiteral.
 			name:    "unsupported",
-			node:    yaml.Node{Kind: yaml.ScalarNode, Tag: "!!binary", Value: "data"},
+			yaml:    "{a: b}",
 			wantErr: "unsupported literal type",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := p.convertLiteral(&tt.node)
+			node := mustParseNode(t, tt.yaml)
+			_, err := p.convertLiteral(node, "")
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
@@ -676,7 +701,7 @@ func TestConvertConfigWithDirAndFile(t *testing.T) {
 	t.Run("parameter_missing_type", func(t *testing.T) {
 		raw := &RawConfig{
 			Parameters: map[string]RawParameter{
-				"bad": {Value: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "x"}},
+				"bad": {Value: mustParseNode(t, "x")},
 			},
 		}
 		_, err := p.ConvertConfigWithDirAndFile(raw, "", "")
@@ -688,7 +713,7 @@ func TestConvertConfigWithDirAndFile(t *testing.T) {
 	t.Run("parameter_bad_literal", func(t *testing.T) {
 		raw := &RawConfig{
 			Parameters: map[string]RawParameter{
-				"bad": {Type: "int", Value: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!binary", Value: "x"}},
+				"bad": {Type: "int", Value: mustParseNode(t, "{a: b}")},
 			},
 		}
 		_, err := p.ConvertConfigWithDirAndFile(raw, "", "")
@@ -700,7 +725,7 @@ func TestConvertConfigWithDirAndFile(t *testing.T) {
 	t.Run("parameter_ok", func(t *testing.T) {
 		raw := &RawConfig{
 			Parameters: map[string]RawParameter{
-				"host": {Type: "string", Value: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "localhost"}},
+				"host": {Type: "string", Value: mustParseNode(t, "localhost")},
 			},
 		}
 		cfg, err := p.ConvertConfigWithDirAndFile(raw, "", "")
@@ -746,7 +771,9 @@ func TestConvertConfigWithDirAndFile(t *testing.T) {
 	})
 
 	t.Run("service_convert_error", func(t *testing.T) {
-		badNode := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!binary", Value: "x"}
+		// Mapping where a literal is expected — exercises convertLiteral
+		// "unsupported literal type" path through the arg conversion.
+		badNode := mustParseNode(t, "{a: b}")
 		raw := &RawConfig{
 			Services: map[string]*RawService{
 				"bad": {
@@ -835,5 +862,61 @@ func TestTagAutoconfigureParsed(t *testing.T) {
 
 	if !tag.Autoconfigure {
 		t.Fatal("expected tag 'auto.tag' to have autoconfigure enabled")
+	}
+}
+
+// TestConvertLiteral_LocatedErrors verifies that every rejection branch
+// in convertLiteral produces a *srcloc.Error with a Loc, so the renderer
+// can show snippet + caret for the offending node.
+func TestConvertLiteral_LocatedErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		// yaml is a YAML scalar that triggers the rejection branch.
+		yaml string
+		// wantInMsg, when non-empty, must appear in the error Message.
+		wantInMsg string
+	}{
+		{
+			// Value chosen to overflow int64 (max = 9223372036854775807)
+			// but still fit in uint64 (max = 18446744073709551615), so
+			// goccy parses it as IntegerNode{Value: uint64(...)} and
+			// convertLiteral hits the overflow branch. Numbers larger
+			// than uint64 max get parsed as *ast.StringNode by goccy
+			// and would not exercise this path.
+			name: "integer_overflow",
+			yaml: "9999999999999999999",
+		},
+		{
+			name:      "infinity_rejected",
+			yaml:      ".inf",
+			wantInMsg: ".inf",
+		},
+		{
+			name:      "nan_rejected",
+			yaml:      ".nan",
+			wantInMsg: ".nan",
+		},
+		{
+			name: "mapping_unsupported",
+			yaml: "{a: b}",
+		},
+	}
+
+	p := NewParser()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			node := mustParseNode(t, tt.yaml)
+			_, err := p.convertLiteral(node, "/x.yaml")
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			var le *srcloc.Error
+			if !errors.As(err, &le) || le.Loc == nil {
+				t.Fatalf("expected located *srcloc.Error, got %T: %v", err, err)
+			}
+			if tt.wantInMsg != "" && !strings.Contains(le.Message, tt.wantInMsg) {
+				t.Errorf("expected %q in Message, got %q", tt.wantInMsg, le.Message)
+			}
+		})
 	}
 }
