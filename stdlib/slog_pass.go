@@ -1,4 +1,4 @@
-package di
+package stdlib
 
 import (
 	"strings"
@@ -7,6 +7,11 @@ import (
 )
 
 type SLogPass struct {
+	runByDefault bool
+}
+
+func NewSLogPass(runByDefault bool) *SLogPass {
+	return &SLogPass{runByDefault: runByDefault}
 }
 
 func (s *SLogPass) Name() string {
@@ -14,7 +19,7 @@ func (s *SLogPass) Name() string {
 }
 
 func (s *SLogPass) RunByDefault() bool {
-	return true
+	return s.runByDefault
 }
 
 func (s *SLogPass) getTagAttributes(svc *di.Service) (map[string]any, bool) {
