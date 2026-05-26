@@ -87,6 +87,10 @@ type OptionalPass interface {
 - Pass names come from `Name()`.
 - If the same pass name is registered more than once, only the first included pass runs.
 
+`cmd.Run` validates pass flags before generation and returns an error if:
+- A name passed to `--enable-pass` or `--disable-pass` does not match any registered pass.
+- The same name appears in both `--enable-pass` and `--disable-pass`.
+
 Use `di.Pass` when calling `di.ApplyPasses` or `cmd.Generate` directly. Use `di.OptionalPass` when registering passes with `cmd.Run` or `cmd.MustRun`.
 
 ## Creating a Pass
