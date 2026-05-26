@@ -134,6 +134,10 @@ Flags:
   --container string   Container struct name (default: "Container")
   --strict            Enable strict validation (default: true)
   --build-tags string  Build tags for generated file
+  --enable-pass string
+                      Enable an optional compiler pass (repeatable)
+  --disable-pass string
+                      Disable an optional compiler pass (repeatable)
   --verbose           Enable verbose logging
 ```
 
@@ -158,6 +162,8 @@ Compiler passes transform configuration before code generation, enabling project
 type AutoTagPass struct{}
 
 func (p *AutoTagPass) Name() string { return "auto-tag" }
+
+func (p *AutoTagPass) RunByDefault() bool { return true }
 
 func (p *AutoTagPass) Process(cfg *di.Config) (*di.Config, error) {
     for id, svc := range cfg.Services {

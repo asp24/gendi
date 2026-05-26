@@ -13,6 +13,11 @@ type Pass interface {
 	Process(cfg *Config) (*Config, error)
 }
 
+type OptionalPass interface {
+	Pass
+	RunByDefault() bool
+}
+
 // ApplyPasses applies compiler passes sequentially to the config.
 // Each pass receives the result of the previous pass.
 func ApplyPasses(cfg *Config, passes []Pass) (*Config, error) {

@@ -230,6 +230,8 @@ type MyPass struct{}
 
 func (p *MyPass) Name() string { return "my-pass" }
 
+func (p *MyPass) RunByDefault() bool { return true }
+
 func (p *MyPass) Process(cfg *di.Config) (*di.Config, error) {
     // Mutate cfg (add services, modify args, etc.)
     return cfg, nil
@@ -240,7 +242,7 @@ Use in custom generator:
 ```go
 // tools/gendi/main.go
 func main() {
-    passes := []di.Pass{&MyPass{}}
+    passes := []di.OptionalPass{&MyPass{}}
     cmd.Run(flag.CommandLine, passes)
 }
 ```

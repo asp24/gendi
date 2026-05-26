@@ -11,6 +11,7 @@ import (
 type Config struct {
 	ConfigPath string
 	Options    pipeline.Options
+	Passes     PassConfig
 }
 
 func (c *Config) RegisterFlags(flags *flag.FlagSet) {
@@ -21,6 +22,7 @@ func (c *Config) RegisterFlags(flags *flag.FlagSet) {
 	flags.BoolVar(&c.Options.Strict, "strict", true, "Enable strict validation")
 	flags.StringVar(&c.Options.BuildTags, "build-tags", "", "Go build tags")
 	flags.BoolVar(&c.Options.Verbose, "verbose", false, "Verbose logging")
+	c.Passes.RegisterFlags(flags)
 }
 
 // Finalize validates and finalizes the configuration

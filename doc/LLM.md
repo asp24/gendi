@@ -8,7 +8,7 @@ Short, stable facts for tooling and assistants.
 go tool gendi --config=gendi.yaml --out=./di --pkg=di
 ```
 
-Flags: `--config`, `--out`, `--pkg`, `--container`, `--strict`, `--build-tags`, `--verbose`.
+Flags: `--config`, `--out`, `--pkg`, `--container`, `--strict`, `--build-tags`, `--enable-pass`, `--disable-pass`, `--verbose`.
 
 ## YAML Syntax
 

@@ -57,7 +57,7 @@ func Generate(cfg Config, passes []di.Pass) error {
 }
 
 // Run executes the full gendi workflow with optional compiler passes
-func Run(flags *flag.FlagSet, passes []di.Pass) error {
+func Run(flags *flag.FlagSet, passes []di.OptionalPass) error {
 	var cfg Config
 	cfg.RegisterFlags(flags)
 
@@ -65,7 +65,7 @@ func Run(flags *flag.FlagSet, passes []di.Pass) error {
 		return fmt.Errorf("parse flags: %w", err)
 	}
 
-	return Generate(cfg, passes)
+	return Generate(cfg, cfg.Passes.resolvePasses(passes))
 }
 
 func PrintErrorAndExit(err error) {
@@ -79,6 +79,6 @@ func PrintErrorAndExit(err error) {
 	os.Exit(1)
 }
 
-func MustRun(flags *flag.FlagSet, passes []di.Pass) {
+func MustRun(flags *flag.FlagSet, passes []di.OptionalPass) {
 	PrintErrorAndExit(Run(flags, passes))
 }

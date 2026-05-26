@@ -13,6 +13,10 @@ func (s *SLogPass) Name() string {
 	return "slog"
 }
 
+func (s *SLogPass) RunByDefault() bool {
+	return true
+}
+
 func (s *SLogPass) getTagAttributes(svc *di.Service) (map[string]any, bool) {
 	for _, tag := range svc.Tags {
 		if !strings.EqualFold(tag.Name, s.Name()) {

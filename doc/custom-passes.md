@@ -6,6 +6,7 @@ Compiler passes transform configuration before code generation, enabling project
 
 - [Overview](#overview)
 - [Pass Interface](#pass-interface)
+- [Optional CLI Passes](#optional-cli-passes)
 - [Creating a Pass](#creating-a-pass)
 - [Building a Custom Generator](#building-a-custom-generator)
 - [Common Use Cases](#common-use-cases)
@@ -66,6 +67,28 @@ type Pass interface {
 - Returns an error if transformation fails
 - **Must not modify the input config** (create a copy if needed)
 
+## Optional CLI Passes
+
+Custom generator binaries built with `cmd.Run` register optional passes. Optional passes implement `Pass` plus `RunByDefault`:
+
+```go
+package di
+
+type OptionalPass interface {
+    Pass
+    RunByDefault() bool
+}
+```
+
+`RunByDefault` controls how the pass participates in CLI filtering:
+
+- Return `true` to run the pass unless the user passes `--disable-pass=<name>`.
+- Return `false` to skip the pass unless the user passes `--enable-pass=<name>`.
+- Pass names come from `Name()`.
+- If the same pass name is registered more than once, only the first included pass runs.
+
+Use `di.Pass` when calling `di.ApplyPasses` or `cmd.Generate` directly. Use `di.OptionalPass` when registering passes with `cmd.Run` or `cmd.MustRun`.
+
 ## Creating a Pass
 
 ### Basic Pass Structure
@@ -83,6 +106,10 @@ type AutoTagPass struct {
 
 func (p *AutoTagPass) Name() string {
     return "auto-tag"
+}
+
+func (p *AutoTagPass) RunByDefault() bool {
+    return true
 }
 
 func (p *AutoTagPass) Process(cfg *di.Config) (*di.Config, error) {
@@ -130,7 +157,7 @@ func (p *MyPass) Process(cfg *di.Config) (*di.Config, error) {
 ```go
 func (p *MyPass) Process(cfg *di.Config) (*di.Config, error) {
     cfg.Services["new_service"] = di.Service{
-        Constructor: &di.Constructor{
+        Constructor: di.Constructor{
             Func: "github.com/myapp.NewService",
             Args: []di.Argument{
                 {Kind: di.ArgLiteral, Literal: di.NewStringLiteral("value")},
@@ -191,7 +218,7 @@ import (
 
 func main() {
     // Define custom compiler passes
-    customPasses := []di.Pass{
+    customPasses := []di.OptionalPass{
         &passes.AutoTagPass{},
         &passes.ValidationPass{},
     }
@@ -212,6 +239,12 @@ go build -o bin/gendi ./tools/gendi
 
 # Run custom generator
 ./bin/gendi --config=gendi.yaml --out=./di --pkg=di
+
+# Disable a default-enabled optional pass
+./bin/gendi --config=gendi.yaml --out=./di --pkg=di --disable-pass=auto-tag
+
+# Enable a default-disabled optional pass
+./bin/gendi --config=gendi.yaml --out=./di --pkg=di --enable-pass=validation
 
 # Or use go run
 go run ./tools/gendi --config=gendi.yaml --out=./di --pkg=di
@@ -278,13 +311,11 @@ func (p *LoggingPass) Process(cfg *di.Config) (*di.Config, error) {
         }
 
         // Add logger as first argument
-        if svc.Constructor != nil {
-            svc.Constructor.Args = append(
-                []di.Argument{{Kind: di.ArgServiceRef, Value: "logger"}},
-                svc.Constructor.Args...,
-            )
-            cfg.Services[id] = svc
-        }
+        svc.Constructor.Args = append(
+            []di.Argument{{Kind: di.ArgServiceRef, Value: "logger"}},
+            svc.Constructor.Args...,
+        )
+        cfg.Services[id] = svc
     }
 
     return cfg, nil
@@ -417,7 +448,7 @@ type AutoTagPass struct{}
 Return descriptive errors:
 
 ```go
-if svc.Constructor == nil {
+if svc.Constructor.Func == "" && svc.Constructor.Method == "" {
     return nil, fmt.Errorf(
         "service %q: missing constructor (required by auto-tag pass)",
         id,
@@ -460,7 +491,7 @@ func TestAutoTagPass(t *testing.T) {
     cfg := &di.Config{
         Services: map[string]di.Service{
             "home.handler": {
-                Constructor: &di.Constructor{
+                Constructor: di.Constructor{
                     Func: "app.NewHomeHandler",
                 },
             },
@@ -493,6 +524,8 @@ customPasses := []di.Pass{
 }
 ```
 
+If these passes are registered with `cmd.Run`, use `[]di.OptionalPass` and implement `RunByDefault` on each pass.
+
 ## Complete Example
 
 See [examples/custom-pass](../examples/custom-pass) for a production-ready implementation featuring:
@@ -511,7 +544,7 @@ func (p *ChannelLoggerPass) Name() string {
 func (p *ChannelLoggerPass) Process(cfg *di.Config) (*di.Config, error) {
     for id, svc := range cfg.Services {
         // Only process method constructors
-        if svc.Constructor == nil || svc.Constructor.Method == "" {
+        if svc.Constructor.Method == "" {
             continue
         }
 
@@ -587,7 +620,7 @@ type Config struct {
 // Service represents a service definition
 type Service struct {
     Type                string
-    Constructor         *Constructor
+    Constructor         Constructor
     Alias               string
     Shared              bool
     Public              bool

@@ -10,7 +10,7 @@ import (
 
 func main() {
 	// Register custom compiler passes
-	passes := []gendi.Pass{
+	passes := []gendi.OptionalPass{
 		&di.AutoTagPass{},
 		&di.SLogPass{},
 	}

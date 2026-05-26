@@ -68,13 +68,17 @@ This pass demonstrates **variadic function support** - `slog.Logger.With(args ..
 
 ### 1. Define Custom Passes
 
-Implement the `di.Pass` interface:
+Implement the `di.OptionalPass` interface for passes registered with `cmd.Run`:
 
 ```go
 type SLogPass struct{}
 
 func (s *SLogPass) Name() string {
     return "slog"
+}
+
+func (s *SLogPass) RunByDefault() bool {
+    return true
 }
 
 func (s *SLogPass) Process(cfg *di.Config) (*di.Config, error) {
@@ -88,15 +92,12 @@ func (s *SLogPass) Process(cfg *di.Config) (*di.Config, error) {
 `tools/gendi/main.go`:
 ```go
 func main() {
-    passes := []gendi.Pass{
+    passes := []gendi.OptionalPass{
         &di.AutoTagPass{},
         &di.SLogPass{},
     }
 
-    if err := cmd.Run(flag.CommandLine, passes); err != nil {
-        fmt.Fprintf(os.Stderr, "%v\n", err)
-        os.Exit(1)
-    }
+    cmd.MustRun(flag.CommandLine, passes)
 }
 ```
 
@@ -133,6 +134,9 @@ The `cmd/main.go` includes a go:generate directive:
 ```bash
 # Generate the container with custom passes
 go run ./tools/gendi --config=./cmd/gendi.yaml --out=./cmd --pkg=main
+
+# Disable a default-enabled optional pass
+go run ./tools/gendi --config=./cmd/gendi.yaml --out=./cmd --pkg=main --disable-pass=slog
 
 # Run the demo
 go run ./cmd/*.go

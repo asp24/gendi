@@ -15,6 +15,10 @@ func (p *AutoTagPass) Name() string {
 	return "auto-tag"
 }
 
+func (p *AutoTagPass) RunByDefault() bool {
+	return true
+}
+
 func (p *AutoTagPass) Process(cfg *di.Config) (*di.Config, error) {
 	for id, svc := range cfg.Services {
 		if strings.HasPrefix(id, "stdlib.") {
