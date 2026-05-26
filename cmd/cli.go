@@ -65,7 +65,12 @@ func Run(flags *flag.FlagSet, passes []di.OptionalPass) error {
 		return fmt.Errorf("parse flags: %w", err)
 	}
 
-	return Generate(cfg, cfg.Passes.resolvePasses(passes))
+	resolved, err := cfg.Passes.resolvePasses(passes)
+	if err != nil {
+		return fmt.Errorf("resolve passes: %w", err)
+	}
+
+	return Generate(cfg, resolved)
 }
 
 func PrintErrorAndExit(err error) {

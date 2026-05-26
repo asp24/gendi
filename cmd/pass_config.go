@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"flag"
+	"fmt"
 
 	di "github.com/asp24/gendi"
 )
@@ -12,9 +13,42 @@ type PassConfig struct {
 	Disabled map[string]struct{} // Pass names to disable
 }
 
+// validate Returns an error if a name appears in both Enabled and Disabled, or if any
+// name in Enabled or Disabled does not match a registered pass.
+func (pc *PassConfig) validate(passes []di.OptionalPass) error {
+	for name := range pc.Enabled {
+		if _, ok := pc.Disabled[name]; ok {
+			return fmt.Errorf("pass %q is both enabled and disabled", name)
+		}
+	}
+
+	known := make(map[string]struct{}, len(passes))
+	for _, p := range passes {
+		known[p.Name()] = struct{}{}
+	}
+
+	for name := range pc.Enabled {
+		if _, ok := known[name]; !ok {
+			return fmt.Errorf("--enable-pass: unknown pass %q", name)
+		}
+	}
+
+	for name := range pc.Disabled {
+		if _, ok := known[name]; !ok {
+			return fmt.Errorf("--disable-pass: unknown pass %q", name)
+		}
+	}
+
+	return nil
+}
+
 // resolvePasses builds the final list of passes from the passed-in list,
 // applying enable/disable filtering and always including enabled-by-default passes.
-func (pc *PassConfig) resolvePasses(passes []di.OptionalPass) []di.Pass {
+func (pc *PassConfig) resolvePasses(passes []di.OptionalPass) ([]di.Pass, error) {
+	if err := pc.validate(passes); err != nil {
+		return nil, err
+	}
+
 	result := make([]di.Pass, 0, len(passes))
 	included := make(map[string]struct{}, len(passes))
 	for _, p := range passes {
@@ -36,7 +70,7 @@ func (pc *PassConfig) resolvePasses(passes []di.OptionalPass) []di.Pass {
 		included[name] = struct{}{}
 	}
 
-	return result
+	return result, nil
 }
 
 // RegisterFlags adds pass enable/disable flags to the flag set.
