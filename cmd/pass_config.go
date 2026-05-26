@@ -16,12 +16,6 @@ type PassConfig struct {
 // validate Returns an error if a name appears in both Enabled and Disabled, or if any
 // name in Enabled or Disabled does not match a registered pass.
 func (pc *PassConfig) validate(passes []di.OptionalPass) error {
-	for name := range pc.Enabled {
-		if _, ok := pc.Disabled[name]; ok {
-			return fmt.Errorf("pass %q is both enabled and disabled", name)
-		}
-	}
-
 	known := make(map[string]struct{}, len(passes))
 	for _, p := range passes {
 		known[p.Name()] = struct{}{}
@@ -36,6 +30,12 @@ func (pc *PassConfig) validate(passes []di.OptionalPass) error {
 	for name := range pc.Disabled {
 		if _, ok := known[name]; !ok {
 			return fmt.Errorf("--disable-pass: unknown pass %q", name)
+		}
+	}
+
+	for name := range pc.Enabled {
+		if _, ok := pc.Disabled[name]; ok {
+			return fmt.Errorf("pass %q is both enabled and disabled", name)
 		}
 	}
 
