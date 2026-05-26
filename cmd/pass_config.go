@@ -15,7 +15,7 @@ type PassConfig struct {
 
 // validate Returns an error if a name appears in both Enabled and Disabled, or if any
 // name in Enabled or Disabled does not match a registered pass.
-func (pc *PassConfig) validate(passes []di.OptionalPass) error {
+func (pc *PassConfig) validate(passes []di.SelectablePass) error {
 	known := make(map[string]struct{}, len(passes))
 	for _, p := range passes {
 		known[p.Name()] = struct{}{}
@@ -44,7 +44,7 @@ func (pc *PassConfig) validate(passes []di.OptionalPass) error {
 
 // resolvePasses builds the final list of passes from the passed-in list,
 // applying enable/disable filtering and always including enabled-by-default passes.
-func (pc *PassConfig) resolvePasses(passes []di.OptionalPass) ([]di.Pass, error) {
+func (pc *PassConfig) resolvePasses(passes []di.SelectablePass) ([]di.Pass, error) {
 	if err := pc.validate(passes); err != nil {
 		return nil, err
 	}

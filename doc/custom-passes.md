@@ -74,7 +74,7 @@ Custom generator binaries built with `cmd.Run` register optional passes. Optiona
 ```go
 package di
 
-type OptionalPass interface {
+type SelectablePass interface {
     Pass
     RunByDefault() bool
 }
@@ -91,7 +91,7 @@ type OptionalPass interface {
 - A name passed to `--enable-pass` or `--disable-pass` does not match any registered pass.
 - The same name appears in both `--enable-pass` and `--disable-pass`.
 
-Use `di.Pass` when calling `di.ApplyPasses` or `cmd.Generate` directly. Use `di.OptionalPass` when registering passes with `cmd.Run` or `cmd.MustRun`.
+Use `di.Pass` when calling `di.ApplyPasses` or `cmd.Generate` directly. Use `di.SelectablePass` when registering passes with `cmd.Run` or `cmd.MustRun`.
 
 ## Creating a Pass
 
@@ -222,7 +222,7 @@ import (
 
 func main() {
     // Define custom compiler passes
-    customPasses := []di.OptionalPass{
+    customPasses := []di.SelectablePass{
         &passes.AutoTagPass{},
         &passes.ValidationPass{},
     }
@@ -528,7 +528,7 @@ customPasses := []di.Pass{
 }
 ```
 
-If these passes are registered with `cmd.Run`, use `[]di.OptionalPass` and implement `RunByDefault` on each pass.
+If these passes are registered with `cmd.Run`, use `[]di.SelectablePass` and implement `RunByDefault` on each pass.
 
 ## Complete Example
 

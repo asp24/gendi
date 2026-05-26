@@ -242,7 +242,7 @@ Use in custom generator:
 ```go
 // tools/gendi/main.go
 func main() {
-    passes := []di.OptionalPass{&MyPass{}}
+    passes := []di.SelectablePass{&MyPass{}}
     cmd.Run(flag.CommandLine, passes)
 }
 ```

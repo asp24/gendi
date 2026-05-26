@@ -13,7 +13,10 @@ type Pass interface {
 	Process(cfg *Config) (*Config, error)
 }
 
-type OptionalPass interface {
+// SelectablePass extends Pass with a default execution policy that CLI flags
+// can override: RunByDefault()=true runs unless --disable-pass=<name> is set;
+// RunByDefault()=false skips unless --enable-pass=<name> is set.
+type SelectablePass interface {
 	Pass
 	RunByDefault() bool
 }

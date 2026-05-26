@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// Register custom compiler passes
-	passes := []gendi.OptionalPass{
+	passes := []gendi.SelectablePass{
 		&di.AutoTagPass{},
 		stdlib.NewSLogPass(true),
 	}
