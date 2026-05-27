@@ -23,7 +23,6 @@ func TestPassConfig_ResolvePasses(t *testing.T) {
 	cases := []struct {
 		name      string
 		enabled   map[string]struct{}
-		disabled  map[string]struct{}
 		passes    []di.SelectablePass
 		wantNames []string
 	}{
@@ -44,12 +43,6 @@ func TestPassConfig_ResolvePasses(t *testing.T) {
 			wantNames: []string{"a"},
 		},
 		{
-			name:      "default-on pass excluded when disabled",
-			disabled:  map[string]struct{}{"a": {}},
-			passes:    []di.SelectablePass{makePass("a", true)},
-			wantNames: []string{},
-		},
-		{
 			name:      "duplicate pass name runs only once",
 			passes:    []di.SelectablePass{makePass("a", true), makePass("a", true)},
 			wantNames: []string{"a"},
@@ -57,7 +50,7 @@ func TestPassConfig_ResolvePasses(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			pc := PassConfig{Enabled: tc.enabled, Disabled: tc.disabled}
+			pc := PassConfig{Enabled: tc.enabled}
 			result, err := pc.resolvePasses(tc.passes)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -76,31 +69,19 @@ func TestPassConfig_ResolvePasses(t *testing.T) {
 
 func TestPassConfig_ResolvePasses_Errors(t *testing.T) {
 	cases := []struct {
-		name     string
-		enabled  map[string]struct{}
-		disabled map[string]struct{}
-		passes   []di.SelectablePass
+		name    string
+		enabled map[string]struct{}
+		passes  []di.SelectablePass
 	}{
 		{
 			name:    "unknown name in --enable-pass",
 			enabled: map[string]struct{}{"unknown": {}},
 			passes:  []di.SelectablePass{makePass("foo", true)},
 		},
-		{
-			name:     "unknown name in --disable-pass",
-			disabled: map[string]struct{}{"unknown": {}},
-			passes:   []di.SelectablePass{makePass("foo", true)},
-		},
-		{
-			name:     "same name in both --enable-pass and --disable-pass",
-			enabled:  map[string]struct{}{"foo": {}},
-			disabled: map[string]struct{}{"foo": {}},
-			passes:   []di.SelectablePass{makePass("foo", true)},
-		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			pc := PassConfig{Enabled: tc.enabled, Disabled: tc.disabled}
+			pc := PassConfig{Enabled: tc.enabled}
 			_, err := pc.resolvePasses(tc.passes)
 			if err == nil {
 				t.Error("expected error, got nil")

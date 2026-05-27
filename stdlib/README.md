@@ -575,7 +575,7 @@ func main() {
 ```
 
 `NewSLogPass(runByDefault bool)` controls whether the pass runs unless explicitly toggled via CLI:
-- `true` — runs unless the user passes `--disable-pass=slog`
+- `true` — runs by default
 - `false` — skipped unless the user passes `--enable-pass=slog`
 
 ## See Also

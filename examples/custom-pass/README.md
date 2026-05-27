@@ -136,7 +136,8 @@ The `cmd/main.go` includes a go:generate directive:
 go run ./tools/gendi --config=./cmd/gendi.yaml --out=./cmd --pkg=main
 
 # Disable a default-enabled optional pass
-go run ./tools/gendi --config=./cmd/gendi.yaml --out=./cmd --pkg=main --disable-pass=slog
+# To disable the SLog pass:
+go run ./tools/gendi --config=./cmd/gendi.yaml --out=./cmd --pkg=main
 
 # Run the demo
 go run ./cmd/*.go

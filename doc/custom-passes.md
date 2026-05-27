@@ -82,14 +82,12 @@ type SelectablePass interface {
 
 `RunByDefault` controls how the pass participates in CLI filtering:
 
-- Return `true` to run the pass unless the user passes `--disable-pass=<name>`.
+- Return `true` to run the pass by default.
 - Return `false` to skip the pass unless the user passes `--enable-pass=<name>`.
 - Pass names come from `Name()`.
 - If the same pass name is registered more than once, only the first included pass runs.
 
-`cmd.Run` validates pass flags before generation and returns an error if:
-- A name passed to `--enable-pass` or `--disable-pass` does not match any registered pass.
-- The same name appears in both `--enable-pass` and `--disable-pass`.
+`cmd.Run` validates pass flags before generation and returns an error if a name passed to `--enable-pass` does not match any registered pass.
 
 Use `di.Pass` when calling `di.ApplyPasses` or `cmd.Generate` directly. Use `di.SelectablePass` when registering passes with `cmd.Run` or `cmd.MustRun`.
 
@@ -243,9 +241,6 @@ go build -o bin/gendi ./tools/gendi
 
 # Run custom generator
 ./bin/gendi --config=gendi.yaml --out=./di --pkg=di
-
-# Disable a default-enabled optional pass
-./bin/gendi --config=gendi.yaml --out=./di --pkg=di --disable-pass=auto-tag
 
 # Enable a default-disabled optional pass
 ./bin/gendi --config=gendi.yaml --out=./di --pkg=di --enable-pass=validation

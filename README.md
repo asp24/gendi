@@ -136,8 +136,6 @@ Flags:
   --build-tags string  Build tags for generated file
   --enable-pass string
                       Enable an optional compiler pass (repeatable)
-  --disable-pass string
-                      Disable an optional compiler pass (repeatable)
   --verbose           Enable verbose logging
 ```
 

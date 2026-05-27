@@ -16,8 +16,7 @@ gendi
 | `--container` | Container struct name |
 | `--strict` | Enable strict validation (default: true) |
 | `--build-tags` | Go build tags |
-| `--enable-pass` | Enable an optional compiler pass by name; repeat for multiple passes; errors on unknown name or conflict with `--disable-pass` |
-| `--disable-pass` | Disable an optional compiler pass by name; repeat for multiple passes; errors on unknown name or conflict with `--enable-pass` |
+| `--enable-pass` | Enable an optional compiler pass by name; repeat for multiple passes; errors on unknown name |
 | `--verbose` | Verbose logging |
 
 ## go:generate
