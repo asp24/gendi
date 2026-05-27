@@ -551,7 +551,7 @@ services:
 
 ## Compiler Passes
 
-The stdlib package also provides optional compiler passes for use in custom generator binaries.
+The stdlib package also provides compiler passes for use in custom generator binaries.
 
 ### SLogPass
 
@@ -562,21 +562,31 @@ Automatically wires structured logging into services that follow the slog naming
 ```go
 import (
     "flag"
+    gendi "github.com/asp24/gendi"
     "github.com/asp24/gendi/cmd"
     "github.com/asp24/gendi/stdlib"
 )
 
 func main() {
-    passes := []gendi.OptionalPass{
-        stdlib.NewSLogPass(true), // true = run by default
+    // Always-included passes
+    passes := []gendi.Pass{
+        &stdlib.SLogPass{},
     }
-    cmd.MustRun(flag.CommandLine, passes)
+    cmd.MustRun(flag.CommandLine, passes, nil)
 }
 ```
 
-`NewSLogPass(runByDefault bool)` controls whether the pass runs unless explicitly toggled via CLI:
-- `true` — runs by default
-- `false` — skipped unless the user passes `--enable-pass=slog`
+To make SLogPass selectable via `--enable-pass=slog`, put it in the second parameter:
+
+```go
+func main() {
+    passes := []gendi.Pass{}
+    selectablePasses := []gendi.Pass{
+        &stdlib.SLogPass{},
+    }
+    cmd.MustRun(flag.CommandLine, passes, selectablePasses)
+}
+```
 
 ## See Also
 

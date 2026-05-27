@@ -7,51 +7,70 @@ import (
 )
 
 type testPass struct {
-	name         string
-	runByDefault bool
+	name string
 }
 
-func (p *testPass) Name() string                              { return p.name }
-func (p *testPass) RunByDefault() bool                        { return p.runByDefault }
+func (p *testPass) Name() string                               { return p.name }
 func (p *testPass) Process(cfg *di.Config) (*di.Config, error) { return cfg, nil }
 
-func makePass(name string, runByDefault bool) *testPass {
-	return &testPass{name: name, runByDefault: runByDefault}
+func makePass(name string) *testPass {
+	return &testPass{name: name}
 }
 
 func TestPassConfig_ResolvePasses(t *testing.T) {
 	cases := []struct {
-		name      string
-		enabled   map[string]struct{}
-		passes    []di.SelectablePass
-		wantNames []string
+		name             string
+		enabled          map[string]struct{}
+		passes           []di.Pass
+		selectablePasses []di.Pass
+		wantNames        []string
 	}{
 		{
-			name:      "default-on pass is included",
-			passes:    []di.SelectablePass{makePass("a", true)},
+			name:      "always-included pass is included",
+			passes:    []di.Pass{makePass("a")},
 			wantNames: []string{"a"},
 		},
 		{
-			name:      "default-off pass is excluded",
-			passes:    []di.SelectablePass{makePass("a", false)},
-			wantNames: []string{},
+			name:             "selectable pass without enable flag is excluded",
+			selectablePasses: []di.Pass{makePass("a")},
+			wantNames:        []string{},
 		},
 		{
-			name:      "default-off pass included when enabled",
-			enabled:   map[string]struct{}{"a": {}},
-			passes:    []di.SelectablePass{makePass("a", false)},
+			name:             "selectable pass with enable flag is included",
+			enabled:          map[string]struct{}{"a": {}},
+			selectablePasses: []di.Pass{makePass("a")},
+			wantNames:        []string{"a"},
+		},
+		{
+			name:      "duplicate always-included pass name runs only once",
+			passes:    []di.Pass{makePass("a"), makePass("a")},
 			wantNames: []string{"a"},
 		},
 		{
-			name:      "duplicate pass name runs only once",
-			passes:    []di.SelectablePass{makePass("a", true), makePass("a", true)},
-			wantNames: []string{"a"},
+			name:             "duplicate selectable pass name runs only once",
+			enabled:          map[string]struct{}{"a": {}},
+			selectablePasses: []di.Pass{makePass("a"), makePass("a")},
+			wantNames:        []string{"a"},
+		},
+		{
+			name:             "always-included pass wins over selectable pass with same name",
+			enabled:          map[string]struct{}{"a": {}},
+			passes:           []di.Pass{makePass("a")},
+			selectablePasses: []di.Pass{makePass("a")},
+			wantNames:        []string{"a"},
+		},
+		{
+			name:             "selectable passes are appended after always-included passes",
+			enabled:          map[string]struct{}{"b": {}},
+			passes:           []di.Pass{makePass("a")},
+			selectablePasses: []di.Pass{makePass("b")},
+			wantNames:        []string{"a", "b"},
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			pc := PassConfig{Enabled: tc.enabled}
-			result, err := pc.resolvePasses(tc.passes)
+			result, err := pc.resolvePasses(tc.passes, tc.selectablePasses)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -69,20 +88,26 @@ func TestPassConfig_ResolvePasses(t *testing.T) {
 
 func TestPassConfig_ResolvePasses_Errors(t *testing.T) {
 	cases := []struct {
-		name    string
-		enabled map[string]struct{}
-		passes  []di.SelectablePass
+		name             string
+		enabled          map[string]struct{}
+		passes           []di.Pass
+		selectablePasses []di.Pass
 	}{
 		{
-			name:    "unknown name in --enable-pass",
-			enabled: map[string]struct{}{"unknown": {}},
-			passes:  []di.SelectablePass{makePass("foo", true)},
+			name:             "unknown name in --enable-pass",
+			enabled:          map[string]struct{}{"unknown": {}},
+			selectablePasses: []di.Pass{makePass("foo")},
+		},
+		{
+			name:    "always-included pass is not selectable",
+			enabled: map[string]struct{}{"foo": {}},
+			passes:  []di.Pass{makePass("foo")},
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			pc := PassConfig{Enabled: tc.enabled}
-			_, err := pc.resolvePasses(tc.passes)
+			_, err := pc.resolvePasses(tc.passes, tc.selectablePasses)
 			if err == nil {
 				t.Error("expected error, got nil")
 			}

@@ -67,29 +67,18 @@ type Pass interface {
 - Returns an error if transformation fails
 - **Must not modify the input config** (create a copy if needed)
 
-## Optional CLI Passes
+## CLI Passes
 
-Custom generator binaries built with `cmd.Run` register optional passes. Optional passes implement `Pass` plus `RunByDefault`:
+Custom generator binaries built with `cmd.Run` or `cmd.MustRun` register two types of passes:
 
-```go
-package di
+- **Always-included passes**: Passed as the first `passes` parameter, always run
+- **Selectable passes**: Passed as the second `selectablePasses` parameter, filtered by `--enable-pass` flag
 
-type SelectablePass interface {
-    Pass
-    RunByDefault() bool
-}
-```
+Pass names come from `Name()`. If the same pass name is registered more than once, only the first included pass runs.
 
-`RunByDefault` controls how the pass participates in CLI filtering:
+`cmd.Run` validates pass flags before generation and returns an error if a name passed to `--enable-pass` does not match any registered selectable pass.
 
-- Return `true` to run the pass by default.
-- Return `false` to skip the pass unless the user passes `--enable-pass=<name>`.
-- Pass names come from `Name()`.
-- If the same pass name is registered more than once, only the first included pass runs.
-
-`cmd.Run` validates pass flags before generation and returns an error if a name passed to `--enable-pass` does not match any registered pass.
-
-Use `di.Pass` when calling `di.ApplyPasses` or `cmd.Generate` directly. Use `di.SelectablePass` when registering passes with `cmd.Run` or `cmd.MustRun`.
+Use `di.Pass` when calling `di.ApplyPasses`, `cmd.Generate`, `cmd.Run`, or `cmd.MustRun`.
 
 ## Creating a Pass
 
@@ -108,10 +97,6 @@ type AutoTagPass struct {
 
 func (p *AutoTagPass) Name() string {
     return "auto-tag"
-}
-
-func (p *AutoTagPass) RunByDefault() bool {
-    return true
 }
 
 func (p *AutoTagPass) Process(cfg *di.Config) (*di.Config, error) {
@@ -219,14 +204,18 @@ import (
 )
 
 func main() {
-    // Define custom compiler passes
-    customPasses := []di.SelectablePass{
+    // Define always-included custom passes
+    customPasses := []di.Pass{
         &passes.AutoTagPass{},
+    }
+
+    // Define selectable passes (filtered by --enable-pass flag)
+    selectablePasses := []di.Pass{
         &passes.ValidationPass{},
     }
 
     // Run gendi with custom passes
-    if err := cmd.Run(flag.CommandLine, customPasses); err != nil {
+    if err := cmd.Run(flag.CommandLine, customPasses, selectablePasses); err != nil {
         fmt.Fprintf(os.Stderr, "%v\n", err)
         os.Exit(1)
     }
@@ -239,10 +228,10 @@ func main() {
 # Build custom generator
 go build -o bin/gendi ./tools/gendi
 
-# Run custom generator
+# Run custom generator (AutoTagPass always runs)
 ./bin/gendi --config=gendi.yaml --out=./di --pkg=di
 
-# Enable a default-disabled optional pass
+# Enable ValidationPass via flag
 ./bin/gendi --config=gendi.yaml --out=./di --pkg=di --enable-pass=validation
 
 # Or use go run
@@ -523,7 +512,7 @@ customPasses := []di.Pass{
 }
 ```
 
-If these passes are registered with `cmd.Run`, use `[]di.SelectablePass` and implement `RunByDefault` on each pass.
+If these passes are registered with `cmd.Run`, use `[]di.Pass`.
 
 ## Complete Example
 

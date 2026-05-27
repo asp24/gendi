@@ -6,20 +6,10 @@ import (
 	di "github.com/asp24/gendi"
 )
 
-type SLogPass struct {
-	runByDefault bool
-}
-
-func NewSLogPass(runByDefault bool) *SLogPass {
-	return &SLogPass{runByDefault: runByDefault}
-}
+type SLogPass struct{}
 
 func (s *SLogPass) Name() string {
 	return "slog"
-}
-
-func (s *SLogPass) RunByDefault() bool {
-	return s.runByDefault
 }
 
 func (s *SLogPass) getTagAttributes(svc *di.Service) (map[string]any, bool) {

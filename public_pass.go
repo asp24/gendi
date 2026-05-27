@@ -17,10 +17,6 @@ func (p *ExposeAllPass) Name() string {
 	return "expose-all"
 }
 
-func (p *ExposeAllPass) RunByDefault() bool {
-	return false
-}
-
 func (p *ExposeAllPass) Process(cfg *Config) (*Config, error) {
 	for id, svc := range cfg.Services {
 		svc.Public = true

@@ -13,9 +13,9 @@ import (
 	"github.com/asp24/gendi/yaml"
 )
 
-func BuiltinSelectablePasses() []di.SelectablePass {
-	return []di.SelectablePass{
-		stdlib.NewSLogPass(false),
+func BuiltinSelectablePasses() []di.Pass {
+	return []di.Pass{
+		&stdlib.SLogPass{},
 		&di.ExposeAllPass{},
 	}
 }
@@ -64,8 +64,8 @@ func Generate(cfg Config, passes []di.Pass) error {
 	return nil
 }
 
-// Run executes the full gendi workflow with optional compiler passes
-func Run(flags *flag.FlagSet, selectablePasses []di.SelectablePass) error {
+// Run executes the full gendi workflow with compiler passes
+func Run(flags *flag.FlagSet, passes, selectablePasses []di.Pass) error {
 	var cfg Config
 	cfg.RegisterFlags(flags)
 
@@ -73,12 +73,12 @@ func Run(flags *flag.FlagSet, selectablePasses []di.SelectablePass) error {
 		return fmt.Errorf("parse flags: %w", err)
 	}
 
-	passes, err := cfg.Passes.resolvePasses(selectablePasses)
+	resolvedPasses, err := cfg.Passes.resolvePasses(passes, selectablePasses)
 	if err != nil {
 		return fmt.Errorf("resolve passes: %w", err)
 	}
 
-	return Generate(cfg, passes)
+	return Generate(cfg, resolvedPasses)
 }
 
 func PrintErrorAndExit(err error) {
@@ -92,6 +92,6 @@ func PrintErrorAndExit(err error) {
 	os.Exit(1)
 }
 
-func MustRun(flags *flag.FlagSet, selectablePasses []di.SelectablePass) {
-	PrintErrorAndExit(Run(flags, selectablePasses))
+func MustRun(flags *flag.FlagSet, passes, selectablePasses []di.Pass) {
+	PrintErrorAndExit(Run(flags, passes, selectablePasses))
 }

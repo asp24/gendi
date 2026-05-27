@@ -13,14 +13,6 @@ type Pass interface {
 	Process(cfg *Config) (*Config, error)
 }
 
-// SelectablePass extends Pass with a default execution policy that CLI flags
-// can override: RunByDefault()=true runs by default;
-// RunByDefault()=false skips unless --enable-pass=<name> is set.
-type SelectablePass interface {
-	Pass
-	RunByDefault() bool
-}
-
 // ApplyPasses applies compiler passes sequentially to the config.
 // Each pass receives the result of the previous pass.
 func ApplyPasses(cfg *Config, passes []Pass) (*Config, error) {

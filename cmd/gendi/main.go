@@ -7,5 +7,5 @@ import (
 )
 
 func main() {
-	cmd.MustRun(flag.CommandLine, cmd.BuiltinSelectablePasses())
+	cmd.MustRun(flag.CommandLine, nil, cmd.BuiltinSelectablePasses())
 }

@@ -11,10 +11,10 @@ import (
 
 func main() {
 	// Register custom compiler passes
-	passes := []gendi.SelectablePass{
+	passes := []gendi.Pass{
 		&di.AutoTagPass{},
-		stdlib.NewSLogPass(true),
+		&stdlib.SLogPass{},
 	}
 
-	cmd.MustRun(flag.CommandLine, passes)
+	cmd.MustRun(flag.CommandLine, passes, nil)
 }
