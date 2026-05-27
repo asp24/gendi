@@ -12,7 +12,7 @@ type PassConfig struct {
 	Enabled map[string]struct{} // Pass names to enable
 }
 
-// validate Returns an error if any name in Enabled does not match a selectable pass.
+// validate returns an error if any name in Enabled does not match a selectable pass.
 func (pc *PassConfig) validate(selectablePasses []di.Pass) error {
 	known := make(map[string]struct{}, len(selectablePasses))
 	for _, p := range selectablePasses {

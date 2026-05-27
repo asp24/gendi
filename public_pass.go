@@ -1,17 +1,15 @@
 package di
 
-// ExposeAllPass is a test-only pass that promotes every service to public,
-// causing the generator to emit a public getter for each one. Use it when
-// building a test DI container that needs direct access to all services
-// regardless of how they are declared in the YAML config.
+// ExposeAllPass promotes every service to public, causing the generator to emit
+// a public getter for each one. Intended for test containers that need direct
+// access to all services regardless of how they are declared in the YAML config.
 //
 // Enable via: --enable-pass=expose-all
 //
-// Not intended for production containers — it overrides explicit `public: false`
+// Avoid using in production containers — it overrides explicit `public: false`
 // declarations and disables unreachable-service pruning (all services become
 // reachable roots), so every imported service gets a generated getter.
-type ExposeAllPass struct {
-}
+type ExposeAllPass struct{}
 
 func (p *ExposeAllPass) Name() string {
 	return "expose-all"
