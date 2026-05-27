@@ -73,7 +73,7 @@ func Run(flags *flag.FlagSet, passes, selectablePasses []di.Pass) error {
 		return fmt.Errorf("parse flags: %w", err)
 	}
 
-	resolvedPasses, err := cfg.Passes.resolvePasses(passes, selectablePasses)
+	resolvedPasses, err := cfg.resolvePasses(passes, selectablePasses)
 	if err != nil {
 		return fmt.Errorf("resolve passes: %w", err)
 	}

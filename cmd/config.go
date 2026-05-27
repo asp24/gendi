@@ -4,14 +4,15 @@ import (
 	"flag"
 	"fmt"
 
+	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/pipeline"
 )
 
 // Config holds CLI configuration
 type Config struct {
-	ConfigPath string
-	Options    pipeline.Options
-	Passes     PassConfig
+	ConfigPath    string
+	Options       pipeline.Options
+	EnabledPasses map[string]struct{}
 }
 
 func (c *Config) RegisterFlags(flags *flag.FlagSet) {
@@ -22,7 +23,57 @@ func (c *Config) RegisterFlags(flags *flag.FlagSet) {
 	flags.BoolVar(&c.Options.Strict, "strict", true, "Enable strict validation")
 	flags.StringVar(&c.Options.BuildTags, "build-tags", "", "Go build tags")
 	flags.BoolVar(&c.Options.Verbose, "verbose", false, "Verbose logging")
-	c.Passes.RegisterFlags(flags)
+	flags.Var(&stringSetFlag{values: &c.EnabledPasses}, "enable-pass", "Enable a specific compiler pass (can be specified multiple times)")
+}
+
+func (c *Config) validatePasses(selectablePasses []di.Pass) error {
+	known := make(map[string]struct{}, len(selectablePasses))
+	for _, p := range selectablePasses {
+		known[p.Name()] = struct{}{}
+	}
+
+	for name := range c.EnabledPasses {
+		if _, ok := known[name]; !ok {
+			return fmt.Errorf("--enable-pass: unknown pass %q", name)
+		}
+	}
+
+	return nil
+}
+
+func (c *Config) resolvePasses(passes, selectablePasses []di.Pass) ([]di.Pass, error) {
+	if err := c.validatePasses(selectablePasses); err != nil {
+		return nil, err
+	}
+
+	result := make([]di.Pass, 0, len(passes)+len(selectablePasses))
+	included := make(map[string]struct{}, len(passes)+len(selectablePasses))
+	for _, p := range passes {
+		name := p.Name()
+		if _, ok := included[name]; ok {
+			continue
+		}
+
+		result = append(result, p)
+		included[name] = struct{}{}
+	}
+
+	for _, p := range selectablePasses {
+		name := p.Name()
+		if _, ok := included[name]; ok {
+			continue
+		}
+
+		_, enabled := c.EnabledPasses[name]
+		if !enabled {
+			continue
+		}
+
+		result = append(result, p)
+		included[name] = struct{}{}
+	}
+
+	return result, nil
 }
 
 // Finalize validates and finalizes the configuration

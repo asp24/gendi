@@ -17,7 +17,7 @@ func makePass(name string) *testPass {
 	return &testPass{name: name}
 }
 
-func TestPassConfig_ResolvePasses(t *testing.T) {
+func TestConfig_ResolvePasses(t *testing.T) {
 	cases := []struct {
 		name             string
 		enabled          map[string]struct{}
@@ -69,8 +69,8 @@ func TestPassConfig_ResolvePasses(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			pc := PassConfig{Enabled: tc.enabled}
-			result, err := pc.resolvePasses(tc.passes, tc.selectablePasses)
+			cfg := Config{EnabledPasses: tc.enabled}
+			result, err := cfg.resolvePasses(tc.passes, tc.selectablePasses)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -86,7 +86,7 @@ func TestPassConfig_ResolvePasses(t *testing.T) {
 	}
 }
 
-func TestPassConfig_ResolvePasses_Errors(t *testing.T) {
+func TestConfig_ResolvePasses_Errors(t *testing.T) {
 	cases := []struct {
 		name             string
 		enabled          map[string]struct{}
@@ -106,8 +106,8 @@ func TestPassConfig_ResolvePasses_Errors(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			pc := PassConfig{Enabled: tc.enabled}
-			_, err := pc.resolvePasses(tc.passes, tc.selectablePasses)
+			cfg := Config{EnabledPasses: tc.enabled}
+			_, err := cfg.resolvePasses(tc.passes, tc.selectablePasses)
 			if err == nil {
 				t.Error("expected error, got nil")
 			}
