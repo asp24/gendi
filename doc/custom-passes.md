@@ -6,7 +6,7 @@ Compiler passes transform configuration before code generation, enabling project
 
 - [Overview](#overview)
 - [Pass Interface](#pass-interface)
-- [Optional CLI Passes](#optional-cli-passes)
+- [CLI Passes](#cli-passes)
 - [Creating a Pass](#creating-a-pass)
 - [Building a Custom Generator](#building-a-custom-generator)
 - [Common Use Cases](#common-use-cases)
