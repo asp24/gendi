@@ -134,6 +134,8 @@ Flags:
   --container string   Container struct name (default: "Container")
   --strict            Enable strict validation (default: true)
   --build-tags string  Build tags for generated file
+  --enable-pass string
+                      Enable an optional compiler pass (repeatable)
   --verbose           Enable verbose logging
 ```
 

@@ -240,8 +240,11 @@ Use in custom generator:
 ```go
 // tools/gendi/main.go
 func main() {
+    // Always-included passes
     passes := []di.Pass{&MyPass{}}
-    cmd.Run(flag.CommandLine, passes)
+    // Selectable passes (filtered by --enable-pass flag)
+    selectablePasses := []di.Pass{}
+    cmd.Run(flag.CommandLine, passes, selectablePasses)
 }
 ```
 

@@ -21,7 +21,6 @@ examples/custom-pass/
 │   │   └── gendi.yaml   # Service definitions
 │   └── di/              # Custom compiler passes
 │       ├── autotag_pass.go
-│       └── slog_pass.go
 ```
 
 ## Custom Passes
@@ -68,16 +67,16 @@ This pass demonstrates **variadic function support** - `slog.Logger.With(args ..
 
 ### 1. Define Custom Passes
 
-Implement the `di.Pass` interface:
+Implement the `di.Pass` interface for project-specific behavior. This example defines `AutoTagPass` locally and reuses `stdlib.SLogPass` for structured logger wiring:
 
 ```go
-type SLogPass struct{}
+type AutoTagPass struct{}
 
-func (s *SLogPass) Name() string {
-    return "slog"
+func (p *AutoTagPass) Name() string {
+    return "auto-tag"
 }
 
-func (s *SLogPass) Process(cfg *di.Config) (*di.Config, error) {
+func (p *AutoTagPass) Process(cfg *di.Config) (*di.Config, error) {
     // Transform config and return modified version
     return cfg, nil
 }
@@ -88,15 +87,13 @@ func (s *SLogPass) Process(cfg *di.Config) (*di.Config, error) {
 `tools/gendi/main.go`:
 ```go
 func main() {
+    // Always-included passes
     passes := []gendi.Pass{
         &di.AutoTagPass{},
-        &di.SLogPass{},
+        &stdlib.SLogPass{},
     }
 
-    if err := cmd.Run(flag.CommandLine, passes); err != nil {
-        fmt.Fprintf(os.Stderr, "%v\n", err)
-        os.Exit(1)
-    }
+    cmd.MustRun(flag.CommandLine, passes, nil)
 }
 ```
 

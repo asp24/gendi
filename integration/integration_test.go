@@ -63,7 +63,7 @@ func runEmbeddedTest(t *testing.T, testName string, expectedOutput string, wantC
 	}
 
 	// Compile the code
-	compileCmd := exec.Command("go", "build", "-o", "app")
+	compileCmd := exec.Command("go", "build", "-buildvcs=false", "-o", "app")
 	compileCmd.Dir = tmpDir
 	compileOutput, err := compileCmd.CombinedOutput()
 	if err != nil {

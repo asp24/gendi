@@ -549,6 +549,45 @@ services:
     shared: true
 ```
 
+## Compiler Passes
+
+The stdlib package also provides compiler passes for use in custom generator binaries.
+
+### SLogPass
+
+**Pass name:** `slog`
+
+Automatically wires structured logging into services that follow the slog naming convention. Use it in a custom generator built with `cmd.Run` or `cmd.MustRun`:
+
+```go
+import (
+    "flag"
+    gendi "github.com/asp24/gendi"
+    "github.com/asp24/gendi/cmd"
+    "github.com/asp24/gendi/stdlib"
+)
+
+func main() {
+    // Always-included passes
+    passes := []gendi.Pass{
+        &stdlib.SLogPass{},
+    }
+    cmd.MustRun(flag.CommandLine, passes, nil)
+}
+```
+
+To make SLogPass selectable via `--enable-pass=slog`, put it in the second parameter:
+
+```go
+func main() {
+    passes := []gendi.Pass{}
+    selectablePasses := []gendi.Pass{
+        &stdlib.SLogPass{},
+    }
+    cmd.MustRun(flag.CommandLine, passes, selectablePasses)
+}
+```
+
 ## See Also
 
 - [Configuration Reference](../doc/configuration.md)

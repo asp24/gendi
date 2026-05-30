@@ -1,4 +1,4 @@
-package di
+package stdlib
 
 import (
 	"strings"
@@ -6,8 +6,7 @@ import (
 	di "github.com/asp24/gendi"
 )
 
-type SLogPass struct {
-}
+type SLogPass struct{}
 
 func (s *SLogPass) Name() string {
 	return "slog"

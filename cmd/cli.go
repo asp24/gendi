@@ -9,8 +9,16 @@ import (
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/pipeline"
 	"github.com/asp24/gendi/srcloc"
+	"github.com/asp24/gendi/stdlib"
 	"github.com/asp24/gendi/yaml"
 )
+
+func BuiltinSelectablePasses() []di.Pass {
+	return []di.Pass{
+		&stdlib.SLogPass{},
+		&di.ExposeAllPass{},
+	}
+}
 
 // WriteTargetFile writes data to the specified file path
 func WriteTargetFile(path string, data []byte) error {
@@ -56,8 +64,8 @@ func Generate(cfg Config, passes []di.Pass) error {
 	return nil
 }
 
-// Run executes the full gendi workflow with optional compiler passes
-func Run(flags *flag.FlagSet, passes []di.Pass) error {
+// Run executes the full gendi workflow with compiler passes
+func Run(flags *flag.FlagSet, passes, selectablePasses []di.Pass) error {
 	var cfg Config
 	cfg.RegisterFlags(flags)
 
@@ -65,7 +73,12 @@ func Run(flags *flag.FlagSet, passes []di.Pass) error {
 		return fmt.Errorf("parse flags: %w", err)
 	}
 
-	return Generate(cfg, passes)
+	resolvedPasses, err := cfg.resolvePasses(passes, selectablePasses)
+	if err != nil {
+		return fmt.Errorf("resolve passes: %w", err)
+	}
+
+	return Generate(cfg, resolvedPasses)
 }
 
 func PrintErrorAndExit(err error) {
@@ -79,6 +92,6 @@ func PrintErrorAndExit(err error) {
 	os.Exit(1)
 }
 
-func MustRun(flags *flag.FlagSet, passes []di.Pass) {
-	PrintErrorAndExit(Run(flags, passes))
+func MustRun(flags *flag.FlagSet, passes, selectablePasses []di.Pass) {
+	PrintErrorAndExit(Run(flags, passes, selectablePasses))
 }
