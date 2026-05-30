@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"sort"
 
 	di "github.com/asp24/gendi"
 	"github.com/asp24/gendi/pipeline"
@@ -26,24 +27,21 @@ func (c *Config) RegisterFlags(flags *flag.FlagSet) {
 	flags.Var(&stringSetFlag{values: &c.EnabledPasses}, "enable-pass", "Enable a specific compiler pass (can be specified multiple times)")
 }
 
-func (c *Config) validatePasses(selectablePasses []di.Pass) error {
+func (c *Config) resolvePasses(passes, selectablePasses []di.Pass) ([]di.Pass, error) {
 	known := make(map[string]struct{}, len(selectablePasses))
 	for _, p := range selectablePasses {
 		known[p.Name()] = struct{}{}
 	}
 
+	var unknown []string
 	for name := range c.EnabledPasses {
 		if _, ok := known[name]; !ok {
-			return fmt.Errorf("--enable-pass: unknown pass %q", name)
+			unknown = append(unknown, name)
 		}
 	}
-
-	return nil
-}
-
-func (c *Config) resolvePasses(passes, selectablePasses []di.Pass) ([]di.Pass, error) {
-	if err := c.validatePasses(selectablePasses); err != nil {
-		return nil, err
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		return nil, fmt.Errorf("--enable-pass: unknown pass %q", unknown[0])
 	}
 
 	result := make([]di.Pass, 0, len(passes)+len(selectablePasses))

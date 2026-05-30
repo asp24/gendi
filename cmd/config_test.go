@@ -114,3 +114,15 @@ func TestConfig_ResolvePasses_Errors(t *testing.T) {
 		})
 	}
 }
+
+func TestConfig_ResolvePasses_UnknownErrorIsDeterministic(t *testing.T) {
+	cfg := Config{EnabledPasses: map[string]struct{}{"zeta": {}, "alpha": {}, "mu": {}}}
+	_, err := cfg.resolvePasses(nil, nil)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	want := `--enable-pass: unknown pass "alpha"`
+	if err.Error() != want {
+		t.Errorf("got %q, want %q", err.Error(), want)
+	}
+}
