@@ -65,7 +65,7 @@ type Pass interface {
 - Receives the current configuration
 - Returns the transformed configuration
 - Returns an error if transformation fails
-- **Must not modify the input config** (create a copy if needed)
+- **Mutates the config in place** and returns it for chaining
 
 ## CLI Passes
 
