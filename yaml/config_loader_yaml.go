@@ -202,7 +202,7 @@ func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, e
 		for _, match := range matches {
 			abs, err := filepath.Abs(match)
 			if err != nil {
-				continue
+				return nil, fmt.Errorf("exclusion pattern %q: resolve %q: %w", pattern, match, err)
 			}
 			if info, err := os.Stat(abs); err == nil && info.IsDir() {
 				excludedDirs = append(excludedDirs, abs+string(filepath.Separator))
