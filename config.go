@@ -3,6 +3,7 @@ package di
 import (
 	"fmt"
 	"maps"
+	"slices"
 
 	"github.com/gendi-org/gendi/srcloc"
 )
@@ -51,6 +52,22 @@ func NewConfig() *Config {
 		Tags:       make(map[string]Tag),
 		Services:   make(map[string]Service),
 	}
+}
+
+// Clone returns a copy of the config that can be transformed by passes
+// without affecting the receiver. Slices holding per-service state
+// (constructor args, tags) are cloned; their elements are treated as
+// immutable by passes, which replace entries wholesale.
+func (cfg *Config) Clone() *Config {
+	result := NewConfig()
+	maps.Copy(result.Parameters, cfg.Parameters)
+	maps.Copy(result.Tags, cfg.Tags)
+	for k, v := range cfg.Services {
+		v.Constructor.Args = slices.Clone(v.Constructor.Args)
+		v.Tags = slices.Clone(v.Tags)
+		result.Services[k] = v
+	}
+	return result
 }
 
 // MergeWith merges src into cfg and returns cfg.

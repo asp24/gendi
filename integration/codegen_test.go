@@ -1758,3 +1758,38 @@ func TestSpreadMixedWithPositionalVariadicFailsGeneration(t *testing.T) {
 		t.Fatalf("expected mixed positional/spread error, got %v", err)
 	}
 }
+
+func TestEmitTwiceOnSameConfig(t *testing.T) {
+	// pipeline.Build must not mutate the caller's config: a second Emit on
+	// the same config used to fail on the .inner services added by the first.
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"svc": {
+				Constructor: di.Constructor{
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
+				},
+				Public: true,
+				Shared: true,
+			},
+			"svc.decorator": {
+				Constructor: di.Constructor{
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorA",
+					Args: []di.Argument{
+						{Kind: di.ArgInner},
+					},
+				},
+				Decorates: "svc",
+				Shared:    true,
+			},
+		},
+	}
+
+	first := generate(t, cfg)
+	second := generate(t, cfg)
+	if first != second {
+		t.Fatalf("expected identical output from repeated Emit")
+	}
+	if _, ok := cfg.Services["svc.decorator.inner"]; ok {
+		t.Fatalf("expected caller's config to stay unmodified")
+	}
+}

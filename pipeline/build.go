@@ -15,9 +15,9 @@ type Output struct {
 }
 
 // Build compiles a DI config through internal passes, type loading, and IR building.
+// The caller's config is not modified; passes operate on a clone.
 func Build(cfg *di.Config, moduleRoot string) (*Output, error) {
-	// Apply internal passes (idempotent - decorators already expanded will be skipped)
-	cfg, err := di.ApplyInternalPasses(cfg)
+	cfg, err := di.ApplyInternalPasses(cfg.Clone())
 	if err != nil {
 		return nil, err
 	}
