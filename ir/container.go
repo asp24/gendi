@@ -74,20 +74,6 @@ func (c *Container) ParamGetters() map[string]string {
 			getters[name] = method
 		}
 	}
-	for _, svc := range c.Services {
-		if svc.Constructor == nil {
-			continue
-		}
-		for _, arg := range svc.Constructor.Args {
-			if arg.Kind != ParamRefArg || arg.Parameter == nil {
-				continue
-			}
-			method := arg.Parameter.GetterMethod()
-			if method != "" {
-				getters[arg.Parameter.Name] = method
-			}
-		}
-	}
 	return getters
 }
 
