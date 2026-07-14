@@ -818,10 +818,11 @@ func TestSpreadWithMixedArgs(t *testing.T) {
 			},
 			"server": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServer",
+					// NewPrefixedServer(prefix string, handlers ...Handler):
+					// regular parameters may precede the spread.
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewPrefixedServer",
 					Args: []di.Argument{
-						{Kind: di.ArgServiceRef, Value: "handler.a"},
-						{Kind: di.ArgServiceRef, Value: "handler.b"},
+						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("api")},
 						{Kind: di.ArgSpread, Value: "@more_handlers"},
 					},
 				},
@@ -832,8 +833,8 @@ func TestSpreadWithMixedArgs(t *testing.T) {
 
 	out := generate(t, cfg)
 
-	if !strings.Contains(out, "NewServer(") {
-		t.Fatal("expected NewServer call")
+	if !strings.Contains(out, "NewPrefixedServer(") {
+		t.Fatal("expected NewPrefixedServer call")
 	}
 	if !strings.Contains(out, "...") {
 		t.Fatal("expected spread operator ... in generated code")
@@ -1470,5 +1471,43 @@ func TestUserPackageNamedParameters(t *testing.T) {
 	out := generate(t, cfg)
 	if !strings.Contains(out, "parameters2 \"github.com/asp24/gendi/generator/testdata/parameters\"") {
 		t.Fatalf("expected user parameters package to get a distinct alias:\n%s", out)
+	}
+}
+
+func TestSpreadMixedWithPositionalVariadicFailsGeneration(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"handler.a": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerA",
+				},
+			},
+			"more_handlers": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.GetAllHandlers",
+					Args: []di.Argument{
+						{Kind: di.ArgServiceRef, Value: "handler.a"},
+						{Kind: di.ArgServiceRef, Value: "handler.a"},
+					},
+				},
+			},
+			"server": {
+				Constructor: di.Constructor{
+					// NewServer(handlers ...Handler): Go forbids mixing
+					// positional variadic values with a spread.
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewServer",
+					Args: []di.Argument{
+						{Kind: di.ArgServiceRef, Value: "handler.a"},
+						{Kind: di.ArgSpread, Value: "@more_handlers"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	err := generateErr(t, cfg)
+	if err == nil || !strings.Contains(err.Error(), "positional variadic") {
+		t.Fatalf("expected mixed positional/spread error, got %v", err)
 	}
 }

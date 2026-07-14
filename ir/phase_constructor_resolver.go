@@ -299,13 +299,10 @@ func (r *constructorResolverPhase) resolveMethodConstructor(container *Container
 }
 
 // validateSpreadPosition validates that spread arguments follow the rules:
-// 1. Only one spread is allowed per constructor call
-// 2. Spread must be the last argument
+// 1. Spread requires a variadic constructor
+// 2. Only one spread is allowed per constructor call
+// 3. Spread must be the last argument and fill the variadic slot alone
 func (r *constructorResolverPhase) validateSpreadPosition(svcID string, cons *Constructor, diArgs []di.Argument) error {
-	if !cons.Variadic {
-		return nil // No variadic, no spread allowed (already validated in Apply)
-	}
-
 	// Find all spread arguments
 	spreadCount := 0
 	lastSpreadIdx := -1
@@ -318,6 +315,12 @@ func (r *constructorResolverPhase) validateSpreadPosition(svcID string, cons *Co
 
 	if spreadCount == 0 {
 		return nil // No spread, nothing to check
+	}
+
+	// A spread into a plain slice parameter would generate invalid Go.
+	if !cons.Variadic {
+		return srcloc.Errorf(diArgs[lastSpreadIdx].SourceLoc,
+			"service %q: !spread: can only be used with variadic parameters", svcID)
 	}
 
 	// Check that only one spread is present
@@ -340,6 +343,13 @@ func (r *constructorResolverPhase) validateSpreadPosition(svcID string, cons *Co
 	// Check that spread is the last argument
 	if lastSpreadIdx != len(cons.Args)-1 {
 		return srcloc.Errorf(diArgs[lastSpreadIdx].SourceLoc, "service %q: !spread: must be the last argument", svcID)
+	}
+
+	// Go does not allow mixing positional variadic values with a spread, so
+	// the spread must occupy the variadic slot alone.
+	if lastSpreadIdx != len(cons.Params)-1 {
+		return srcloc.Errorf(diArgs[lastSpreadIdx].SourceLoc,
+			"service %q: !spread: cannot be mixed with positional variadic values", svcID)
 	}
 
 	return nil
