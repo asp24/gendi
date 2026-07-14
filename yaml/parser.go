@@ -103,15 +103,15 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 }
 
 func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *ServiceDefaults, thisPackage string, filePath string) (di.Service, error) {
+	aliasTarget := raw.Alias
+	if IsServiceAlias(aliasTarget) {
+		aliasTarget = ParseServiceAlias(aliasTarget)
+	}
 	if raw.Alias != "" && raw.Shared != nil {
-		target := raw.Alias
-		if IsServiceAlias(target) {
-			target = ParseServiceAlias(target)
-		}
 		return di.Service{}, srcloc.Errorf(
 			newLocation(filePath, raw.Node),
 			"alias cannot define shared; lifecycle is inherited from target %q",
-			target,
+			aliasTarget,
 		)
 	}
 
@@ -160,11 +160,7 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 	if raw.Alias != "" {
 		// Aliases have no lifecycle of their own and delegate to their target.
 		svc.Shared = false
-		if IsServiceAlias(raw.Alias) {
-			svc.Alias = ParseServiceAlias(raw.Alias)
-		} else {
-			svc.Alias = raw.Alias
-		}
+		svc.Alias = aliasTarget
 	}
 
 	// Convert tags
