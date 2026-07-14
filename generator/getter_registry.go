@@ -2,9 +2,10 @@ package generator
 
 import (
 	"fmt"
+	"slices"
 )
 
-// GetterRegistry manages unique getter names for services.
+// GetterRegistry assigns getter names and validates all generated container identifiers.
 // Note: After tag desugaring, tags become regular services and are handled
 // by the service getter methods. The IdentGenerator.Getter method detects
 // !tagged: prefix services and generates appropriate TagGetter style names.
@@ -26,63 +27,78 @@ func NewGetterRegistry(identGenerator *IdentGenerator) *GetterRegistry {
 	}
 }
 
-// uniqueName generates a unique name by appending numbers if needed.
-func (gr *GetterRegistry) uniqueName(base string, used map[string]bool) string {
-	name := base
-	for i := 2; ; i++ {
-		if !used[name] {
-			return name
-		}
-
-		name = fmt.Sprintf("%s%d", base, i)
-	}
-}
-
-func (gr *GetterRegistry) assignOrError(name string, used map[string]bool) error {
-	if used[name] {
-		return fmt.Errorf("duplicate identifier %s", name)
+func (gr *GetterRegistry) registerIdentifier(kind, name, serviceID string, used map[string]string) error {
+	if previousID, ok := used[name]; ok {
+		ids := []string{previousID, serviceID}
+		slices.Sort(ids)
+		return fmt.Errorf(
+			"service identifiers %q and %q normalize to the same %s %q",
+			ids[0], ids[1], kind, name,
+		)
 	}
 
-	used[name] = true
+	used[name] = serviceID
 
 	return nil
 }
 
-// Assign assigns unique getter names for all services.
+// Assign assigns normalized getter names and rejects collisions between identifiers
+// that will be emitted in the same Go namespace.
 func (gr *GetterRegistry) Assign(orderedServiceIDs []string, services map[string]*serviceDef) error {
-	// Assign public getter names
-	used := map[string]bool{}
-	for _, id := range orderedServiceIDs {
-		if !services[id].public {
-			continue
-		}
+	gr.publicService = make(map[string]string)
+	gr.mustPublicService = make(map[string]string)
+	gr.privateService = make(map[string]string)
 
-		{
-			getter := gr.identGenerator.Getter(id, true)
-			if err := gr.assignOrError(getter, used); err != nil {
+	serviceIDs := slices.Clone(orderedServiceIDs)
+	slices.Sort(serviceIDs)
+
+	methods := make(map[string]string)
+	for _, id := range serviceIDs {
+		svc := services[id]
+
+		privateGetter := gr.identGenerator.Getter(id, false)
+		if err := gr.registerIdentifier("container method", privateGetter, id, methods); err != nil {
+			return err
+		}
+		gr.privateService[id] = privateGetter
+
+		if !svc.IsAlias() {
+			if err := gr.registerIdentifier("container method", gr.identGenerator.Build(id), id, methods); err != nil {
 				return err
 			}
-
-			gr.publicService[id] = getter
 		}
 
-		{
-			getter := gr.identGenerator.Must(id)
-			if err := gr.assignOrError(getter, used); err != nil {
+		if svc.public {
+			publicGetter := gr.identGenerator.Getter(id, true)
+			if err := gr.registerIdentifier("container method", publicGetter, id, methods); err != nil {
 				return err
 			}
+			gr.publicService[id] = publicGetter
 
-			gr.mustPublicService[id] = getter
+			mustGetter := gr.identGenerator.Must(id)
+			if err := gr.registerIdentifier("container method", mustGetter, id, methods); err != nil {
+				return err
+			}
+			gr.mustPublicService[id] = mustGetter
 		}
 	}
 
-	// Assign private getter names
-	privateUsed := map[string]bool{}
-	for _, id := range orderedServiceIDs {
-		base := gr.identGenerator.Getter(id, false)
-		name := gr.uniqueName(base, privateUsed)
-		privateUsed[name] = true
-		gr.privateService[id] = name
+	fields := make(map[string]string)
+	for _, id := range serviceIDs {
+		svc := services[id]
+		if svc.IsAlias() || !svc.shared {
+			continue
+		}
+
+		field := gr.identGenerator.Field(id)
+		if err := gr.registerIdentifier("container field", field, id, fields); err != nil {
+			return err
+		}
+		if !isNilable(svc.GetterType()) {
+			if err := gr.registerIdentifier("container field", field+"Init", id, fields); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

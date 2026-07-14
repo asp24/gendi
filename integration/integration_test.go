@@ -171,6 +171,10 @@ func TestWorkflow(t *testing.T) {
 			name:           "field_access_go_ref",
 			expectedOutput: "host=localhost dsn=postgres://localhost/defaults\n",
 		},
+		{
+			name:           "ident_collision",
+			wantCompileErr: true,
+		},
 	}
 
 	for _, tt := range tests {
