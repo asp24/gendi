@@ -1451,3 +1451,24 @@ func TestServiceRefTypeMismatchFailsGeneration(t *testing.T) {
 		t.Fatalf("expected type mismatch error, got %v", err)
 	}
 }
+
+func TestUserPackageNamedParameters(t *testing.T) {
+	// The gendi parameters package is always imported unaliased, so a user
+	// package with the same name must get a distinct alias even when the
+	// config declares no parameters.
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"store": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/parameters.NewStore",
+				},
+				Public: true,
+			},
+		},
+	}
+
+	out := generate(t, cfg)
+	if !strings.Contains(out, "parameters2 \"github.com/asp24/gendi/generator/testdata/parameters\"") {
+		t.Fatalf("expected user parameters package to get a distinct alias:\n%s", out)
+	}
+}

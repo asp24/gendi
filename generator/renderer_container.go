@@ -243,7 +243,7 @@ func (r *ContainerRenderer) getterBuildExpr(svc *serviceDef) string {
 }
 
 func (r *ContainerRenderer) Render(cfg *di.Config, ctx *GenContext, body *bytes.Buffer) error {
-	r.importManager.ReserveAliases("sync", "fmt")
+	r.importManager.ReserveAliases("sync", "fmt", "parameters")
 
 	if err := r.assignNames(ctx); err != nil {
 		return fmt.Errorf("assign names: %w", err)
