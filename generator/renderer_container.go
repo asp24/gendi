@@ -184,9 +184,11 @@ func (r *ContainerRenderer) constructorCall(ctx *GenContext, svc *serviceDef, re
 	var args []string
 	cons := svc.constructor
 	for i, arg := range cons.argDefs {
-		var paramType types.Type = types.Typ[types.Invalid]
-		if i < len(cons.params) {
-			paramType = cons.params[i]
+		// IR resolved each argument against its effective parameter type
+		// (element type for variadic positions, slice type for spreads).
+		paramType := arg.Type
+		if paramType == nil {
+			paramType = types.Typ[types.Invalid]
 		}
 		argExpr, argStmts, err := r.buildArg(ctx, svc, arg, returnsErr, i, paramType)
 		if err != nil {

@@ -183,3 +183,11 @@ type Hub struct {
 func NewHub(items []interface{}) (Hub, error) {
 	return Hub{items: items}, nil
 }
+
+type Timed struct {
+	ds []time.Duration
+}
+
+func NewTimed(ds ...time.Duration) *Timed {
+	return &Timed{ds: ds}
+}
