@@ -1401,3 +1401,27 @@ func TestTaggedConversionInValueTypeBuild(t *testing.T) {
 		t.Fatalf("expected zero-value return in conversion error path:\n%s", out)
 	}
 }
+
+func TestVariadicDurationLiterals(t *testing.T) {
+	// Literals in variadic positions resolve against the element type in IR;
+	// the generator must use that type instead of the raw slice parameter.
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"timed": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimed",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("5s")},
+						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("10s")},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	out := generate(t, cfg)
+	if !strings.Contains(out, "app.NewTimed(") {
+		t.Fatalf("expected NewTimed constructor call:\n%s", out)
+	}
+}
