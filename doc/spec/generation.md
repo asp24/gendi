@@ -43,5 +43,5 @@ service "payments":
 ## Circular Dependency Detection
 
 - Cycles are detected at generation time
-- In strict mode, generation fails
+- Generation fails
 - Errors include the dependency trace

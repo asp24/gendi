@@ -132,7 +132,6 @@ Flags:
   --out string         Output directory or file (required)
   --pkg string         Go package name (required)
   --container string   Container struct name (default: "Container")
-  --strict            Enable strict validation (default: true)
   --build-tags string  Build tags for generated file
   --enable-pass string
                       Enable an optional compiler pass (repeatable)
