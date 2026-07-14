@@ -45,6 +45,20 @@ func (c *RawConfig) UnmarshalYAML(node ast.Node) error {
 						}
 					}
 				}
+			case "services":
+				// goccy does not call RawService.UnmarshalYAML for null
+				// values, leaving nil entries in the map.
+				if sm, ok := kv.Value.(*ast.MappingNode); ok {
+					for _, sv := range sm.Values {
+						if decoded.Services[keyString(sv.Key)] == nil {
+							node := sv.Value
+							if node == nil {
+								node = sv.Key
+							}
+							return nodeErrorf(node, "service must be a mapping or alias")
+						}
+					}
+				}
 			}
 		}
 	}
