@@ -920,3 +920,15 @@ func TestConvertLiteral_LocatedErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestParameterMissingValueError(t *testing.T) {
+	raw := &RawConfig{
+		Parameters: map[string]RawParameter{
+			"p": {Type: "string"},
+		},
+	}
+	_, err := NewParser().ConvertConfigWithDirAndFile(raw, "", "")
+	if err == nil || !strings.Contains(err.Error(), "value is required") {
+		t.Fatalf("expected value-required error, got %v", err)
+	}
+}
