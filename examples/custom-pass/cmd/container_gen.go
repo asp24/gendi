@@ -54,11 +54,11 @@ func (c *Container) buildStdlibSlogHandlerText() (slog.Handler, error) {
 	var zero slog.Handler
 	arg0_stdlib_slog_writer, err := c.getStdlibSlogWriter()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "stdlib.slog.handler.text", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "stdlib.slog.handler.text", 0, err)
 	}
 	param1_stdlib_slog_level, err := c.params.GetInt("stdlib.slog.level")
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "stdlib.slog.handler.text", '\x01', "stdlib.slog.level", err)
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "stdlib.slog.handler.text", 1, "stdlib.slog.level", err)
 	}
 	return stdlib.NewSlogTextHandler(arg0_stdlib_slog_writer, slog.Level(param1_stdlib_slog_level)), nil
 }
@@ -67,7 +67,7 @@ func (c *Container) buildStdlibSlog() (*slog.Logger, error) {
 	var zero *slog.Logger
 	arg0_stdlib_slog_handler, err := c.getStdlibSlogHandler()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "stdlib.slog", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "stdlib.slog", 0, err)
 	}
 	return stdlib.NewSlogLogger(arg0_stdlib_slog_handler), nil
 }
@@ -85,7 +85,7 @@ func (c *Container) buildProductRepo() (*app.ProductRepoImpl, error) {
 	var zero *app.ProductRepoImpl
 	param0_db_dsn, err := c.params.GetString("db_dsn")
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "product.repo", '\x00', "db_dsn", err)
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "product.repo", 0, "db_dsn", err)
 	}
 	return app.NewProductRepository(param0_db_dsn), nil
 }
@@ -94,11 +94,11 @@ func (c *Container) buildProductHandler() (app.HTTPHandler, error) {
 	var zero app.HTTPHandler
 	arg0_product_handler_logger, err := c.getProductHandlerLogger()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "product.handler", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "product.handler", 0, err)
 	}
 	arg1_product_repo, err := c.getProductRepo()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "product.handler", '\x01', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "product.handler", 1, err)
 	}
 	return app.NewProductHandler(arg0_product_handler_logger, arg1_product_repo), nil
 }
@@ -116,7 +116,7 @@ func (c *Container) buildUserRepo() (*app.UserRepoImpl, error) {
 	var zero *app.UserRepoImpl
 	param0_db_dsn, err := c.params.GetString("db_dsn")
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "user.repo", '\x00', "db_dsn", err)
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "user.repo", 0, "db_dsn", err)
 	}
 	return app.NewUserRepository(param0_db_dsn), nil
 }
@@ -125,11 +125,11 @@ func (c *Container) buildUserHandler() (app.HTTPHandler, error) {
 	var zero app.HTTPHandler
 	arg0_user_handler_logger, err := c.getUserHandlerLogger()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "user.handler", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "user.handler", 0, err)
 	}
 	arg1_user_repo, err := c.getUserRepo()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "user.handler", '\x01', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "user.handler", 1, err)
 	}
 	return app.NewUserHandler(arg0_user_handler_logger, arg1_user_repo), nil
 }
@@ -138,11 +138,11 @@ func (c *Container) buildTaggedWithHttpHandler() ([]app.HTTPHandler, error) {
 	var zero []app.HTTPHandler
 	arg0_product_handler, err := c.getProductHandler()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.http.handler", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.http.handler", 0, err)
 	}
 	arg1_user_handler, err := c.getUserHandler()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.http.handler", '\x01', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.http.handler", 1, err)
 	}
 	return []app.HTTPHandler{arg0_product_handler, arg1_user_handler}, nil
 }
@@ -160,11 +160,11 @@ func (c *Container) buildServer() (*app.Server, error) {
 	var zero *app.Server
 	arg0_server_logger, err := c.getServerLogger()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "server", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "server", 0, err)
 	}
 	arg1___tagged_with_http_handler, err := c.getTaggedWithHttpHandler()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "server", '\x01', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "server", 1, err)
 	}
 	return app.NewServer(arg0_server_logger, arg1___tagged_with_http_handler), nil
 }

@@ -1,6 +1,9 @@
 package generator
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestCountFormatSpecifiers(t *testing.T) {
 	tests := []struct {
@@ -66,4 +69,15 @@ func containsAt(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestErrorSnippetFormatsIntArgsAsNumbers(t *testing.T) {
+	im := NewImportManager("")
+	snippet := serviceArgError(im, "repo", 0)
+	if strings.Contains(snippet, `'\x00'`) {
+		t.Fatalf("int args must not be rendered as rune literals: %s", snippet)
+	}
+	if !strings.Contains(snippet, `"repo", 0, err`) {
+		t.Fatalf("expected numeric arg index in snippet: %s", snippet)
+	}
 }
