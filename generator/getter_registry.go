@@ -85,6 +85,30 @@ func (gr *GetterRegistry) Assign(orderedServiceIDs []string, services map[string
 		gr.privateService[id] = name
 	}
 
+	// Assign build function and container field names. Distinct service IDs
+	// can sanitize to the same identifier (e.g. "foo-bar" and "foo.bar"), so
+	// these need the same dedup treatment as getters.
+	buildUsed := map[string]bool{}
+	fieldUsed := map[string]bool{}
+	for _, id := range orderedServiceIDs {
+		svc := services[id]
+
+		buildName := gr.uniqueName(gr.identGenerator.Build(id), buildUsed)
+		buildUsed[buildName] = true
+		svc.buildFuncName = buildName
+
+		// Shared non-nilable services also emit a companion "<field>Init"
+		// flag, so both identifiers must be free and both get reserved.
+		fieldBase := gr.identGenerator.Field(id)
+		fieldName := fieldBase
+		for i := 2; fieldUsed[fieldName] || fieldUsed[fieldName+"Init"]; i++ {
+			fieldName = fmt.Sprintf("%s%d", fieldBase, i)
+		}
+		fieldUsed[fieldName] = true
+		fieldUsed[fieldName+"Init"] = true
+		svc.fieldName = fieldName
+	}
+
 	return nil
 }
 

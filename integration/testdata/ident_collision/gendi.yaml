@@ -1,0 +1,12 @@
+services:
+  foo-bar:
+    constructor:
+      func: "test.NewA"
+  foo.bar:
+    constructor:
+      func: "test.NewB"
+  consumer:
+    constructor:
+      func: "test.NewConsumer"
+      args: ["@foo-bar", "@foo.bar"]
+    public: true

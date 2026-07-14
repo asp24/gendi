@@ -11,6 +11,8 @@ type serviceDef struct {
 	typeName          types.Type
 	constructor       constructorDef
 	privateGetterName string
+	buildFuncName     string
+	fieldName         string
 	public            bool
 	shared            bool
 	aliasTarget       string

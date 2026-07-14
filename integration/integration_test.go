@@ -167,6 +167,10 @@ func TestWorkflow(t *testing.T) {
 			name:           "field_access",
 			expectedOutput: "host=localhost dsn=postgres://localhost/mydb\n",
 		},
+		{
+			name:           "ident_collision",
+			expectedOutput: "a b\n",
+		},
 	}
 
 	for _, tt := range tests {

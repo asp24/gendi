@@ -59,9 +59,9 @@ func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *GenConte
 			continue
 		}
 		resType := svc.GetterType()
-		fmt.Fprintf(b, "\t%s %s\n", r.identGenerator.Field(svc.id), r.importManager.typeString(resType))
+		fmt.Fprintf(b, "\t%s %s\n", svc.fieldName, r.importManager.typeString(resType))
 		if !isNilable(resType) {
-			fmt.Fprintf(b, "\t%sInit bool\n", r.identGenerator.Field(svc.id))
+			fmt.Fprintf(b, "\t%sInit bool\n", svc.fieldName)
 		}
 	}
 	b.WriteString("}\n\n")
@@ -237,7 +237,7 @@ func (r *ContainerRenderer) buildArg(ctx *GenContext, svc *serviceDef, arg *ir.A
 }
 
 func (r *ContainerRenderer) getterBuildExpr(svc *serviceDef) string {
-	return "c." + r.identGenerator.Build(svc.id) + "()"
+	return "c." + svc.buildFuncName + "()"
 }
 
 func (r *ContainerRenderer) Render(cfg *di.Config, ctx *GenContext, body *bytes.Buffer) error {

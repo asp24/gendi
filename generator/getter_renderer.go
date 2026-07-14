@@ -50,7 +50,7 @@ type sharedPtrGetterRenderer struct{}
 func (g *sharedPtrGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, _ *GenContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
 	getterTypeStr := rnd.importManager.typeString(svc.GetterType())
-	fieldName := rnd.identGenerator.Field(svc.id)
+	fieldName := svc.fieldName
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", rnd.containerName, getter, getterTypeStr)
 	fmt.Fprintf(b, "\tif c.%s != nil {\n\t\treturn c.%s, nil\n\t}\n", fieldName, fieldName)
@@ -70,7 +70,7 @@ type sharedValueGetterRenderer struct{}
 func (g *sharedValueGetterRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, _ *GenContext, svc *serviceDef) error {
 	getter := svc.privateGetterName
 	getterTypeStr := rnd.importManager.typeString(svc.GetterType())
-	fieldName := rnd.identGenerator.Field(svc.id)
+	fieldName := svc.fieldName
 
 	fmt.Fprintf(b, "func (c *%s) %s() (%s, error) {\n", rnd.containerName, getter, getterTypeStr)
 	fmt.Fprintf(b, "\tvar zero %s\n", getterTypeStr)
