@@ -36,7 +36,9 @@ func (c *ResolverComposite) CanResolve(importPath string) bool {
 	return false
 }
 
-// Resolve attempts resolution with each resolver in the chain.
+// Resolve attempts resolution with each resolver in the chain. A resolver
+// returning (nil, nil) is treated as "not mine" and the next one is tried;
+// a non-nil error aborts the chain.
 func (c *ResolverComposite) Resolve(baseDir, importPath string) ([]string, error) {
 	if importPath == "" {
 		return nil, fmt.Errorf("import path is empty")

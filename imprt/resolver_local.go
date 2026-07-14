@@ -10,10 +10,11 @@ import (
 type ResolverLocal struct {
 }
 
+// CanResolve accepts any path shape: whether the file exists locally can only
+// be determined in Resolve, which returns (nil, nil) to pass non-relative
+// misses on to ResolverModule.
 func (r *ResolverLocal) CanResolve(_ string) bool {
-	// Local resolver tries to resolve any non-absolute, non-glob path
-	// It checks if file exists locally
-	return true // Always returns true; actual check happens in Resolve
+	return true
 }
 
 func (r *ResolverLocal) Resolve(baseDir, importPath string) ([]string, error) {
