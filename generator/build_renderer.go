@@ -76,7 +76,7 @@ func (r *regularBuildRenderer) render(b *bytes.Buffer, rnd *ContainerRenderer, c
 	}
 	if svc.constructor.returnsError {
 		fmt.Fprintf(b, "\tres, err := %s\n", callExpr)
-		fmt.Fprintf(b, "\t%s\n", serviceConstructorError(svc.id))
+		fmt.Fprintf(b, "\t%s\n", serviceConstructorError(rnd.importManager, svc.id))
 		fmt.Fprintf(b, "\treturn res, nil\n")
 	} else {
 		fmt.Fprintf(b, "\treturn %s, nil\n", callExpr)
