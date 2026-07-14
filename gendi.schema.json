@@ -29,7 +29,9 @@
                 "description": "Glob patterns for files to exclude from import"
               }
             },
-            "required": ["path"],
+            "required": [
+              "path"
+            ],
             "additionalProperties": false
           }
         ]
@@ -43,14 +45,16 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["string", "int", "float64", "bool", "time.Duration"],
-            "description": "Parameter type"
+            "description": "Go type of the parameter, e.g. string, int, float64, bool, time.Duration, or a qualified type like log/slog.Level"
           },
           "value": {
             "description": "Parameter value (type depends on 'type' field)"
           }
         },
-        "required": ["type", "value"],
+        "required": [
+          "type",
+          "value"
+        ],
         "additionalProperties": false
       }
     },
@@ -83,96 +87,145 @@
     "services": {
       "description": "Service definitions",
       "type": "object",
-      "additionalProperties": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "description": "Explicit service type (inferred from constructor if omitted)"
+      "properties": {
+        "_default": {
+          "type": "object",
+          "description": "Default flags applied to services in this file",
+          "properties": {
+            "shared": {
+              "type": "boolean",
+              "description": "Default shared flag"
+            },
+            "public": {
+              "type": "boolean",
+              "description": "Default public flag"
+            },
+            "autoconfigure": {
+              "type": "boolean",
+              "description": "Default autoconfigure flag"
+            }
           },
-          "constructor": {
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^@.+",
+            "description": "Alias shorthand: \"@other.service\""
+          },
+          {
             "type": "object",
             "properties": {
-              "func": {
+              "type": {
                 "type": "string",
-                "description": "Constructor function name (use $this. for current package)"
+                "description": "Explicit service type (inferred from constructor if omitted)"
               },
-              "method": {
+              "constructor": {
+                "type": "object",
+                "properties": {
+                  "func": {
+                    "type": "string",
+                    "description": "Constructor function name (use $this. for current package)"
+                  },
+                  "method": {
+                    "type": "string",
+                    "description": "Method constructor (@service.Method)"
+                  },
+                  "args": {
+                    "type": "array",
+                    "items": {
+                      "description": "Constructor argument: @service, %param%, !tagged:tag, !spread:@service, @.inner, or literal"
+                    },
+                    "description": "Constructor arguments"
+                  }
+                },
+                "oneOf": [
+                  {
+                    "required": [
+                      "func"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "method"
+                    ]
+                  }
+                ],
+                "additionalProperties": false
+              },
+              "alias": {
                 "type": "string",
-                "description": "Method constructor (@service.Method)"
+                "description": "Alias to another service (mutually exclusive with constructor)"
               },
-              "args": {
+              "shared": {
+                "type": "boolean",
+                "description": "Whether service is singleton (true) or factory (false)",
+                "default": true
+              },
+              "public": {
+                "type": "boolean",
+                "description": "Generate public getter method",
+                "default": false
+              },
+              "autoconfigure": {
+                "type": "boolean",
+                "description": "Enable autoconfiguration for this service",
+                "default": true
+              },
+              "decorates": {
+                "type": "string",
+                "description": "Service ID to decorate"
+              },
+              "decoration_priority": {
+                "type": "integer",
+                "description": "Decorator priority (higher wraps first)",
+                "default": 0
+              },
+              "tags": {
                 "type": "array",
                 "items": {
-                  "description": "Constructor argument: @service, %param%, !tagged:tag, !spread:@service, @.inner, or literal"
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Tag name shorthand"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "description": "Tag name"
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ],
+                      "additionalProperties": true,
+                      "description": "Additional tag attributes can be added dynamically"
+                    }
+                  ]
                 },
-                "description": "Constructor arguments"
+                "description": "Tags assigned to this service"
               }
             },
             "oneOf": [
               {
-                "required": ["func"]
+                "required": [
+                  "constructor"
+                ]
               },
               {
-                "required": ["method"]
+                "required": [
+                  "alias"
+                ]
               }
             ],
             "additionalProperties": false
-          },
-          "alias": {
-            "type": "string",
-            "description": "Alias to another service (mutually exclusive with constructor)"
-          },
-          "shared": {
-            "type": "boolean",
-            "description": "Whether service is singleton (true) or factory (false)",
-            "default": true
-          },
-          "public": {
-            "type": "boolean",
-            "description": "Generate public getter method",
-            "default": false
-          },
-          "autoconfigure": {
-            "type": "boolean",
-            "description": "Enable autoconfiguration for this service",
-            "default": false
-          },
-          "decorates": {
-            "type": "string",
-            "description": "Service ID to decorate"
-          },
-          "decoration_priority": {
-            "type": "integer",
-            "description": "Decorator priority (higher wraps first)",
-            "default": 0
-          },
-          "tags": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "description": "Tag name"
-                }
-              },
-              "required": ["name"],
-              "additionalProperties": true,
-              "description": "Additional tag attributes can be added dynamically"
-            },
-            "description": "Tags assigned to this service"
           }
-        },
-        "oneOf": [
-          {
-            "required": ["constructor"]
-          },
-          {
-            "required": ["alias"]
-          }
-        ],
-        "additionalProperties": false
+        ]
       }
     }
   },
@@ -204,14 +257,18 @@
         "database": {
           "constructor": {
             "func": "github.com/myapp/db.New",
-            "args": ["%db_dsn%"]
+            "args": [
+              "%db_dsn%"
+            ]
           },
           "shared": true
         },
         "user_repo": {
           "constructor": {
             "func": "github.com/myapp/repo.NewUserRepository",
-            "args": ["@database"]
+            "args": [
+              "@database"
+            ]
           },
           "shared": true,
           "public": true
@@ -219,7 +276,9 @@
         "home_handler": {
           "constructor": {
             "func": "github.com/myapp/handlers.NewHome",
-            "args": ["@user_repo"]
+            "args": [
+              "@user_repo"
+            ]
           },
           "tags": [
             {
@@ -231,7 +290,9 @@
         "server": {
           "constructor": {
             "func": "github.com/myapp/server.New",
-            "args": ["!tagged:handler"]
+            "args": [
+              "!tagged:handler"
+            ]
           },
           "public": true
         }
