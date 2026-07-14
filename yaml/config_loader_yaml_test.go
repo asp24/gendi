@@ -459,6 +459,18 @@ func TestLoad_UnmarshalError_HasLocation(t *testing.T) {
 			wantLine: 6,
 			wantMsg:  "tag name is required",
 		},
+		{
+			name:     "service null body",
+			yaml:     "services:\n  my_svc:",
+			wantLine: 2,
+			wantMsg:  "service must be a mapping or alias",
+		},
+		{
+			name:     "default service null body",
+			yaml:     "services:\n  _default:\n  my_svc:\n    constructor:\n      func: fmt.Println",
+			wantLine: 2,
+			wantMsg:  "service must be a mapping or alias",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
