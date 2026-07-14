@@ -2,17 +2,11 @@ package typeres
 
 import "go/types"
 
-// IsDuration returns true if t is time.Duration (optionally behind pointers).
+// IsDuration returns true if t is time.Duration (or an alias of it).
+// Pointers are intentionally not unwrapped: the generator emits duration
+// values, which are not assignable to *time.Duration.
 func IsDuration(t types.Type) bool {
-	// Unwrap any pointer layers
-	for {
-		ptr, ok := t.(*types.Pointer)
-		if !ok {
-			break
-		}
-		t = ptr.Elem()
-	}
-	named, ok := t.(*types.Named)
+	named, ok := types.Unalias(t).(*types.Named)
 	if !ok {
 		return false
 	}
