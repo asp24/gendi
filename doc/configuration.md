@@ -459,12 +459,16 @@ imports:
 
 - Relative paths resolved from importing file's directory
 - Glob patterns expanded using doublestar matching
-- Later imports override earlier ones
+- Imports are merged depth-first in declaration order: each imported file's
+  imports are merged before that file, and the importing file is merged after
+  all of its imports
+- Later definitions override earlier ones
 - Services with same ID are replaced completely
-- Overrides apply per import branch: with diamond imports (A imports B and C,
-  both import D), a definition from D overridden in B is re-introduced by C's
-  merged result if C imports D later. Place overrides in the last import (or
-  the root file) to make them win
+- Every occurrence in the import graph participates in the merge. With diamond
+  imports where A imports B and then C, and both import D, the merge order is
+  D, B, D, C, A. The second occurrence of D therefore re-introduces definitions
+  that B overrode. Put final overrides in A, or in a file imported after every
+  branch that can re-introduce the original definition
 
 ### Import Exclusions
 
