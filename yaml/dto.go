@@ -214,6 +214,24 @@ func (s *RawService) UnmarshalYAML(node ast.Node) error {
 		if err := yamllib.NodeToValue(node, &decoded); err != nil {
 			return err
 		}
+		// goccy does not call RawServiceTag.UnmarshalYAML for null sequence
+		// entries, so they bypass the name validation.
+		for _, kv := range n.Values {
+			if keyString(kv.Key) != "tags" {
+				continue
+			}
+			if seq, ok := kv.Value.(*ast.SequenceNode); ok {
+				for i, tagNode := range seq.Values {
+					if i < len(decoded.Tags) && decoded.Tags[i].Name == "" {
+						errNode := tagNode
+						if errNode == nil {
+							errNode = kv.Key
+						}
+						return nodeErrorf(errNode, "tag name is required")
+					}
+				}
+			}
+		}
 		*s = RawService(decoded)
 		s.Node = node
 		return nil
