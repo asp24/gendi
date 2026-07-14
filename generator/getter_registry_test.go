@@ -1,125 +1,129 @@
 package generator
 
 import (
+	"go/types"
 	"testing"
 )
 
-func TestGetterRegistry_UniqueNameGeneration(t *testing.T) {
-	gr := NewGetterRegistry(nil)
-
-	used := map[string]bool{
-		"getFoo": true,
+func TestGetterRegistryAssignRejectsNormalizedMethodCollision(t *testing.T) {
+	services := map[string]*serviceDef{
+		"foo-bar": {id: "foo-bar"},
+		"foo.bar": {id: "foo.bar"},
 	}
 
-	// Should generate getFoo2 since getFoo is taken
-	name := gr.uniqueName("getFoo", used)
-	if name != "getFoo2" {
-		t.Errorf("Expected 'getFoo2', got '%s'", name)
-	}
+	for _, orderedIDs := range [][]string{
+		{"foo-bar", "foo.bar"},
+		{"foo.bar", "foo-bar"},
+	} {
+		registry := NewGetterRegistry(NewIdentGenerator())
+		err := registry.Assign(orderedIDs, services)
+		if err == nil {
+			t.Fatal("expected normalized method collision")
+		}
 
-	// Should return the base name if not used
-	name2 := gr.uniqueName("getBar", used)
-	if name2 != "getBar" {
-		t.Errorf("Expected 'getBar', got '%s'", name2)
+		want := `service identifiers "foo-bar" and "foo.bar" normalize to the same container method "getFooBar"`
+		if err.Error() != want {
+			t.Fatalf("unexpected error:\nwant: %s\n got: %s", want, err)
+		}
 	}
 }
 
-func TestGetterRegistry_Assign_RealCollision_ServiceNames(t *testing.T) {
-	ig := NewIdentGenerator()
-	gr := NewGetterRegistry(ig)
-
-	// These service names will generate the same getter: "GetGetService"
-	// "getService" -> toCamel("getService") = "GetService" -> "GetGetService"
-	// "get_service" -> toCamel("get_service") = "GetService" -> "GetGetService"
+func TestGetterRegistryAssignRejectsInitFieldCollision(t *testing.T) {
 	services := map[string]*serviceDef{
-		"getService": {
-			id:     "getService",
-			public: true,
+		"foo": {
+			id:       "foo",
+			typeName: types.Typ[types.Int],
+			shared:   true,
 		},
-		"get_service": {
-			id:     "get_service",
-			public: true,
+		"fooInit": {
+			id:       "fooInit",
+			typeName: types.NewPointer(types.Typ[types.Int]),
+			shared:   true,
 		},
 	}
 
-	orderedIDs := []string{"getService", "get_service"}
-	err := gr.Assign(orderedIDs, services)
-
+	registry := NewGetterRegistry(NewIdentGenerator())
+	err := registry.Assign([]string{"fooInit", "foo"}, services)
 	if err == nil {
-		t.Error("Expected error due to getter name collision between 'getService' and 'get_service'")
-	} else {
-		t.Logf("Got expected collision error: %v", err)
+		t.Fatal("expected container field collision")
+	}
+
+	want := `service identifiers "foo" and "fooInit" normalize to the same container field "svc_fooInit"`
+	if err.Error() != want {
+		t.Fatalf("unexpected error:\nwant: %s\n got: %s", want, err)
 	}
 }
 
-func TestGetterRegistry_Assign_RealCollision_MustGetter(t *testing.T) {
-	ig := NewIdentGenerator()
-	gr := NewGetterRegistry(ig)
-
-	// "service" will generate:
-	//   - GetService (public getter)
-	//   - MustService (Must* getter)
-	// "mustService" will generate:
-	//   - GetMustService (public getter)
-	//   - MustMustService (Must* getter) - NO COLLISION with MustService
-	// So this test actually won't have a collision with current logic
-
-	// To create a real collision, we need a service whose Must* name
-	// equals another service's public getter name
-	// For example: "getMust" -> "GetGetMust" and "MustGetMust"
-	//              "get_must" -> same names
-	services := map[string]*serviceDef{
-		"getMust": {
-			id:     "getMust",
-			public: true,
+func TestGetterRegistryAssignIgnoresFieldsThatAreNotGenerated(t *testing.T) {
+	tests := []struct {
+		name string
+		foo  *serviceDef
+	}{
+		{
+			name: "non-shared service",
+			foo: &serviceDef{
+				id:       "foo",
+				typeName: types.Typ[types.Int],
+			},
 		},
-		"get_must": {
-			id:     "get_must",
-			public: true,
+		{
+			name: "alias",
+			foo: &serviceDef{
+				id:          "foo",
+				typeName:    types.Typ[types.Int],
+				shared:      true,
+				aliasTarget: "target",
+			},
 		},
 	}
 
-	orderedIDs := []string{"getMust", "get_must"}
-	err := gr.Assign(orderedIDs, services)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			services := map[string]*serviceDef{
+				"foo": tt.foo,
+				"fooInit": {
+					id:       "fooInit",
+					typeName: types.NewPointer(types.Typ[types.Int]),
+					shared:   true,
+				},
+			}
 
-	if err == nil {
-		t.Error("Expected error due to getter name collision")
-	} else {
-		t.Logf("Got expected collision error: %v", err)
+			registry := NewGetterRegistry(NewIdentGenerator())
+			if err := registry.Assign([]string{"foo", "fooInit"}, services); err != nil {
+				t.Fatalf("unexpected collision: %v", err)
+			}
+		})
 	}
 }
 
-func TestGetterRegistry_Assign_NoCollision_PrivateServices(t *testing.T) {
-	ig := NewIdentGenerator()
-	gr := NewGetterRegistry(ig)
-
-	// Private services with colliding names should be auto-numbered
+func TestGetterRegistryAssignStoresNormalizedGetterNames(t *testing.T) {
 	services := map[string]*serviceDef{
-		"getService": {
-			id:     "getService",
-			public: false,
+		"private-service": {
+			id: "private-service",
 		},
-		"get_service": {
-			id:     "get_service",
-			public: false,
+		"public-service": {
+			id:     "public-service",
+			public: true,
 		},
 	}
 
-	orderedIDs := []string{"getService", "get_service"}
-	err := gr.Assign(orderedIDs, services)
-
-	if err != nil {
-		t.Fatalf("Private services should not error on collision, got: %v", err)
+	registry := NewGetterRegistry(NewIdentGenerator())
+	if err := registry.Assign([]string{"public-service", "private-service"}, services); err != nil {
+		t.Fatalf("assign names: %v", err)
 	}
 
-	// Check that both got unique names via auto-numbering
-	getter1 := gr.PrivateService("getService")
-	getter2 := gr.PrivateService("get_service")
-
-	if getter1 == getter2 {
-		t.Errorf("Private services should have different getters, both got: %s", getter1)
+	checks := []struct {
+		got  string
+		want string
+	}{
+		{got: registry.PrivateService("private-service"), want: "getPrivateService"},
+		{got: registry.PrivateService("public-service"), want: "getPublicService"},
+		{got: registry.PublicService("public-service"), want: "GetPublicService"},
+		{got: registry.MustService("public-service"), want: "MustPublicService"},
 	}
-
-	t.Logf("getService -> %s", getter1)
-	t.Logf("get_service -> %s", getter2)
+	for _, check := range checks {
+		if check.got != check.want {
+			t.Errorf("got %q, want %q", check.got, check.want)
+		}
+	}
 }

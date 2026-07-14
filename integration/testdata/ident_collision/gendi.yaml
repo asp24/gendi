@@ -1,0 +1,7 @@
+services:
+  foo-bar:
+    constructor:
+      func: "test.NewA"
+  foo.bar:
+    constructor:
+      func: "test.NewB"
