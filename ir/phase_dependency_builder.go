@@ -13,56 +13,14 @@ import (
 // rewritten to ServiceRefArg.
 type dependencyBuilderPhase struct{}
 
-// collectDependencies recursively collects dependencies from an argument,
-// counting each reference occurrence in refs.
-func (r *dependencyBuilderPhase) collectDependencies(arg *Argument, deps map[string]*Service, refs map[string]int) {
-	switch arg.Kind {
-	case ServiceRefArg:
-		if arg.Service != nil {
-			deps[arg.Service.ID] = arg.Service
-			refs[arg.Service.ID]++
-		}
-	case SpreadArg:
-		// Recursively collect dependencies from inner argument
-		if arg.Inner != nil {
-			r.collectDependencies(arg.Inner, deps, refs)
-		}
-		// Note: TaggedArg is not handled here because it's already desugared to ServiceRefArg
-		// by the time this phase runs.
-	case FieldAccessArg:
-		if arg.FieldAccess != nil && arg.FieldAccess.Service != nil {
-			deps[arg.FieldAccess.Service.ID] = arg.FieldAccess.Service
-			refs[arg.FieldAccess.Service.ID]++
-		}
-	}
-}
-
 // Apply builds the dependency graph for all services
 func (r *dependencyBuilderPhase) Apply(_ *di.Config, container *Container) error {
 	for _, id := range xmaps.OrderedKeys(container.Services) {
 		svc := container.Services[id]
-		if svc.IsAlias() {
-			svc.Dependencies = []*Service{svc.Alias}
-			svc.DependencyRefs = map[string]int{svc.Alias.ID: 1}
-			continue
-		}
-		if svc.Constructor == nil {
-			continue
-		}
-
 		deps := make(map[string]*Service)
-		refs := make(map[string]int)
-
-		// Method receiver is a dependency
-		if svc.Constructor.Kind == MethodConstructor && svc.Constructor.Receiver != nil {
-			deps[svc.Constructor.Receiver.ID] = svc.Constructor.Receiver
-			refs[svc.Constructor.Receiver.ID]++
+		for dependency := range svc.dependencyRefs() {
+			deps[dependency.ID] = dependency
 		}
-
-		for _, arg := range svc.Constructor.Args {
-			r.collectDependencies(arg, deps, refs)
-		}
-		svc.DependencyRefs = refs
 
 		svc.Dependencies = make([]*Service, 0, len(deps))
 		for _, dep := range deps {

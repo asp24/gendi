@@ -144,10 +144,13 @@ func TestOptimizeShared(t *testing.T) {
 			setup: func(c *Container) {
 				s := &Service{ID: "S", Shared: true, Public: false}
 				p := &Service{
-					ID:             "P",
-					Shared:         true,
-					Dependencies:   []*Service{s},
-					DependencyRefs: map[string]int{"S": 2},
+					ID:           "P",
+					Shared:       true,
+					Dependencies: []*Service{s},
+					Constructor: &Constructor{Args: []*Argument{
+						{Kind: ServiceRefArg, Service: s},
+						{Kind: ServiceRefArg, Service: s},
+					}},
 				}
 				c.Services["S"] = s
 				c.Services["P"] = p
@@ -164,17 +167,22 @@ func TestOptimizeShared(t *testing.T) {
 				// A (shared) --2 refs--> B (non-shared) --1 ref--> C (shared)
 				cSvc := &Service{ID: "C", Shared: true, Public: false}
 				b := &Service{
-					ID:             "B",
-					Shared:         false,
-					Public:         false,
-					Dependencies:   []*Service{cSvc},
-					DependencyRefs: map[string]int{"C": 1},
+					ID:           "B",
+					Shared:       false,
+					Public:       false,
+					Dependencies: []*Service{cSvc},
+					Constructor: &Constructor{Args: []*Argument{
+						{Kind: ServiceRefArg, Service: cSvc},
+					}},
 				}
 				a := &Service{
-					ID:             "A",
-					Shared:         true,
-					Dependencies:   []*Service{b},
-					DependencyRefs: map[string]int{"B": 2},
+					ID:           "A",
+					Shared:       true,
+					Dependencies: []*Service{b},
+					Constructor: &Constructor{Args: []*Argument{
+						{Kind: ServiceRefArg, Service: b},
+						{Kind: ServiceRefArg, Service: b},
+					}},
 				}
 				c.Services["C"] = cSvc
 				c.Services["B"] = b

@@ -3,7 +3,6 @@ package ir
 import (
 	"go/types"
 	"iter"
-	"maps"
 	"slices"
 	"time"
 
@@ -111,9 +110,6 @@ type Service struct {
 
 	// Computed
 	Dependencies []*Service // Direct dependencies (resolved)
-	// DependencyRefs counts how many times each direct dependency is
-	// referenced during construction (a getter call per reference).
-	DependencyRefs map[string]int
 }
 
 // IsAlias returns true if this service is an alias.
@@ -128,9 +124,67 @@ func (s *Service) Clone() *Service {
 	}
 	result.Tags = slices.Clone(s.Tags)
 	result.Dependencies = slices.Clone(s.Dependencies)
-	result.DependencyRefs = maps.Clone(s.DependencyRefs)
 
 	return &result
+}
+
+// dependencyRefs returns every service reference used to construct the service.
+// Unlike Dependencies, repeated references are yielded repeatedly.
+func (s *Service) dependencyRefs() iter.Seq[*Service] {
+	return func(yield func(*Service) bool) {
+		if s.IsAlias() {
+			yield(s.Alias)
+			return
+		}
+		if s.Constructor == nil {
+			// Dependencies may be populated directly by tests or other IR producers.
+			for _, dependency := range s.Dependencies {
+				if dependency != nil && !yield(dependency) {
+					return
+				}
+			}
+			return
+		}
+
+		if s.Constructor.Kind == MethodConstructor && s.Constructor.Receiver != nil {
+			if !yield(s.Constructor.Receiver) {
+				return
+			}
+		}
+
+		var visitArgument func(*Argument) bool
+		visitArgument = func(arg *Argument) bool {
+			if arg == nil {
+				return true
+			}
+			switch arg.Kind {
+			case ServiceRefArg:
+				return arg.Service == nil || yield(arg.Service)
+			case SpreadArg:
+				return visitArgument(arg.Inner)
+			case FieldAccessArg:
+				return arg.FieldAccess == nil || arg.FieldAccess.Service == nil || yield(arg.FieldAccess.Service)
+			default:
+				return true
+			}
+		}
+
+		for _, arg := range s.Constructor.Args {
+			if !visitArgument(arg) {
+				return
+			}
+		}
+	}
+}
+
+func (s *Service) dependencyRefCount(dependencyID string) int {
+	count := 0
+	for dependency := range s.dependencyRefs() {
+		if dependency.ID == dependencyID {
+			count++
+		}
+	}
+	return count
 }
 
 // Constructor defines how a service is constructed.
