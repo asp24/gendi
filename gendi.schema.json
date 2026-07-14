@@ -220,14 +220,21 @@
               {
                 "required": [
                   "alias"
-                ],
-                "not": {
-                  "required": [
-                    "shared"
-                  ]
-                }
+                ]
               }
             ],
+            "if": {
+              "required": [
+                "alias"
+              ]
+            },
+            "then": {
+              "not": {
+                "required": [
+                  "shared"
+                ]
+              }
+            },
             "additionalProperties": false
           }
         ]
