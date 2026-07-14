@@ -191,3 +191,7 @@ type Timed struct {
 func NewTimed(ds ...time.Duration) *Timed {
 	return &Timed{ds: ds}
 }
+
+func NewPrefixedServer(prefix string, handlers ...Handler) *Server {
+	return &Server{Handlers: handlers}
+}

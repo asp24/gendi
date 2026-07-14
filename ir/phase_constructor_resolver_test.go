@@ -133,3 +133,85 @@ func TestFieldAccessSelfReferenceIsCycleError(t *testing.T) {
 		t.Fatalf("expected circular reference error, got %v", err)
 	}
 }
+
+// TestSpreadIntoNonVariadicRejected covers !spread: into a plain slice
+// parameter, which would generate invalid Go (nums... into []int).
+func TestSpreadIntoNonVariadicRejected(t *testing.T) {
+	pkg := types.NewPackage("test/app", "app")
+	intType := types.Typ[types.Int]
+	intSlice := types.NewSlice(intType)
+
+	resolver := &funcResolver{funcs: map[string]*types.Func{
+		"test/app.NewList": makeFunc(pkg, "NewList", []types.Type{intSlice}, types.Typ[types.String]),
+		"test/app.NewNums": makeFunc(pkg, "NewNums", nil, intSlice),
+	}}
+
+	cfg := di.NewConfig()
+	cfg.Services["list"] = di.Service{
+		Constructor: di.Constructor{
+			Func: "test/app.NewList",
+			Args: []di.Argument{{Kind: di.ArgSpread, Value: "@nums"}},
+		},
+	}
+	cfg.Services["nums"] = di.Service{
+		Constructor: di.Constructor{Func: "test/app.NewNums"},
+	}
+
+	container := NewContainer()
+	container.Services["list"] = &Service{ID: "list"}
+	container.Services["nums"] = &Service{ID: "nums"}
+
+	phase := &constructorResolverPhase{
+		typeResolver: resolver,
+		argResolver:  &argResolver{typeResolver: resolver},
+	}
+	err := phase.Apply(cfg, container)
+	if err == nil || !strings.Contains(err.Error(), "variadic") {
+		t.Fatalf("expected variadic-only spread error, got %v", err)
+	}
+}
+
+// TestSpreadMixedWithPositionalVariadicRejected covers mixing positional
+// variadic values with a trailing spread, which is invalid Go.
+func TestSpreadMixedWithPositionalVariadicRejected(t *testing.T) {
+	pkg := types.NewPackage("test/app", "app")
+	intType := types.Typ[types.Int]
+	intSlice := types.NewSlice(intType)
+	variadicSig := types.NewSignatureType(nil, nil, nil,
+		types.NewTuple(types.NewParam(token.NoPos, pkg, "p0", intSlice)),
+		types.NewTuple(types.NewParam(token.NoPos, pkg, "", types.Typ[types.String])),
+		true)
+	variadicFunc := types.NewFunc(token.NoPos, pkg, "NewSum", variadicSig)
+
+	resolver := &funcResolver{funcs: map[string]*types.Func{
+		"test/app.NewSum":  variadicFunc,
+		"test/app.NewNums": makeFunc(pkg, "NewNums", nil, intSlice),
+	}}
+
+	cfg := di.NewConfig()
+	cfg.Services["sum"] = di.Service{
+		Constructor: di.Constructor{
+			Func: "test/app.NewSum",
+			Args: []di.Argument{
+				{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(1)},
+				{Kind: di.ArgSpread, Value: "@nums"},
+			},
+		},
+	}
+	cfg.Services["nums"] = di.Service{
+		Constructor: di.Constructor{Func: "test/app.NewNums"},
+	}
+
+	container := NewContainer()
+	container.Services["sum"] = &Service{ID: "sum"}
+	container.Services["nums"] = &Service{ID: "nums"}
+
+	phase := &constructorResolverPhase{
+		typeResolver: resolver,
+		argResolver:  &argResolver{typeResolver: resolver},
+	}
+	err := phase.Apply(cfg, container)
+	if err == nil || !strings.Contains(err.Error(), "spread") {
+		t.Fatalf("expected mixed positional/spread error, got %v", err)
+	}
+}
