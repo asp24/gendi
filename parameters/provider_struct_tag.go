@@ -169,13 +169,14 @@ func lookupStruct(v reflect.Value, name string) (reflect.Value, bool) {
 }
 
 func lookupMap(m reflect.Value, keyPath string) (reflect.Value, bool) {
-	if m.Kind() != reflect.Map || m.Type().Key().Kind() != reflect.String {
-		return reflect.Value{}, false
-	}
 	parts := strings.Split(keyPath, ".")
 	current := m
 	for i, part := range parts {
-		val := current.MapIndex(reflect.ValueOf(part))
+		if current.Kind() != reflect.Map || current.Type().Key().Kind() != reflect.String {
+			return reflect.Value{}, false
+		}
+		// Convert handles named key types (e.g. type Key string).
+		val := current.MapIndex(reflect.ValueOf(part).Convert(current.Type().Key()))
 		if !val.IsValid() {
 			return reflect.Value{}, false
 		}
@@ -185,9 +186,6 @@ func lookupMap(m reflect.Value, keyPath string) (reflect.Value, bool) {
 		}
 		if i == len(parts)-1 {
 			return val, true
-		}
-		if val.Kind() != reflect.Map {
-			return reflect.Value{}, false
 		}
 		current = val
 	}
