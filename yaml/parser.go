@@ -173,13 +173,10 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 		if strings.Contains(svc.Type, "$this.") {
 			svc.Type = strings.ReplaceAll(svc.Type, "$this.", thisPackage+".")
 		}
-		// Substitute in constructor fields (must be at start)
-		if strings.HasPrefix(svc.Constructor.Func, "$this.") {
-			svc.Constructor.Func = strings.Replace(svc.Constructor.Func, "$this.", thisPackage+".", 1)
-		}
-		if strings.HasPrefix(svc.Constructor.Method, "$this.") {
-			svc.Constructor.Method = strings.Replace(svc.Constructor.Method, "$this.", thisPackage+".", 1)
-		}
+		// Substitute in constructor fields (at the start of the path and
+		// anywhere within generic type arguments)
+		svc.Constructor.Func = substituteThisInFuncRef(svc.Constructor.Func, thisPackage)
+		svc.Constructor.Method = substituteThisInFuncRef(svc.Constructor.Method, thisPackage)
 	}
 
 	// Populate Packages after $this substitution
@@ -213,6 +210,21 @@ func (p *Parser) convertServiceWithPackageAndFile(raw *RawService, defaults *Ser
 	}
 
 	return svc, nil
+}
+
+// substituteThisInFuncRef replaces the $this token in a constructor
+// reference like "$this.NewPool[$this.Message]": at the start of the
+// function path and anywhere within the generic type arguments, where any
+// type expression may appear.
+func substituteThisInFuncRef(ref, thisPackage string) string {
+	base, typeArgs, hasTypeArgs := strings.Cut(ref, "[")
+	if strings.HasPrefix(base, "$this.") {
+		base = strings.Replace(base, "$this.", thisPackage+".", 1)
+	}
+	if !hasTypeArgs {
+		return base
+	}
+	return base + "[" + strings.ReplaceAll(typeArgs, "$this.", thisPackage+".")
 }
 
 func (p *Parser) convertArgumentWithFile(raw *RawArgument, filePath string) (di.Argument, error) {
