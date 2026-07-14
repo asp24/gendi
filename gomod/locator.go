@@ -92,12 +92,22 @@ func FindModuleRoot(startDir string) (dir string, modulePath string, found bool)
 	}
 }
 
-// ParseModulePath extracts the module path from go.mod content.
+// ParseModulePath extracts the module path from go.mod content, handling
+// trailing comments and quoted paths.
 func ParseModulePath(data []byte) string {
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "module ") {
-			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
+		rest, found := strings.CutPrefix(line, "module")
+		if !found || (rest != "" && rest[0] != ' ' && rest[0] != '\t') {
+			continue
+		}
+		if idx := strings.Index(rest, "//"); idx >= 0 {
+			rest = rest[:idx]
+		}
+		path := strings.TrimSpace(rest)
+		path = strings.Trim(path, "\"`")
+		if path != "" {
+			return path
 		}
 	}
 	return ""

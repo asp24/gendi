@@ -1,11 +1,11 @@
 package pipeline
 
 import (
-	"bufio"
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"github.com/asp24/gendi/gomod"
 )
 
 // ModuleInfo contains information about the Go module.
@@ -47,23 +47,12 @@ func ResolveModuleInfo() (ModuleInfo, error) {
 
 // parseModulePath extracts the module path from a go.mod file.
 func parseModulePath(goModPath string) (string, error) {
-	file, err := os.Open(goModPath)
+	data, err := os.ReadFile(goModPath)
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "module ") {
-			return strings.TrimSpace(strings.TrimPrefix(line, "module ")), nil
-		}
+	if path := gomod.ParseModulePath(data); path != "" {
+		return path, nil
 	}
-
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-
 	return "", errors.New("module path not found in go.mod")
 }
