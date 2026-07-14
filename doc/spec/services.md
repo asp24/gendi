@@ -92,6 +92,9 @@ Rules:
 - Decorators are ordered by `decoration_priority`
 - Decorator type must be compatible with the decorated service type
 - The decorator does not inherit tags of the decorated base service
+- Tags declared on the base service stay on its inner (undecorated) definition,
+  so tagged collections receive the undecorated instance (Symfony semantics).
+  Tag the decorator explicitly if the collection should get the decorated one
 
 ## Aliases
 
