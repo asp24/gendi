@@ -78,7 +78,11 @@ func (o *Options) Finalize() error {
 
 	// 4. Compute output path if needed
 	if o.OutputPkgPath == "" {
-		o.OutputPkgPath = typeres.ComputeOutputPkgPath(o.ModulePath, o.ModuleRoot, o.Out)
+		pkgPath, err := typeres.ComputeOutputPkgPath(o.ModulePath, o.ModuleRoot, o.Out)
+		if err != nil {
+			return fmt.Errorf("compute output package path: %w", err)
+		}
+		o.OutputPkgPath = pkgPath
 	}
 
 	return nil
