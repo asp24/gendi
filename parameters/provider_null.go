@@ -1,6 +1,9 @@
 package parameters
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type ProviderNull struct {
 }
@@ -15,22 +18,22 @@ func (p *ProviderNull) Has(_ string) bool {
 	return false
 }
 
-func (p *ProviderNull) GetString(_ string) (string, error) {
-	return "", ErrParameterNotFound
+func (p *ProviderNull) GetString(name string) (string, error) {
+	return "", fmt.Errorf("parameter %q: %w", name, ErrParameterNotFound)
 }
 
-func (p *ProviderNull) GetInt(_ string) (int, error) {
-	return 0, ErrParameterNotFound
+func (p *ProviderNull) GetInt(name string) (int, error) {
+	return 0, fmt.Errorf("parameter %q: %w", name, ErrParameterNotFound)
 }
 
-func (p *ProviderNull) GetBool(_ string) (bool, error) {
-	return false, ErrParameterNotFound
+func (p *ProviderNull) GetBool(name string) (bool, error) {
+	return false, fmt.Errorf("parameter %q: %w", name, ErrParameterNotFound)
 }
 
-func (p *ProviderNull) GetFloat(_ string) (float64, error) {
-	return 0.0, ErrParameterNotFound
+func (p *ProviderNull) GetFloat(name string) (float64, error) {
+	return 0.0, fmt.Errorf("parameter %q: %w", name, ErrParameterNotFound)
 }
 
-func (p *ProviderNull) GetDuration(_ string) (time.Duration, error) {
-	return 0, ErrParameterNotFound
+func (p *ProviderNull) GetDuration(name string) (time.Duration, error) {
+	return 0, fmt.Errorf("parameter %q: %w", name, ErrParameterNotFound)
 }
