@@ -91,6 +91,8 @@ Rules:
 - `@.inner` must be used as a direct argument; forms like `!spread:@.inner` are invalid
 - Decorators are ordered by `decoration_priority`
 - Decorator type must be compatible with the decorated service type
+- The decorated service and each decorator keep their own `shared` setting;
+  a shared service may be wrapped by a non-shared decorator and vice versa
 - The decorator does not inherit tags of the decorated base service
 - Tags declared on the base service stay on its inner (undecorated) definition,
   so tagged collections receive the undecorated instance (Symfony semantics).
@@ -108,6 +110,9 @@ services:
     public: true
   logger_alias: "@logger"
 ```
+
+Aliases have no lifecycle of their own. They always inherit the target
+service's `shared` behavior, and setting `shared` on an alias is an error.
 
 Expanded form:
 ```yaml

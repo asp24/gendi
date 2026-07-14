@@ -134,15 +134,11 @@ func (p *DecoratorPass) expandOne(cfg *Config, baseID, decoratorID string) error
 	// Determine inner service (reuse existing alias or create new)
 	innerID, innerSvc := p.resolveInnerService(cfg, baseSvc, decoratorID)
 
-	// Propagate shared flag: if either base or decorator is shared, the result is shared
-	isShared := baseSvc.Shared || decoratorSvc.Shared
-
 	// Transform base into alias to current decorator. The declared type and
 	// source location are preserved for validation and error reporting.
 	aliasService := Service{
 		Alias:         decoratorID,
 		Type:          baseSvc.Type,
-		Shared:        isShared,
 		Public:        baseSvc.Public, // Preserve public flag
 		Autoconfigure: false,
 		SourceLoc:     baseSvc.SourceLoc,
@@ -150,8 +146,7 @@ func (p *DecoratorPass) expandOne(cfg *Config, baseID, decoratorID string) error
 
 	// Rewrite @.inner args in decorator
 	decoratorSvc.Constructor.Args = p.rewriteInnerArgs(decoratorSvc.Constructor.Args, innerID)
-	decoratorSvc.Decorates = ""    // Clear decoration marker
-	decoratorSvc.Shared = isShared // Apply propagated shared flag
+	decoratorSvc.Decorates = "" // Clear decoration marker
 
 	// Update config (need to write back all modified services)
 	cfg.Services[innerID] = innerSvc

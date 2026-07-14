@@ -79,3 +79,23 @@ func TestServicePhaseValidatesEmptyID(t *testing.T) {
 		})
 	}
 }
+
+func TestServicePhaseRejectsSharedAlias(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"target": {},
+			"alias": {
+				Alias:  "target",
+				Shared: true,
+			},
+		},
+	}
+
+	err := (&servicePhase{}).Apply(cfg, NewContainer())
+	if err == nil {
+		t.Fatal("expected shared alias to fail")
+	}
+	if !strings.Contains(err.Error(), `service "alias": alias cannot define shared`) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

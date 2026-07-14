@@ -300,6 +300,30 @@ func TestServiceAliasCodegen(t *testing.T) {
 	}
 }
 
+func TestServiceAliasSharedRejected(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"logger": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+				},
+			},
+			"logger.alias": {
+				Alias:  "logger",
+				Shared: true,
+			},
+		},
+	}
+
+	err := generateErr(t, cfg)
+	if err == nil {
+		t.Fatal("expected shared alias to fail")
+	}
+	if !strings.Contains(err.Error(), `service "logger.alias": alias cannot define shared`) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{
@@ -1246,6 +1270,59 @@ func TestDecoratorSharesStorageWithBase(t *testing.T) {
 	count := strings.Count(out, "if c.svc_svc_decorator != nil")
 	if count != 1 {
 		t.Fatalf("expected nil check to appear exactly once (in decorator getter), found %d", count)
+	}
+}
+
+func TestDecoratorKeepsSharedFlagsIndependent(t *testing.T) {
+	for _, tc := range []struct {
+		name                 string
+		baseShared           bool
+		decoratorShared      bool
+		wantInnerStorage     bool
+		wantDecoratorStorage bool
+	}{
+		{
+			name:                 "shared base and non-shared decorator",
+			baseShared:           true,
+			wantInnerStorage:     true,
+			wantDecoratorStorage: false,
+		},
+		{
+			name:                 "non-shared base and shared decorator",
+			decoratorShared:      true,
+			wantInnerStorage:     false,
+			wantDecoratorStorage: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &di.Config{
+				Services: map[string]di.Service{
+					"svc": {
+						Constructor: di.Constructor{
+							Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+						},
+						Public: true,
+						Shared: tc.baseShared,
+					},
+					"svc.decorator": {
+						Constructor: di.Constructor{
+							Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
+							Args: []di.Argument{{Kind: di.ArgInner}},
+						},
+						Decorates: "svc",
+						Shared:    tc.decoratorShared,
+					},
+				},
+			}
+
+			out := generate(t, cfg)
+			if got := strings.Contains(out, "svc_svc_decorator_inner "); got != tc.wantInnerStorage {
+				t.Errorf("inner storage present = %t, want %t", got, tc.wantInnerStorage)
+			}
+			if got := strings.Contains(out, "svc_svc_decorator "); got != tc.wantDecoratorStorage {
+				t.Errorf("decorator storage present = %t, want %t", got, tc.wantDecoratorStorage)
+			}
+		})
 	}
 }
 

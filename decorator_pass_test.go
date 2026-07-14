@@ -212,46 +212,47 @@ func TestDecoratorPassEqualPriorityUsesIDTieBreak(t *testing.T) {
 	}
 }
 
-func TestDecoratorPassSharedPropagation(t *testing.T) {
-	cfg := &Config{
-		Services: map[string]Service{
-			"base": {
-				Shared: false,
-				Constructor: Constructor{
-					Func: "app.NewBase",
+func TestDecoratorPassKeepsSharedFlagsIndependent(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		baseShared      bool
+		decoratorShared bool
+	}{
+		{name: "shared base and non-shared decorator", baseShared: true, decoratorShared: false},
+		{name: "non-shared base and shared decorator", baseShared: false, decoratorShared: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &Config{
+				Services: map[string]Service{
+					"base": {
+						Shared:      tc.baseShared,
+						Constructor: Constructor{Func: "app.NewBase"},
+					},
+					"decorator": {
+						Shared:    tc.decoratorShared,
+						Decorates: "base",
+						Constructor: Constructor{
+							Func: "app.NewDecorator",
+							Args: []Argument{{Kind: ArgInner}},
+						},
+					},
 				},
-			},
-			"decorator": {
-				Shared:             true,
-				Decorates:          "base",
-				DecorationPriority: 10,
-				Constructor: Constructor{
-					Func: "app.NewDecorator",
-					Args: []Argument{{Kind: ArgInner}},
-				},
-			},
-		},
-	}
-
-	pass := &DecoratorPass{}
-	result, err := pass.Process(cfg)
-	if err != nil {
-		t.Fatalf("DecoratorPass failed: %v", err)
-	}
-
-	// Decorator and alias should become shared, but not inner
-	for id, svc := range result.Services {
-		if id == "decorator.inner" {
-			// Inner should keep its original non-shared value
-			if svc.Shared {
-				t.Fatalf("expected inner service to remain non-shared")
 			}
-		} else {
-			// Decorator and base (alias) should be shared
-			if !svc.Shared {
-				t.Fatalf("expected service %q to be shared", id)
+
+			result, err := (&DecoratorPass{}).Process(cfg)
+			if err != nil {
+				t.Fatalf("DecoratorPass failed: %v", err)
 			}
-		}
+			if got := result.Services["decorator.inner"].Shared; got != tc.baseShared {
+				t.Errorf("inner shared = %t, want %t", got, tc.baseShared)
+			}
+			if got := result.Services["decorator"].Shared; got != tc.decoratorShared {
+				t.Errorf("decorator shared = %t, want %t", got, tc.decoratorShared)
+			}
+			if result.Services["base"].Shared {
+				t.Error("alias must not define shared")
+			}
+		})
 	}
 }
 
@@ -518,5 +519,39 @@ func TestDecoratorPassKeepsBaseTagsOnInner(t *testing.T) {
 	}
 	if alias.SourceLoc == nil || alias.SourceLoc.Line != 3 {
 		t.Errorf("expected alias to keep source location, got %+v", alias.SourceLoc)
+	}
+}
+
+func TestDecoratorPassKeepsAliasTargetAndDecoratorSharedFlagsIndependent(t *testing.T) {
+	cfg := &Config{
+		Services: map[string]Service{
+			"target": {
+				Shared:      true,
+				Constructor: Constructor{Func: "app.NewTarget"},
+			},
+			"base": {Alias: "target"},
+			"dec": {
+				Decorates: "base",
+				Shared:    false,
+				Constructor: Constructor{
+					Func: "app.NewDec",
+					Args: []Argument{{Kind: ArgInner}},
+				},
+			},
+		},
+	}
+
+	result, err := (&DecoratorPass{}).Process(cfg)
+	if err != nil {
+		t.Fatalf("DecoratorPass failed: %v", err)
+	}
+	if !result.Services["target"].Shared {
+		t.Error("alias target must stay shared")
+	}
+	if result.Services["dec"].Shared {
+		t.Error("decorator must stay non-shared")
+	}
+	if result.Services["base"].Shared {
+		t.Error("decorated alias must delegate to the non-shared decorator")
 	}
 }

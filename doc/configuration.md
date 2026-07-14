@@ -205,6 +205,10 @@ services:
     alias: "logger.impl"
 ```
 
+Aliases always inherit the target service lifecycle. Do not set `shared` on
+an alias; explicit `shared: true` and `shared: false` are both configuration
+errors.
+
 ### Public Services
 
 Generate public getter methods for services:
