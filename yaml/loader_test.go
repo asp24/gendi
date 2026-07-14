@@ -246,6 +246,33 @@ func TestLoadConfigServiceAlias(t *testing.T) {
 	}
 }
 
+func TestLoadConfigDecoratorDefaultsToShared(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "gendi.yaml")
+	writeTestFile(t, path, strings.TrimSpace(`
+services:
+  base:
+    constructor:
+      func: "app.NewBase"
+  decorator:
+    decorates: base
+    constructor:
+      func: "app.NewDecorator"
+      args: ["@.inner"]
+`))
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if !cfg.Services["base"].Shared {
+		t.Fatal("expected base to default to shared")
+	}
+	if !cfg.Services["decorator"].Shared {
+		t.Fatal("expected decorator to default to shared")
+	}
+}
+
 func TestLoadConfigNullArgument(t *testing.T) {
 	cfg, err := LoadConfig(filepath.Join(getCurrentDir(), "testdata", "null_argument", "gendi.yaml"))
 	if err != nil {
