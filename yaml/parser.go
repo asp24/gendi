@@ -41,6 +41,9 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 		if param.Type == "" {
 			return nil, srcloc.Errorf(newLocation(filePath, param.Node), "parameter %q: type is required", name)
 		}
+		if param.Value == nil {
+			return nil, srcloc.Errorf(newLocation(filePath, param.Node), "parameter %q: value is required", name)
+		}
 		lit, err := p.convertLiteral(param.Value, filePath)
 		if err != nil {
 			return nil, srcloc.AddContext(err, "parameter %q", name)
