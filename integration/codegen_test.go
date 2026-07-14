@@ -1361,3 +1361,43 @@ func TestFmtImportedWhenErrorHandlingPresent(t *testing.T) {
 		t.Fatalf("expected fmt import in generated code:\n%s", out)
 	}
 }
+
+func TestTaggedConversionInValueTypeBuild(t *testing.T) {
+	// Hub is a non-nilable value type whose constructor returns an error: the
+	// conversion error path must return the zero value, not nil.
+	cfg := &di.Config{
+		Tags: map[string]di.Tag{
+			"test.tag": {
+				ElementType: "*github.com/asp24/gendi/generator/testdata/app.A",
+			},
+		},
+		Services: map[string]di.Service{
+			"a": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
+				},
+				Tags: []di.ServiceTag{
+					{Name: "test.tag"},
+				},
+			},
+			"hub": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewHub",
+					Args: []di.Argument{
+						{Kind: di.ArgTagged, Value: "test.tag"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	out := generate(t, cfg)
+
+	if strings.Contains(out, "return nil, fmt.Errorf") {
+		t.Fatalf("conversion error path must not return nil for value types:\n%s", out)
+	}
+	if !strings.Contains(out, "return zero, fmt.Errorf") {
+		t.Fatalf("expected zero-value return in conversion error path:\n%s", out)
+	}
+}
