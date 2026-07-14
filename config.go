@@ -2,6 +2,7 @@ package di
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/asp24/gendi/srcloc"
 )
@@ -58,15 +59,9 @@ func (cfg *Config) MergeWith(src *Config) *Config {
 		return cfg
 	}
 
-	for k, v := range src.Parameters {
-		cfg.Parameters[k] = v
-	}
-	for k, v := range src.Tags {
-		cfg.Tags[k] = v
-	}
-	for k, v := range src.Services {
-		cfg.Services[k] = v
-	}
+	maps.Copy(cfg.Parameters, src.Parameters)
+	maps.Copy(cfg.Tags, src.Tags)
+	maps.Copy(cfg.Services, src.Services)
 	return cfg
 }
 
@@ -95,7 +90,7 @@ type Tag struct {
 // ServiceTag defines a tag assigned to a service.
 type ServiceTag struct {
 	Name       string
-	Attributes map[string]interface{}
+	Attributes map[string]any
 
 	// Source location (optional)
 	SourceLoc *srcloc.Location

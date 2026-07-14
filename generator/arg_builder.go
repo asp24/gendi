@@ -75,8 +75,8 @@ func (b *serviceRefBuilder) buildWithSliceConversion(ctx *argBuildContext, dep *
 
 	// For desugared tag services, use tag name for variable naming
 	varSuffix := dep.id
-	if strings.HasPrefix(dep.id, ir.TagServicePrefix) {
-		varSuffix = strings.TrimPrefix(dep.id, ir.TagServicePrefix)
+	if after, ok := strings.CutPrefix(dep.id, ir.TagServicePrefix); ok {
+		varSuffix = after
 	}
 
 	srcVar := ctx.rnd.identGenerator.Var("tagged", varSuffix)

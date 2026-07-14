@@ -32,7 +32,7 @@ func (e *Error) Unwrap() error {
 
 // Errorf creates a new error with location information.
 // If loc is nil, creates a regular formatted error.
-func Errorf(loc *Location, format string, args ...interface{}) error {
+func Errorf(loc *Location, format string, args ...any) error {
 	return &Error{
 		Loc:     loc,
 		Message: fmt.Sprintf(format, args...),

@@ -38,7 +38,7 @@ func countFormatSpecifiers(format string) int {
 type ErrorSnippetBuilder struct {
 	serviceID   string
 	context     []string
-	contextVars []interface{}
+	contextVars []any
 	multiline   bool
 	customCheck string // For non-standard conditions like nil checks
 }
@@ -48,13 +48,13 @@ func NewErrorSnippet(serviceID string) *ErrorSnippetBuilder {
 	return &ErrorSnippetBuilder{
 		serviceID:   serviceID,
 		context:     []string{},
-		contextVars: []interface{}{},
+		contextVars: []any{},
 		multiline:   false,
 	}
 }
 
 // WithContext adds a context component to the error message.
-func (b *ErrorSnippetBuilder) WithContext(format string, args ...interface{}) *ErrorSnippetBuilder {
+func (b *ErrorSnippetBuilder) WithContext(format string, args ...any) *ErrorSnippetBuilder {
 	b.context = append(b.context, format)
 	b.contextVars = append(b.contextVars, args...)
 	return b
@@ -76,7 +76,7 @@ func (b *ErrorSnippetBuilder) CustomCondition(condition string) *ErrorSnippetBui
 func (b *ErrorSnippetBuilder) Build() string {
 	// Build the error message format
 	msgParts := []string{"service %q"}
-	msgArgs := []interface{}{b.serviceID}
+	msgArgs := []any{b.serviceID}
 
 	varIndex := 0
 	for _, ctx := range b.context {
@@ -84,7 +84,7 @@ func (b *ErrorSnippetBuilder) Build() string {
 		// Calculate how many args this format string needs
 		// Use proper counting that handles %% escape sequences
 		argCount := countFormatSpecifiers(ctx)
-		for j := 0; j < argCount; j++ {
+		for range argCount {
 			if varIndex < len(b.contextVars) {
 				msgArgs = append(msgArgs, b.contextVars[varIndex])
 				varIndex++

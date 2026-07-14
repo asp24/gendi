@@ -68,7 +68,7 @@ func (p *ProviderStructTag) GetFloat(name string) (float64, error) {
 	}
 	switch val.Kind() {
 	case reflect.Float32, reflect.Float64:
-		return val.Convert(reflect.TypeOf(float64(0))).Float(), nil
+		return val.Convert(reflect.TypeFor[float64]()).Float(), nil
 	default:
 		return 0, fmt.Errorf("parameter %q: expected float64, got %s", name, val.Type())
 	}
@@ -79,7 +79,7 @@ func (p *ProviderStructTag) GetDuration(name string) (time.Duration, error) {
 	if err != nil {
 		return 0, err
 	}
-	durationType := reflect.TypeOf(time.Duration(0))
+	durationType := reflect.TypeFor[time.Duration]()
 	if val.Type() == durationType {
 		return val.Convert(durationType).Interface().(time.Duration), nil
 	}
@@ -138,15 +138,15 @@ func lookupStruct(v reflect.Value, name string) (reflect.Value, bool) {
 		if tag != "" {
 			switch fieldVal.Kind() {
 			case reflect.Map:
-				if strings.HasPrefix(name, tag+".") {
-					keyPath := strings.TrimPrefix(name, tag+".")
+				if after, ok0 := strings.CutPrefix(name, tag+"."); ok0 {
+					keyPath := after
 					if val, ok := lookupMap(fieldVal, keyPath); ok {
 						return val, true
 					}
 				}
 			case reflect.Struct:
-				if strings.HasPrefix(name, tag+".") {
-					nestedName := strings.TrimPrefix(name, tag+".")
+				if after, ok0 := strings.CutPrefix(name, tag+"."); ok0 {
+					nestedName := after
 					if val, ok := lookupStruct(fieldVal, nestedName); ok {
 						return val, true
 					}

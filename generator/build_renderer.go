@@ -3,6 +3,7 @@ package generator
 import (
 	"bytes"
 	"fmt"
+	"slices"
 
 	"github.com/asp24/gendi/ir"
 )
@@ -39,12 +40,7 @@ func buildNeedsErrorHandling(svc *serviceDef) bool {
 	if svc.constructor.returnsError || svc.constructor.kind == "method" {
 		return true
 	}
-	for _, arg := range svc.constructor.argDefs {
-		if argNeedsErrorHandling(arg) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(svc.constructor.argDefs, argNeedsErrorHandling)
 }
 
 // regularBuildRenderer renders a standard build function.

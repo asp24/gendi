@@ -2,6 +2,7 @@ package typeres
 
 import (
 	"reflect"
+	"slices"
 	"sort"
 	"testing"
 )
@@ -88,13 +89,7 @@ func TestCollectFieldAccessGoPackages(t *testing.T) {
 	}
 	for _, tt := range tests {
 		got := CollectFieldAccessGoPackages(tt.value)
-		found := false
-		for _, p := range got {
-			if p == tt.want {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(got, tt.want)
 		if !found {
 			t.Errorf("CollectFieldAccessGoPackages(%q) = %v, want to contain %q", tt.value, got, tt.want)
 		}

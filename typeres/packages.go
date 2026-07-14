@@ -19,9 +19,9 @@ func CollectTypePackages(typeStr string) []string {
 
 	// Array type: [N]T
 	if strings.HasPrefix(typeStr, "[") {
-		closeBracket := strings.Index(typeStr, "]")
-		if closeBracket != -1 {
-			return CollectTypePackages(typeStr[closeBracket+1:])
+		_, after, ok := strings.Cut(typeStr, "]")
+		if ok {
+			return CollectTypePackages(after)
 		}
 		return nil
 	}

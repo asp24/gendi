@@ -123,7 +123,7 @@ func (l *ConfigLoaderYaml) osReadFile(path string) ([]byte, error) {
 // yamlUnmarshal wraps yaml.Unmarshal for testability.
 var defaultYamlUnmarshal = yamllib.Unmarshal
 
-func (l *ConfigLoaderYaml) yamlUnmarshal(data []byte, v interface{}) error {
+func (l *ConfigLoaderYaml) yamlUnmarshal(data []byte, v any) error {
 	return defaultYamlUnmarshal(data, v)
 }
 

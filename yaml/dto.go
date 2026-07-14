@@ -127,7 +127,7 @@ type RawTag struct {
 
 type RawServiceTag struct {
 	Name       string
-	Attributes map[string]interface{}
+	Attributes map[string]any
 
 	// Node holds the tag mapping node for location tracking.
 	Node ast.Node `yaml:"-"`
@@ -135,7 +135,7 @@ type RawServiceTag struct {
 
 func (t *RawServiceTag) UnmarshalYAML(node ast.Node) error {
 	t.Node = node
-	t.Attributes = make(map[string]interface{})
+	t.Attributes = make(map[string]any)
 
 	switch n := node.(type) {
 	case *ast.StringNode:
@@ -158,7 +158,7 @@ func (t *RawServiceTag) UnmarshalYAML(node ast.Node) error {
 					return wrapNodeError(node, "failed to decode tag name", err)
 				}
 			} else {
-				var value interface{}
+				var value any
 				if err := yamllib.NodeToValue(kv.Value, &value); err != nil {
 					return wrapNodeError(kv.Value, fmt.Sprintf("failed to decode tag attribute %q", key), err)
 				}

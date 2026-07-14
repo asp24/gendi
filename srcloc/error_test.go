@@ -76,21 +76,21 @@ func TestErrorf(t *testing.T) {
 		name   string
 		loc    *Location
 		format string
-		args   []interface{}
+		args   []any
 		want   string
 	}{
 		{
 			name:   "with location",
 			loc:    &Location{File: "config.yaml", Line: 20, Column: 15},
 			format: "service %q not found",
-			args:   []interface{}{"logger"},
+			args:   []any{"logger"},
 			want:   "config.yaml:20:15: service \"logger\" not found",
 		},
 		{
 			name:   "without location",
 			loc:    nil,
 			format: "service %q not found",
-			args:   []interface{}{"logger"},
+			args:   []any{"logger"},
 			want:   "service \"logger\" not found",
 		},
 		{

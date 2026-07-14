@@ -14,7 +14,7 @@ const (
 // Literal represents a typed literal value, independent of any parsing format.
 type Literal struct {
 	Kind  LiteralKind
-	Value interface{} // string, int64, float64, bool, or nil
+	Value any // string, int64, float64, bool, or nil
 }
 
 // String returns the string value, or empty string if not a string literal.

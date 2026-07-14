@@ -165,7 +165,7 @@ func TestMakeSlice(t *testing.T) {
 
 	t.Run("interface_types", func(t *testing.T) {
 		// Using built-in interface to test generic behavior
-		var items []interface{} = MakeSlice[interface{}]("hello", 42, true)
+		var items []any = MakeSlice[any]("hello", 42, true)
 		if len(items) != 3 {
 			t.Errorf("len(result) = %d, want 3", len(items))
 		}

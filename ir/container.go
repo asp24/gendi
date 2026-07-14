@@ -279,7 +279,7 @@ const (
 // LiteralValue holds a typed literal value.
 type LiteralValue struct {
 	Type  LiteralType
-	Value interface{} // string, int64, float64, bool, or nil
+	Value any // string, int64, float64, bool, or nil
 }
 
 // LiteralType indicates the type of literal.
@@ -314,7 +314,7 @@ type Tag struct {
 // ServiceTag is a tag attached to a service.
 type ServiceTag struct {
 	Tag        *Tag
-	Attributes map[string]interface{}
+	Attributes map[string]any
 }
 
 // GetterMethod returns the Provider method name for this parameter's type.

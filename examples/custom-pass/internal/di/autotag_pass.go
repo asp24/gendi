@@ -25,7 +25,7 @@ func (p *AutoTagPass) Process(cfg *di.Config) (*di.Config, error) {
 		if strings.HasSuffix(id, "Handler") || strings.HasSuffix(id, ".handler") {
 			svc.Tags = append(svc.Tags, di.ServiceTag{
 				Name: "http.handler",
-				Attributes: map[string]interface{}{
+				Attributes: map[string]any{
 					"auto_tagged": true,
 				},
 			})
@@ -36,7 +36,7 @@ func (p *AutoTagPass) Process(cfg *di.Config) (*di.Config, error) {
 		if strings.HasSuffix(id, "Repository") || strings.HasSuffix(id, ".repo") {
 			svc.Tags = append(svc.Tags, di.ServiceTag{
 				Name: "repository",
-				Attributes: map[string]interface{}{
+				Attributes: map[string]any{
 					"auto_tagged": true,
 				},
 			})

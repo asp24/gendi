@@ -7,7 +7,7 @@ import (
 )
 
 // convertToString converts a value to string, with type coercion for numeric types.
-func convertToString(val interface{}) (string, error) {
+func convertToString(val any) (string, error) {
 	switch cVal := val.(type) {
 	case int8:
 		return strconv.FormatInt(int64(cVal), 10), nil
@@ -41,7 +41,7 @@ func convertToString(val interface{}) (string, error) {
 }
 
 // convertToInt converts a value to int, with type coercion for various int types.
-func convertToInt(val interface{}) (int, error) {
+func convertToInt(val any) (int, error) {
 	switch cVal := val.(type) {
 	case int8:
 		return int(cVal), nil
@@ -62,7 +62,7 @@ func convertToInt(val interface{}) (int, error) {
 }
 
 // convertToBool converts a value to bool with strict type checking.
-func convertToBool(val interface{}) (bool, error) {
+func convertToBool(val any) (bool, error) {
 	b, ok := val.(bool)
 	if !ok {
 		return false, fmt.Errorf("expected bool, got %T", val)
@@ -72,7 +72,7 @@ func convertToBool(val interface{}) (bool, error) {
 
 // convertToFloat converts a value to float64, accepting float32 like the
 // struct-tag provider does.
-func convertToFloat(val interface{}) (float64, error) {
+func convertToFloat(val any) (float64, error) {
 	switch cVal := val.(type) {
 	case float64:
 		return cVal, nil
@@ -84,7 +84,7 @@ func convertToFloat(val interface{}) (float64, error) {
 }
 
 // convertToDuration converts a value to time.Duration, supporting multiple input types.
-func convertToDuration(val interface{}) (time.Duration, error) {
+func convertToDuration(val any) (time.Duration, error) {
 	switch cVal := val.(type) {
 	case time.Duration:
 		return cVal, nil

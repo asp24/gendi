@@ -292,7 +292,7 @@ func TestServiceTagFlattened(t *testing.T) {
 		Tags: []RawServiceTag{
 			{
 				Name: "test.tag",
-				Attributes: map[string]interface{}{
+				Attributes: map[string]any{
 					"priority": 10,
 					"enabled":  true,
 				},
@@ -331,7 +331,7 @@ func TestServiceTagOnlyName(t *testing.T) {
 		Tags: []RawServiceTag{
 			{
 				Name:       "marker.tag",
-				Attributes: map[string]interface{}{},
+				Attributes: map[string]any{},
 			},
 		},
 	}

@@ -54,10 +54,7 @@ func (r *Renderer) RenderLocation(loc *Location, contextLines int) (string, erro
 		return "", nil
 	}
 
-	start := loc.Line - contextLines
-	if start < 1 {
-		start = 1
-	}
+	start := max(loc.Line-contextLines, 1)
 	end := loc.Line + contextLines
 
 	lines, err := r.getFileLines(loc.File, start, end)
@@ -82,10 +79,7 @@ func (r *Renderer) RenderLocation(loc *Location, contextLines int) (string, erro
 		// Add caret line if this is the error line
 		if i == loc.Line {
 			// Calculate caret position
-			caretPos := lineNumWidth + 3 + loc.Column - 1
-			if caretPos < lineNumWidth+3 {
-				caretPos = lineNumWidth + 3
-			}
+			caretPos := max(lineNumWidth+3+loc.Column-1, lineNumWidth+3)
 
 			if _, err := fmt.Fprintf(&b, "%s^\n", strings.Repeat(" ", caretPos)); err != nil {
 				return "", err
