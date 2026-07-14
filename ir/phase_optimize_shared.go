@@ -55,7 +55,7 @@ func (p *sharedOptimizerPhase) canDeshare(container *Container, svc *Service, us
 		parent := container.Services[parentID]
 		// A parent referencing curr more than once emits one getter call per
 		// reference, so desharing would break singleton semantics.
-		if refs, tracked := parent.DependencyRefs[curr.ID]; tracked && refs != 1 {
+		if parent.dependencyRefCount(curr.ID) != 1 {
 			return false
 		}
 		if parent.Shared {

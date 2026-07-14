@@ -7,7 +7,7 @@ import (
 	di "github.com/asp24/gendi"
 )
 
-func TestDependencyBuilderCountsRepeatedReferences(t *testing.T) {
+func TestDependencyBuilderCollectsUniqueDependencies(t *testing.T) {
 	stringType := types.Typ[types.String]
 
 	dep := &Service{ID: "dep", Type: stringType}
@@ -39,13 +39,13 @@ func TestDependencyBuilderCountsRepeatedReferences(t *testing.T) {
 	if got := len(app.Dependencies); got != 2 {
 		t.Fatalf("expected 2 unique dependencies, got %d", got)
 	}
-	if got := app.DependencyRefs["dep"]; got != 3 {
+	if got := app.dependencyRefCount("dep"); got != 3 {
 		t.Errorf("expected 3 references to dep, got %d", got)
 	}
-	if got := app.DependencyRefs["other"]; got != 1 {
+	if got := app.dependencyRefCount("other"); got != 1 {
 		t.Errorf("expected 1 reference to other, got %d", got)
 	}
-	if got := alias.DependencyRefs["dep"]; got != 1 {
+	if got := alias.dependencyRefCount("dep"); got != 1 {
 		t.Errorf("expected alias to count 1 reference to dep, got %d", got)
 	}
 }
