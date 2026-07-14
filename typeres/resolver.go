@@ -296,3 +296,9 @@ func (r *Resolver) InstantiateFunc(fn *types.Func, typeArgStrs []string) (*types
 func (r *Resolver) LoadPackages(paths []string) error {
 	return r.cache.Load(paths)
 }
+
+// LoadPackagesWithCandidates loads required package paths together with
+// candidate paths, skipping candidates that do not resolve to a real package.
+func (r *Resolver) LoadPackagesWithCandidates(required, candidates []string) error {
+	return r.cache.LoadWithCandidates(required, candidates)
+}

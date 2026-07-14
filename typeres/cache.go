@@ -34,7 +34,16 @@ func (c *Cache) Get(path string) (*types.Package, error) {
 
 // Load loads packages by their import paths and caches their type information.
 func (c *Cache) Load(paths []string) error {
-	if len(paths) == 0 {
+	return c.LoadWithCandidates(paths, nil)
+}
+
+// LoadWithCandidates loads required paths together with candidate paths
+// derived from ambiguous qualified names (e.g. field access on a Go symbol,
+// where the package/symbol boundary is unknown). Candidates that do not
+// resolve to a real package are skipped instead of failing the load. A single
+// packages.Load call is used so all results share one type universe.
+func (c *Cache) LoadWithCandidates(required, candidates []string) error {
+	if len(required)+len(candidates) == 0 {
 		return nil
 	}
 
@@ -44,18 +53,32 @@ func (c *Cache) Load(paths []string) error {
 		Dir: c.moduleRoot,
 	}
 
-	pkgs, err := packages.Load(cfg, paths...)
+	candidateSet := make(map[string]bool, len(candidates))
+	for _, p := range candidates {
+		candidateSet[p] = true
+	}
+
+	pkgs, err := packages.Load(cfg, append(append([]string{}, required...), candidates...)...)
 	if err != nil {
 		return fmt.Errorf("load packages: %w", err)
 	}
 
-	if err := collectPackageErrors(pkgs); err != nil {
-		return err
-	}
-
 	seen := make(map[string]bool)
+	var errs []string
 	for _, pkg := range pkgs {
+		if len(pkg.Errors) > 0 {
+			if candidateSet[pkg.PkgPath] || candidateSet[pkg.ID] {
+				continue
+			}
+			for _, pkgErr := range pkg.Errors {
+				errs = append(errs, pkgErr.Error())
+			}
+			continue
+		}
 		c.cacheTree(seen, pkg)
+	}
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, "; "))
 	}
 
 	return nil
@@ -88,16 +111,3 @@ func (c *Cache) cacheTree(seen map[string]bool, pkg *packages.Package) {
 	}
 }
 
-// collectPackageErrors collects all errors from loaded packages.
-func collectPackageErrors(pkgs []*packages.Package) error {
-	var errs []string
-	for _, pkg := range pkgs {
-		for _, err := range pkg.Errors {
-			errs = append(errs, err.Error())
-		}
-	}
-	if len(errs) == 0 {
-		return nil
-	}
-	return errors.New(strings.Join(errs, "; "))
-}

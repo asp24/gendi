@@ -28,7 +28,7 @@ func TestCollectPackagePathsWithTypeArgs(t *testing.T) {
 	}
 
 	refreshPackages(cfg)
-	paths := collectPackagePaths(cfg)
+	paths, _ := collectPackagePaths(cfg)
 
 	expected := map[string]bool{
 		"github.com/utils":  true,
@@ -70,7 +70,7 @@ func TestCollectPackagePathsWithGenericTypes(t *testing.T) {
 	}
 
 	refreshPackages(cfg)
-	paths := collectPackagePaths(cfg)
+	paths, _ := collectPackagePaths(cfg)
 
 	expected := map[string]bool{
 		"github.com/containers": true,

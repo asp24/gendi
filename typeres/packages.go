@@ -103,17 +103,23 @@ func CollectGoRefPackages(value string) []string {
 	return []string{pkg}
 }
 
-// CollectFieldAccessGoPackages extracts the package path from a field access on a Go symbol
-// like "pkg/path.Symbol.Field.SubField". It tries progressively shorter prefixes
-// to find the package path.
+// CollectFieldAccessGoPackages extracts candidate package paths from a field
+// access on a Go symbol like "pkg/path.Symbol.Field.SubField". The boundary
+// between the package path, the symbol, and the field chain cannot be
+// determined statically (package paths may contain dots, e.g.
+// "gopkg.in/yaml.v3"), so every plausible prefix is returned. Candidates must
+// be loaded leniently: only one of them is a real package.
 func CollectFieldAccessGoPackages(value string) []string {
 	parts := strings.Split(value, ".")
+	var result []string
+	seen := map[string]bool{}
 	for i := len(parts) - 1; i >= 2; i-- {
 		qualName := strings.Join(parts[:i], ".")
 		pkg, _, _, err := SplitQualifiedNameWithTypeParams(qualName)
-		if err == nil && pkg != "" {
-			return []string{pkg}
+		if err == nil && pkg != "" && !seen[pkg] {
+			seen[pkg] = true
+			result = append(result, pkg)
 		}
 	}
-	return nil
+	return result
 }

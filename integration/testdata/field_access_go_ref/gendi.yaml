@@ -1,0 +1,8 @@
+services:
+  server:
+    constructor:
+      func: "test.NewServer"
+      args:
+        - "!field:!go:test.Defaults.Host"
+        - "!field:!go:test.Defaults.Database.DSN"
+    public: true
