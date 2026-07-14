@@ -67,13 +67,17 @@ func convertToBool(val interface{}) (bool, error) {
 	return b, nil
 }
 
-// convertToFloat converts a value to float64 with strict type checking.
+// convertToFloat converts a value to float64, accepting float32 like the
+// struct-tag provider does.
 func convertToFloat(val interface{}) (float64, error) {
-	f, ok := val.(float64)
-	if !ok {
+	switch cVal := val.(type) {
+	case float64:
+		return cVal, nil
+	case float32:
+		return float64(cVal), nil
+	default:
 		return 0, fmt.Errorf("expected float64, got %T", val)
 	}
-	return f, nil
 }
 
 // convertToDuration converts a value to time.Duration, supporting multiple input types.

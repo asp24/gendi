@@ -4,7 +4,9 @@ import (
 	"time"
 )
 
-// ProviderComposite tries providers in order.
+// ProviderComposite delegates to the last provider that has the parameter
+// (later providers override earlier ones); Has reports whether any provider
+// has it.
 type ProviderComposite struct {
 	providers []Provider
 }
