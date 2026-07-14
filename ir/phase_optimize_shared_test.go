@@ -140,6 +140,53 @@ func TestOptimizeShared(t *testing.T) {
 			},
 		},
 		{
+			name: "keeps service shared when single parent references it twice",
+			setup: func(c *Container) {
+				s := &Service{ID: "S", Shared: true, Public: false}
+				p := &Service{
+					ID:             "P",
+					Shared:         true,
+					Dependencies:   []*Service{s},
+					DependencyRefs: map[string]int{"S": 2},
+				}
+				c.Services["S"] = s
+				c.Services["P"] = p
+			},
+			validate: func(t *testing.T, c *Container) {
+				if !c.Services["S"].Shared {
+					t.Error("S should remain shared: its parent instantiates it twice")
+				}
+			},
+		},
+		{
+			name: "keeps leaf shared when intermediate chain parent is referenced twice",
+			setup: func(c *Container) {
+				// A (shared) --2 refs--> B (non-shared) --1 ref--> C (shared)
+				cSvc := &Service{ID: "C", Shared: true, Public: false}
+				b := &Service{
+					ID:             "B",
+					Shared:         false,
+					Public:         false,
+					Dependencies:   []*Service{cSvc},
+					DependencyRefs: map[string]int{"C": 1},
+				}
+				a := &Service{
+					ID:             "A",
+					Shared:         true,
+					Dependencies:   []*Service{b},
+					DependencyRefs: map[string]int{"B": 2},
+				}
+				c.Services["C"] = cSvc
+				c.Services["B"] = b
+				c.Services["A"] = a
+			},
+			validate: func(t *testing.T, c *Container) {
+				if !c.Services["C"].Shared {
+					t.Error("C should remain shared: two B instances would each build it")
+				}
+			},
+		},
+		{
 			name: "optimizes chain of private shared services recursively (A->B->C)",
 			setup: func(c *Container) {
 				// C <- B <- A

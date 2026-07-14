@@ -3,6 +3,7 @@ package ir
 import (
 	"go/types"
 	"iter"
+	"maps"
 	"slices"
 	"time"
 
@@ -110,6 +111,9 @@ type Service struct {
 
 	// Computed
 	Dependencies []*Service // Direct dependencies (resolved)
+	// DependencyRefs counts how many times each direct dependency is
+	// referenced during construction (a getter call per reference).
+	DependencyRefs map[string]int
 }
 
 // IsAlias returns true if this service is an alias.
@@ -124,6 +128,7 @@ func (s *Service) Clone() *Service {
 	}
 	result.Tags = slices.Clone(s.Tags)
 	result.Dependencies = slices.Clone(s.Dependencies)
+	result.DependencyRefs = maps.Clone(s.DependencyRefs)
 
 	return &result
 }
