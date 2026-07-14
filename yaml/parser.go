@@ -219,7 +219,10 @@ func (p *Parser) convertArgumentWithFile(raw *RawArgument, filePath string) (di.
 	loc := newLocation(filePath, raw.Node)
 
 	if raw.Value != nil {
-		kind, val := ParseArgumentString(*raw.Value)
+		kind, val, err := ParseArgumentString(*raw.Value)
+		if err != nil {
+			return di.Argument{}, srcloc.Errorf(loc, "%s", err)
+		}
 		if kind != di.ArgLiteral {
 			return di.Argument{
 				Kind:      kind,

@@ -370,3 +370,14 @@ func TestResolveFieldAccess(t *testing.T) {
 		})
 	}
 }
+
+func TestSpreadLiteralInnerRejected(t *testing.T) {
+	container := NewContainer()
+	r := &argResolver{}
+	arg := di.Argument{Kind: di.ArgSpread, Value: "hello"}
+
+	_, err := r.resolve(container, noResolve, "svc", 0, arg, types.NewSlice(types.Typ[types.Int]))
+	if err == nil || !strings.Contains(err.Error(), "!spread") {
+		t.Fatalf("expected spread inner error, got %v", err)
+	}
+}

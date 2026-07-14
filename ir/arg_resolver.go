@@ -104,14 +104,17 @@ func (r *argResolver) resolveSpread(container *Container, resolveSvc func(string
 	}
 
 	// Parse inner argument string
-	innerKind, innerValue := yaml.ParseArgumentString(arg.Value)
+	innerKind, innerValue, err := yaml.ParseArgumentString(arg.Value)
+	if err != nil {
+		return nil, srcloc.WrapError(arg.SourceLoc, fmt.Sprintf("service %q arg[%d]: !spread", svcID, idx), err)
+	}
+	// A literal cannot be spread: the inner expression must evaluate to a slice.
+	if innerKind == di.ArgLiteral {
+		return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: !spread: inner value %q must be a service reference or tagged collection", svcID, idx, arg.Value)
+	}
 	innerArg := di.Argument{
 		Kind:  innerKind,
 		Value: innerValue,
-	}
-	// Preserve literal only if inner is also a literal
-	if innerKind == di.ArgLiteral {
-		innerArg.Literal = arg.Literal
 	}
 
 	// Resolve inner argument with the slice type (not element type)
