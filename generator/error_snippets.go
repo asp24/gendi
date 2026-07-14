@@ -160,6 +160,6 @@ func serviceReceiverError(im *ImportManager, serviceID, receiverID string) strin
 // serviceArgErrorIndented returns an indented error snippet for use in nested blocks
 func serviceArgErrorIndented(im *ImportManager, serviceID string, argIndex int) string {
 	im.Require("fmt")
-	return fmt.Sprintf("\tif err != nil { return nil, fmt.Errorf(\"service %%q arg[%%d]: %%w\", %q, %d, err) }",
+	return fmt.Sprintf("\tif err != nil { return zero, fmt.Errorf(\"service %%q arg[%%d]: %%w\", %q, %d, err) }",
 		serviceID, argIndex)
 }

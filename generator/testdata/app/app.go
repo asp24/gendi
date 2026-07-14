@@ -175,3 +175,11 @@ func LoadConfigWithError() (*AppConfig, error) {
 func NewServerWithAddr(host string, port int) *Server {
 	return &Server{}
 }
+
+type Hub struct {
+	items []interface{}
+}
+
+func NewHub(items []interface{}) (Hub, error) {
+	return Hub{items: items}, nil
+}
