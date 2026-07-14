@@ -50,6 +50,9 @@ func convertToInt(val interface{}) (int, error) {
 	case int32:
 		return int(cVal), nil
 	case int64:
+		if cVal < int64(intMin) || cVal > int64(intMax) {
+			return 0, fmt.Errorf("value %d out of int range", cVal)
+		}
 		return int(cVal), nil
 	case int:
 		return cVal, nil
