@@ -68,6 +68,13 @@ func findDefaultConfig(moduleDir string) (string, bool) {
 }
 
 func globFiles(pattern string) ([]string, error) {
+	// An empty match set is a valid no-op, but a glob rooted at a
+	// non-existent directory is almost certainly a typo.
+	base, _ := doublestar.SplitPattern(filepath.ToSlash(pattern))
+	if info, err := os.Stat(filepath.FromSlash(base)); err != nil || !info.IsDir() {
+		return nil, fmt.Errorf("import glob %q: directory %q does not exist", pattern, base)
+	}
+
 	matches, err := doublestar.FilepathGlob(pattern)
 	if err != nil {
 		return nil, err
