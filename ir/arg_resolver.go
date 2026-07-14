@@ -16,8 +16,9 @@ type argResolver struct {
 	typeResolver TypeResolver
 }
 
-// resolve resolves a single constructor argument
-func (r *argResolver) resolve(container *Container, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
+// resolve resolves a single constructor argument. resolveSvc forces
+// resolution of another service before its type is inspected.
+func (r *argResolver) resolve(container *Container, resolveSvc func(string) error, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
 	switch arg.Kind {
 	case di.ArgServiceRef:
 		return r.resolveServiceRef(container, svcID, idx, arg, paramType)
@@ -28,9 +29,9 @@ func (r *argResolver) resolve(container *Container, svcID string, idx int, arg d
 	case di.ArgTagged:
 		return r.resolveTagged(container, svcID, idx, arg, paramType)
 	case di.ArgSpread:
-		return r.resolveSpread(container, svcID, idx, arg, paramType)
+		return r.resolveSpread(container, resolveSvc, svcID, idx, arg, paramType)
 	case di.ArgFieldAccessService:
-		return r.resolveFieldAccessServiceArg(container, svcID, idx, arg, paramType)
+		return r.resolveFieldAccessServiceArg(container, resolveSvc, svcID, idx, arg, paramType)
 	case di.ArgFieldAccessGo:
 		return r.resolveFieldAccessGoArg(svcID, idx, arg, paramType)
 	case di.ArgGoRef:
@@ -96,7 +97,7 @@ func (r *argResolver) resolveTagged(container *Container, svcID string, idx int,
 	return &Argument{Type: paramType, Kind: TaggedArg, Tag: tag}, nil
 }
 
-func (r *argResolver) resolveSpread(container *Container, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
+func (r *argResolver) resolveSpread(container *Container, resolveSvc func(string) error, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
 	// Validate that parameter is variadic (represented as slice in go/types)
 	if _, ok := paramType.Underlying().(*types.Slice); !ok {
 		return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: !spread: can only be used with variadic parameters, got %s", svcID, idx, paramType)
@@ -115,7 +116,7 @@ func (r *argResolver) resolveSpread(container *Container, svcID string, idx int,
 
 	// Resolve inner argument with the slice type (not element type)
 	// The inner expression should evaluate to []T
-	innerResolved, err := r.resolve(container, svcID, idx, innerArg, paramType)
+	innerResolved, err := r.resolve(container, resolveSvc, svcID, idx, innerArg, paramType)
 	if err != nil {
 		return nil, srcloc.WrapError(arg.SourceLoc, fmt.Sprintf("service %q arg[%d]: !spread", svcID, idx), err)
 	}
@@ -128,8 +129,8 @@ func (r *argResolver) resolveSpread(container *Container, svcID string, idx int,
 	return &Argument{Type: paramType, Kind: SpreadArg, Inner: innerResolved}, nil
 }
 
-func (r *argResolver) resolveFieldAccessServiceArg(container *Container, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
-	fa, err := r.resolveFieldAccessOnService(container, svcID, idx, arg, arg.Value)
+func (r *argResolver) resolveFieldAccessServiceArg(container *Container, resolveSvc func(string) error, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
+	fa, err := r.resolveFieldAccessOnService(container, resolveSvc, svcID, idx, arg, arg.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +179,7 @@ func (r *argResolver) resolveLiteral(svcID string, idx int, arg di.Argument, par
 
 // resolveFieldAccessOnService resolves !field:@service.Field.Chain.
 // Uses longest prefix match to find the service ID, since service IDs can contain dots.
-func (r *argResolver) resolveFieldAccessOnService(container *Container, svcID string, idx int, arg di.Argument, value string) (*FieldAccess, error) {
+func (r *argResolver) resolveFieldAccessOnService(container *Container, resolveSvc func(string) error, svcID string, idx int, arg di.Argument, value string) (*FieldAccess, error) {
 	parts := strings.Split(value, ".")
 	if len(parts) < 2 {
 		return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: !field:@%s requires at least one field name", svcID, idx, value)
@@ -197,6 +198,12 @@ func (r *argResolver) resolveFieldAccessOnService(container *Container, svcID st
 	}
 	if service == nil {
 		return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: !field:@%s: no matching service found", svcID, idx, value)
+	}
+
+	// The target may not be resolved yet (resolution order is not
+	// dependency-aware); force it so service.Type is populated.
+	if err := resolveSvc(service.ID); err != nil {
+		return nil, srcloc.WrapError(arg.SourceLoc, fmt.Sprintf("service %q arg[%d]: !field:@%s", svcID, idx, value), err)
 	}
 
 	baseType := service.Type

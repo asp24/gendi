@@ -145,7 +145,7 @@ func (r *constructorResolverPhase) resolveConstructor(container *Container, svc 
 			}
 		}
 
-		irArg, err := r.argResolver.resolve(container, svc.ID, i, arg, paramType)
+		irArg, err := r.argResolver.resolve(container, resolve, svc.ID, i, arg, paramType)
 		if err != nil {
 			return err
 		}

@@ -35,6 +35,10 @@ func (r *testResolver) LookupVar(pkgPath, name string) (types.Object, error) {
 	return nil, fmt.Errorf("symbol %s not found in %s", name, pkgPath)
 }
 
+// noResolve is a resolveSvc callback for tests whose services already carry
+// resolved types.
+func noResolve(string) error { return nil }
+
 // makeStruct creates a named struct type with the given fields.
 // Each field is (name string, type types.Type, exported bool).
 func makeStruct(pkgName string, fields ...any) *types.Struct {
@@ -59,13 +63,13 @@ func TestTaggedElementTypeAssignable(t *testing.T) {
 	r := &argResolver{}
 	arg := di.Argument{Kind: di.ArgTagged, Value: "tag.test"}
 
-	if _, err := r.resolve(container, "svc.one", 0, arg, types.NewSlice(types.Typ[types.Int])); err != nil {
+	if _, err := r.resolve(container, noResolve, "svc.one", 0, arg, types.NewSlice(types.Typ[types.Int])); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	emptyIface := types.NewInterfaceType(nil, nil)
 	emptyIface.Complete()
-	if _, err := r.resolve(container, "svc.two", 0, arg, types.NewSlice(emptyIface)); err != nil {
+	if _, err := r.resolve(container, noResolve, "svc.two", 0, arg, types.NewSlice(emptyIface)); err != nil {
 		t.Fatalf("expected assignable element type, got %v", err)
 	}
 }
@@ -77,11 +81,11 @@ func TestTaggedElementTypeNotAssignable(t *testing.T) {
 
 	emptyIface := types.NewInterfaceType(nil, nil)
 	emptyIface.Complete()
-	if _, err := r.resolve(container, "svc.one", 0, arg, types.NewSlice(emptyIface)); err != nil {
+	if _, err := r.resolve(container, noResolve, "svc.one", 0, arg, types.NewSlice(emptyIface)); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, err := r.resolve(container, "svc.two", 0, arg, types.NewSlice(types.Typ[types.Int]))
+	_, err := r.resolve(container, noResolve, "svc.two", 0, arg, types.NewSlice(types.Typ[types.Int]))
 	if err == nil || !strings.Contains(err.Error(), "not assignable") {
 		t.Fatalf("expected element type mismatch error, got %v", err)
 	}
@@ -215,7 +219,7 @@ func TestResolve(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &argResolver{typeResolver: resolver}
-			result, err := r.resolve(container, "svc", 0, tt.arg, tt.paramType)
+			result, err := r.resolve(container, noResolve, "svc", 0, tt.arg, tt.paramType)
 			if tt.wantErr != "" {
 				if err == nil {
 					t.Fatalf("expected error containing %q, got nil", tt.wantErr)
@@ -347,7 +351,7 @@ func TestResolveFieldAccess(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &argResolver{typeResolver: resolver}
-			result, err := r.resolve(container, "svc", 0, tt.arg, tt.paramType)
+			result, err := r.resolve(container, noResolve, "svc", 0, tt.arg, tt.paramType)
 			if tt.wantErr != "" {
 				if err == nil {
 					t.Fatalf("expected error containing %q, got nil", tt.wantErr)
