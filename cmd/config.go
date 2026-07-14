@@ -21,7 +21,6 @@ func (c *Config) RegisterFlags(flags *flag.FlagSet) {
 	flags.StringVar(&c.Options.Out, "out", "", "Output directory or file")
 	flags.StringVar(&c.Options.Package, "pkg", "", "Go package name")
 	flags.StringVar(&c.Options.Container, "container", "Container", "Container struct name")
-	flags.BoolVar(&c.Options.Strict, "strict", true, "Enable strict validation")
 	flags.StringVar(&c.Options.BuildTags, "build-tags", "", "Go build tags")
 	flags.BoolVar(&c.Options.Verbose, "verbose", false, "Verbose logging")
 	flags.Var(&stringSetFlag{values: &c.EnabledPasses}, "enable-pass", "Enable a specific compiler pass (can be specified multiple times)")

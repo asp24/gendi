@@ -22,7 +22,6 @@ type Options struct {
 	OutputPkgPath string // Auto: computed from Out
 
 	// Optional
-	Strict    bool // Default: true
 	BuildTags string
 	Verbose   bool
 }
