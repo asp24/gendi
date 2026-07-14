@@ -20,10 +20,18 @@ func (p *servicePhase) Apply(cfg *di.Config, container *Container) error {
 		if strings.TrimSpace(id) == "" {
 			return srcloc.Errorf(svc.SourceLoc, "service ID %q cannot be whitespace-only", id)
 		}
+		if svc.Alias != "" && svc.Shared {
+			return srcloc.Errorf(
+				svc.SourceLoc,
+				"service %q: alias cannot define shared; lifecycle is inherited from target %q",
+				id,
+				svc.Alias,
+			)
+		}
 
 		irSvc := &Service{
 			ID:            id,
-			Shared:        svc.Shared && svc.Alias == "",
+			Shared:        svc.Shared,
 			Public:        svc.Public,
 			Autoconfigure: svc.Autoconfigure,
 			Tags:          []*ServiceTag{},

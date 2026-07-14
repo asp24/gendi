@@ -235,8 +235,14 @@ func TestLoadConfigServiceAlias(t *testing.T) {
 	if cfg.Services["alias"].Alias != "base" {
 		t.Fatalf("expected alias to reference base")
 	}
+	if cfg.Services["alias"].Shared {
+		t.Fatal("expected alias shorthand to have no shared setting")
+	}
 	if cfg.Services["alias_public"].Alias != "base" || !cfg.Services["alias_public"].Public {
 		t.Fatalf("expected alias_public to be public and reference base")
+	}
+	if cfg.Services["alias_public"].Shared {
+		t.Fatal("expected expanded alias to have no shared setting")
 	}
 }
 

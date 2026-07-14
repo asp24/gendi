@@ -2,6 +2,7 @@ package yaml
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,6 +43,9 @@ func TestParseServiceAlias(t *testing.T) {
 	if svc.Alias != "foo" {
 		t.Errorf("expected alias 'foo', got '%s'", svc.Alias)
 	}
+	if svc.Shared {
+		t.Error("alias must not define shared")
+	}
 }
 
 func TestParseServiceAliasDirect(t *testing.T) {
@@ -55,6 +59,44 @@ func TestParseServiceAliasDirect(t *testing.T) {
 	}
 	if svc.Alias != "foo" {
 		t.Errorf("expected alias 'foo', got '%s'", svc.Alias)
+	}
+}
+
+func TestParseServiceAliasRejectsExplicitShared(t *testing.T) {
+	for _, alias := range []string{"@target", "target"} {
+		for _, shared := range []bool{true, false} {
+			t.Run(fmt.Sprintf("alias=%s/shared=%t", alias, shared), func(t *testing.T) {
+				raw := &RawConfig{
+					Services: map[string]*RawService{
+						"alias": {Alias: alias, Shared: &shared},
+					},
+				}
+
+				_, err := NewParser().ConvertConfigWithDirAndFile(raw, "", "gendi.yaml")
+				if err == nil {
+					t.Fatal("expected explicit alias shared setting to fail")
+				}
+				if !strings.Contains(err.Error(), `service "alias": alias cannot define shared; lifecycle is inherited from target "target"`) {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			})
+		}
+	}
+}
+
+func TestParseServiceAliasDoesNotInheritSharedDefault(t *testing.T) {
+	raw := &RawService{Alias: "@target"}
+	svc, err := NewParser().convertServiceWithPackageAndFile(
+		raw,
+		&ServiceDefaults{Shared: boolPtr(true)},
+		"",
+		"",
+	)
+	if err != nil {
+		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
+	}
+	if svc.Shared {
+		t.Error("alias must not inherit the default shared setting")
 	}
 }
 
