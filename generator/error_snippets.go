@@ -109,7 +109,13 @@ func (b *ErrorSnippetBuilder) Build() string {
 	// Build the fmt.Errorf call
 	fmtArgs := make([]string, 0, len(msgArgs)+1)
 	for _, arg := range msgArgs {
-		fmtArgs = append(fmtArgs, fmt.Sprintf("%q", arg))
+		// %q renders ints as rune literals ('\x00'), so format by type.
+		switch v := arg.(type) {
+		case string:
+			fmtArgs = append(fmtArgs, fmt.Sprintf("%q", v))
+		default:
+			fmtArgs = append(fmtArgs, fmt.Sprintf("%v", v))
+		}
 	}
 	if wrappedErr {
 		fmtArgs = append(fmtArgs, "err")

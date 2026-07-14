@@ -46,7 +46,7 @@ func (c *Container) buildPaymentProviderWithComission() (*app.PaymentProviderCom
 	var zero *app.PaymentProviderCommissionDecorator
 	arg0_payment_provider_dummy, err := c.getPaymentProviderDummy()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "payment.provider_with_comission", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "payment.provider_with_comission", 0, err)
 	}
 	return app.NewPaymentProviderCommissionDecorator(arg0_payment_provider_dummy, 1), nil
 }
@@ -55,7 +55,7 @@ func (c *Container) buildPaymentProviderWithComission2() (*app.PaymentProviderCo
 	var zero *app.PaymentProviderCommissionDecorator
 	arg0_payment_provider_with_comission, err := c.getPaymentProviderWithComission()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "payment.provider_with_comission2", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "payment.provider_with_comission2", 0, err)
 	}
 	return app.NewPaymentProviderCommissionDecorator(arg0_payment_provider_with_comission, 2), nil
 }
@@ -64,11 +64,11 @@ func (c *Container) buildTaggedWithJob() ([]app.Job, error) {
 	var zero []app.Job
 	arg0_payment_provider_with_comission, err := c.getPaymentProviderWithComission()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.job", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.job", 0, err)
 	}
 	arg1_payment_provider_with_comission2, err := c.getPaymentProviderWithComission2()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.job", '\x01', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.job", 1, err)
 	}
 	return []app.Job{arg0_payment_provider_with_comission, arg1_payment_provider_with_comission2}, nil
 }

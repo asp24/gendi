@@ -55,11 +55,11 @@ func (c *Container) buildTaggedWithPaymentProvider() ([]*app.PaymentProvider, er
 	var zero []*app.PaymentProvider
 	arg0_provider_stripe, err := c.getProviderStripe()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.payment.provider", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.payment.provider", 0, err)
 	}
 	arg1_provider_paypal, err := c.getProviderPaypal()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.payment.provider", '\x01', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.payment.provider", 1, err)
 	}
 	return []*app.PaymentProvider{arg0_provider_stripe, arg1_provider_paypal}, nil
 }
@@ -72,7 +72,7 @@ func (c *Container) buildRepo() (*app.Repo, error) {
 	var zero *app.Repo
 	param0_dsn, err := c.params.GetString("dsn")
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "repo", '\x00', "dsn", err)
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "repo", 0, "dsn", err)
 	}
 	return app.NewRepo(param0_dsn), nil
 }
@@ -81,15 +81,15 @@ func (c *Container) buildServiceDecoratorInner() (*app.Service, error) {
 	var zero *app.Service
 	arg0_repo, err := c.getRepo()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator.inner", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator.inner", 0, err)
 	}
 	arg1_logger, err := c.getLogger()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator.inner", '\x01', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator.inner", 1, err)
 	}
 	arg2___tagged_with_payment_provider, err := c.getTaggedWithPaymentProvider()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator.inner", '\x02', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator.inner", 2, err)
 	}
 	res, err := app.NewService(arg0_repo, arg1_logger, arg2___tagged_with_payment_provider)
 	if err != nil {
@@ -102,11 +102,11 @@ func (c *Container) buildServiceDecorator() (*app.Service, error) {
 	var zero *app.Service
 	arg0_service_decorator_inner, err := c.getServiceDecoratorInner()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator", 0, err)
 	}
 	arg1_logger, err := c.getLogger()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator", '\x01', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "service.decorator", 1, err)
 	}
 	return app.DecorateService(arg0_service_decorator_inner, arg1_logger), nil
 }

@@ -62,15 +62,15 @@ func (c *Container) buildTaggedWithHandler() ([]app.Handler, error) {
 	var zero []app.Handler
 	arg0_handler_api, err := c.getHandlerApi()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.handler", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.handler", 0, err)
 	}
 	arg1_handler_home, err := c.getHandlerHome()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.handler", '\x01', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.handler", 1, err)
 	}
 	arg2_handler_admin, err := c.getHandlerAdmin()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.handler", '\x02', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "__tagged_with.handler", 2, err)
 	}
 	return []app.Handler{arg0_handler_api, arg1_handler_home, arg2_handler_admin}, nil
 }
@@ -79,15 +79,15 @@ func (c *Container) buildAllHandlers() ([]app.Handler, error) {
 	var zero []app.Handler
 	arg0_handler_home, err := c.getHandlerHome()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "all_handlers", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "all_handlers", 0, err)
 	}
 	arg1_handler_api, err := c.getHandlerApi()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "all_handlers", '\x01', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "all_handlers", 1, err)
 	}
 	arg2_handler_admin, err := c.getHandlerAdmin()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "all_handlers", '\x02', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "all_handlers", 2, err)
 	}
 	return app.GetAllHandlers(arg0_handler_home, arg1_handler_api, arg2_handler_admin), nil
 }
@@ -96,11 +96,11 @@ func (c *Container) buildServerPrefixed() (*app.PrefixedServer, error) {
 	var zero *app.PrefixedServer
 	param0_server_prefix, err := c.params.GetString("server_prefix")
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "server.prefixed", '\x00', "server_prefix", err)
+		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "server.prefixed", 0, "server_prefix", err)
 	}
 	arg1___tagged_with_handler, err := c.getTaggedWithHandler()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "server.prefixed", '\x01', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "server.prefixed", 1, err)
 	}
 	return app.NewPrefixedServer(param0_server_prefix, arg1___tagged_with_handler...), nil
 }
@@ -109,7 +109,7 @@ func (c *Container) buildServerRef() (*app.Server, error) {
 	var zero *app.Server
 	arg0_all_handlers, err := c.getAllHandlers()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "server.ref", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "server.ref", 0, err)
 	}
 	return app.NewServer(arg0_all_handlers...), nil
 }
@@ -118,7 +118,7 @@ func (c *Container) buildServerTagged() (*app.Server, error) {
 	var zero *app.Server
 	arg0___tagged_with_handler, err := c.getTaggedWithHandler()
 	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d]: %w", "server.tagged", '\x00', err)
+		return zero, fmt.Errorf("service %q arg[%d]: %w", "server.tagged", 0, err)
 	}
 	return app.NewServer(arg0___tagged_with_handler...), nil
 }
