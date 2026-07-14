@@ -10,6 +10,7 @@ import (
 type ImportManager struct {
 	aliases       map[string]string
 	used          map[string]bool
+	required      map[string]bool
 	outputPkgPath string
 }
 
@@ -17,10 +18,17 @@ func NewImportManager(outputPkgPath string, reservedAliases ...string) *ImportMa
 	m := &ImportManager{
 		aliases:       map[string]string{},
 		used:          map[string]bool{},
+		required:      map[string]bool{},
 		outputPkgPath: outputPkgPath,
 	}
 	m.ReserveAliases(reservedAliases...)
 	return m
+}
+
+// Require marks a package as needed by emitted code so it is rendered in the
+// import block without an alias.
+func (m *ImportManager) Require(path string) {
+	m.required[path] = true
 }
 
 // ReserveAliases marks aliases as used so they cannot be selected.
@@ -106,6 +114,11 @@ func (m *ImportManager) renderImports(extra []string) string {
 	}
 	for _, path := range extra {
 		imports = append(imports, fmt.Sprintf("\t\"%s\"\n", path))
+	}
+	for path := range m.required {
+		if _, aliased := m.aliases[path]; !aliased {
+			imports = append(imports, fmt.Sprintf("\t\"%s\"\n", path))
+		}
 	}
 	sort.Strings(imports)
 	if len(imports) == 0 {

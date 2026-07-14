@@ -213,7 +213,7 @@ func (r *ContainerRenderer) constructorCall(ctx *GenContext, svc *serviceDef, re
 	recvVar := r.identGenerator.Var("recv", svc.id)
 	if returnsErr {
 		stmts = append(stmts, fmt.Sprintf("%s, err := %s", recvVar, recvExpr))
-		stmts = append(stmts, serviceReceiverError(svc.id, recv))
+		stmts = append(stmts, serviceReceiverError(r.importManager, svc.id, recv))
 	} else {
 		stmts = append(stmts, fmt.Sprintf("%s, _ := %s", recvVar, recvExpr))
 	}

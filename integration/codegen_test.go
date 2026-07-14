@@ -1312,3 +1312,52 @@ func TestMustGettersGenerated(t *testing.T) {
 		t.Errorf("expected Must methods to panic after onMustCallFailed")
 	}
 }
+
+func TestNoUnusedFmtImport(t *testing.T) {
+	// A container with only error-free, dependency-free constructors emits no
+	// fmt.Errorf calls, so importing fmt would break compilation.
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"a": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
+				},
+				Public: true,
+			},
+		},
+	}
+
+	out := generate(t, cfg)
+	if strings.Contains(out, "\"fmt\"") {
+		t.Fatalf("expected no fmt import in generated code:\n%s", out)
+	}
+	if strings.Contains(out, "fmt.") {
+		t.Fatalf("expected no fmt usage in generated code:\n%s", out)
+	}
+}
+
+func TestFmtImportedWhenErrorHandlingPresent(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"a": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
+				},
+			},
+			"b": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewB",
+					Args: []di.Argument{
+						{Kind: di.ArgServiceRef, Value: "a"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	out := generate(t, cfg)
+	if !strings.Contains(out, "\"fmt\"") {
+		t.Fatalf("expected fmt import in generated code:\n%s", out)
+	}
+}

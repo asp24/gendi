@@ -124,36 +124,42 @@ func (b *ErrorSnippetBuilder) Build() string {
 	return fmt.Sprintf("if %s { return zero, %s }", condition, errCall)
 }
 
-// Convenience functions for common error patterns
+// Convenience functions for common error patterns. Each takes the import
+// manager because the emitted snippets rely on the fmt package.
 
-func serviceConstructorError(serviceID string) string {
+func serviceConstructorError(im *ImportManager, serviceID string) string {
+	im.Require("fmt")
 	return NewErrorSnippet(serviceID).
 		WithContext("constructor").
 		Multiline().
 		Build()
 }
 
-func serviceArgError(serviceID string, argIndex int) string {
+func serviceArgError(im *ImportManager, serviceID string, argIndex int) string {
+	im.Require("fmt")
 	return NewErrorSnippet(serviceID).
 		WithContext("arg[%d]", argIndex).
 		Build()
 }
 
-func serviceParamError(serviceID string, argIndex int, paramName string) string {
+func serviceParamError(im *ImportManager, serviceID string, argIndex int, paramName string) string {
+	im.Require("fmt")
 	return NewErrorSnippet(serviceID).
 		WithContext("arg[%d]", argIndex).
 		WithContext("param %q", paramName).
 		Build()
 }
 
-func serviceReceiverError(serviceID, receiverID string) string {
+func serviceReceiverError(im *ImportManager, serviceID, receiverID string) string {
+	im.Require("fmt")
 	return NewErrorSnippet(serviceID).
 		WithContext("receiver %q", receiverID).
 		Build()
 }
 
 // serviceArgErrorIndented returns an indented error snippet for use in nested blocks
-func serviceArgErrorIndented(serviceID string, argIndex int) string {
+func serviceArgErrorIndented(im *ImportManager, serviceID string, argIndex int) string {
+	im.Require("fmt")
 	return fmt.Sprintf("\tif err != nil { return nil, fmt.Errorf(\"service %%q arg[%%d]: %%w\", %q, %d, err) }",
 		serviceID, argIndex)
 }

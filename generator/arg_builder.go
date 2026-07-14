@@ -46,7 +46,7 @@ func (b *serviceRefBuilder) build(ctx *argBuildContext) (string, []string, error
 	if ctx.returnsErr {
 		stmts := []string{
 			fmt.Sprintf("%s, err := %s", depVar, call),
-			serviceArgError(ctx.service.id, ctx.argIndex),
+			serviceArgError(ctx.rnd.importManager, ctx.service.id, ctx.argIndex),
 		}
 		return depVar, stmts, nil
 	}
@@ -89,7 +89,7 @@ func (b *serviceRefBuilder) buildWithSliceConversion(ctx *argBuildContext, dep *
 
 	if ctx.returnsErr {
 		stmts = append(stmts, fmt.Sprintf("\t%s, err := %s", srcVar, call))
-		stmts = append(stmts, serviceArgErrorIndented(ctx.service.id, ctx.argIndex))
+		stmts = append(stmts, serviceArgErrorIndented(ctx.rnd.importManager, ctx.service.id, ctx.argIndex))
 	} else {
 		stmts = append(stmts, fmt.Sprintf("\t%s, _ := %s", srcVar, call))
 	}
@@ -115,7 +115,7 @@ func (b *paramRefBuilder) build(ctx *argBuildContext) (string, []string, error) 
 	stmts := []string{
 		// Note: No need to check c.params == nil because the constructor ensures params is never nil
 		fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, ctx.argument.Parameter.Name),
-		serviceParamError(ctx.service.id, ctx.argIndex, ctx.argument.Parameter.Name),
+		serviceParamError(ctx.rnd.importManager, ctx.service.id, ctx.argIndex, ctx.argument.Parameter.Name),
 	}
 
 	// Check if type conversion is needed (named type with basic underlying type)
@@ -203,7 +203,7 @@ func (b *fieldAccessBuilder) build(ctx *argBuildContext) (string, []string, erro
 		if ctx.returnsErr {
 			stmts := []string{
 				fmt.Sprintf("%s, err := %s", depVar, call),
-				serviceArgError(ctx.service.id, ctx.argIndex),
+				serviceArgError(ctx.rnd.importManager, ctx.service.id, ctx.argIndex),
 			}
 			return depVar + "." + fieldChain, stmts, nil
 		}
