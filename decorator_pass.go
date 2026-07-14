@@ -137,12 +137,15 @@ func (p *DecoratorPass) expandOne(cfg *Config, baseID, decoratorID string) error
 	// Propagate shared flag: if either base or decorator is shared, the result is shared
 	isShared := baseSvc.Shared || decoratorSvc.Shared
 
-	// Transform base into alias to current decorator
+	// Transform base into alias to current decorator. The declared type and
+	// source location are preserved for validation and error reporting.
 	aliasService := Service{
 		Alias:         decoratorID,
+		Type:          baseSvc.Type,
 		Shared:        isShared,
 		Public:        baseSvc.Public, // Preserve public flag
 		Autoconfigure: false,
+		SourceLoc:     baseSvc.SourceLoc,
 	}
 
 	// Rewrite @.inner args in decorator
@@ -171,12 +174,15 @@ func (p *DecoratorPass) resolveInnerService(cfg *Config, baseSvc Service, decora
 	// Create new inner service (clone of base)
 	innerID := decoratorID + ".inner"
 	innerSvc := Service{
-		Type:          baseSvc.Type,
-		Constructor:   baseSvc.Constructor,
-		Shared:        baseSvc.Shared,
-		Public:        false, // Inner services are never public
+		Type:        baseSvc.Type,
+		Constructor: baseSvc.Constructor,
+		Shared:      baseSvc.Shared,
+		Public:      false, // Inner services are never public
+		// Explicit base tags stay on the inner (undecorated) definition,
+		// mirroring Symfony's decoration semantics.
 		Autoconfigure: false,
-		Tags:          nil, // No tags on inner
+		Tags:          baseSvc.Tags,
+		SourceLoc:     baseSvc.SourceLoc,
 	}
 	// Store the new inner service
 	cfg.Services[innerID] = innerSvc

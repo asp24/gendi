@@ -3,6 +3,8 @@ package di
 import (
 	"strings"
 	"testing"
+
+	"github.com/asp24/gendi/srcloc"
 )
 
 func TestDecoratorPassSingleDecorator(t *testing.T) {
@@ -471,5 +473,50 @@ func TestDecoratorPassRejectsReservedInnerSuffixServiceID(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "cannot use reserved .inner suffix") {
 		t.Fatalf("expected reserved .inner suffix error, got: %v", err)
+	}
+}
+
+func TestDecoratorPassKeepsBaseTagsOnInner(t *testing.T) {
+	cfg := &Config{
+		Services: map[string]Service{
+			"base": {
+				Type: "app.Service",
+				Tags: []ServiceTag{{Name: "handler"}},
+				Constructor: Constructor{
+					Func: "app.NewBase",
+				},
+				SourceLoc: &srcloc.Location{File: "gendi.yaml", Line: 3},
+			},
+			"decorator": {
+				Decorates: "base",
+				Constructor: Constructor{
+					Func: "app.NewDecorator",
+					Args: []Argument{
+						{Kind: ArgInner},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := (&DecoratorPass{}).Process(cfg)
+	if err != nil {
+		t.Fatalf("DecoratorPass failed: %v", err)
+	}
+
+	inner := result.Services["decorator.inner"]
+	if len(inner.Tags) != 1 || inner.Tags[0].Name != "handler" {
+		t.Errorf("expected base tags to stay on inner service, got %+v", inner.Tags)
+	}
+
+	alias := result.Services["base"]
+	if len(alias.Tags) != 0 {
+		t.Errorf("expected no tags on alias, got %+v", alias.Tags)
+	}
+	if alias.Type != "app.Service" {
+		t.Errorf("expected alias to keep declared type, got %q", alias.Type)
+	}
+	if alias.SourceLoc == nil || alias.SourceLoc.Line != 3 {
+		t.Errorf("expected alias to keep source location, got %+v", alias.SourceLoc)
 	}
 }
