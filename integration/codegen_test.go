@@ -1425,3 +1425,29 @@ func TestVariadicDurationLiterals(t *testing.T) {
 		t.Fatalf("expected NewTimed constructor call:\n%s", out)
 	}
 }
+
+func TestServiceRefTypeMismatchFailsGeneration(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"c": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewC",
+				},
+			},
+			"b": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewB",
+					Args: []di.Argument{
+						{Kind: di.ArgServiceRef, Value: "c"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	err := generateErr(t, cfg)
+	if err == nil || !strings.Contains(err.Error(), "not assignable") {
+		t.Fatalf("expected type mismatch error, got %v", err)
+	}
+}

@@ -3,9 +3,11 @@ package ir
 import (
 	"errors"
 	"fmt"
+	"go/types"
 	"strings"
 
 	di "github.com/asp24/gendi"
+	"github.com/asp24/gendi/xmaps"
 )
 
 // validatorPhase validates the IR for correctness
@@ -16,10 +18,63 @@ func (v *validatorPhase) Apply(_ *di.Config, container *Container) error {
 	if err := v.validatePublicServices(container); err != nil {
 		return err
 	}
+	if err := v.validateArgumentTypes(container); err != nil {
+		return err
+	}
 	if err := v.detectCycles(container); err != nil {
 		return err
 	}
 	return nil
+}
+
+// validateArgumentTypes ensures referenced services fit their parameter
+// types. Argument resolution stamps each argument with the parameter type but
+// does not compare it against the referenced service's actual type, which may
+// not be resolved yet at that point.
+func (v *validatorPhase) validateArgumentTypes(container *Container) error {
+	for _, id := range xmaps.OrderedKeys(container.Services) {
+		svc := container.Services[id]
+		if svc.Constructor == nil {
+			continue
+		}
+		for i, arg := range svc.Constructor.Args {
+			if err := v.validateArgumentType(svc, i, arg); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (v *validatorPhase) validateArgumentType(svc *Service, idx int, arg *Argument) error {
+	switch arg.Kind {
+	case ServiceRefArg:
+		dep := arg.Service
+		if dep == nil || dep.Type == nil || arg.Type == nil {
+			return nil
+		}
+		if types.AssignableTo(dep.Type, arg.Type) {
+			return nil
+		}
+		// Slices with assignable element types are converted elementwise by
+		// the generator (desugared tagged collections rely on this).
+		if v.slicesConvertible(dep.Type, arg.Type) {
+			return nil
+		}
+		return fmt.Errorf("service %q arg[%d]: service %q type %s is not assignable to %s",
+			svc.ID, idx, dep.ID, dep.Type, arg.Type)
+	case SpreadArg:
+		if arg.Inner != nil {
+			return v.validateArgumentType(svc, idx, arg.Inner)
+		}
+	}
+	return nil
+}
+
+func (v *validatorPhase) slicesConvertible(from, to types.Type) bool {
+	fromSlice, fromOk := from.Underlying().(*types.Slice)
+	toSlice, toOk := to.Underlying().(*types.Slice)
+	return fromOk && toOk && types.AssignableTo(fromSlice.Elem(), toSlice.Elem())
 }
 
 // validatePublicServices ensures at least one public service exists.
