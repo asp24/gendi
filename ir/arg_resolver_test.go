@@ -381,3 +381,29 @@ func TestSpreadLiteralInnerRejected(t *testing.T) {
 		t.Fatalf("expected spread inner error, got %v", err)
 	}
 }
+
+func TestRuntimeParamConflictingTypesRejected(t *testing.T) {
+	container := NewContainer()
+	r := &argResolver{}
+
+	arg := di.Argument{Kind: di.ArgParam, Value: "runtime.param"}
+	first, err := r.resolve(container, noResolve, "svc.one", 0, arg, types.Typ[types.String])
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Same type: must reuse the same parameter object.
+	second, err := r.resolve(container, noResolve, "svc.two", 0, arg, types.Typ[types.String])
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if first.Parameter != second.Parameter {
+		t.Fatalf("expected repeated usages to share one parameter object")
+	}
+
+	// Conflicting type: one runtime parameter cannot be both string and int.
+	_, err = r.resolve(container, noResolve, "svc.three", 0, arg, types.Typ[types.Int])
+	if err == nil || !strings.Contains(err.Error(), "conflicting") {
+		t.Fatalf("expected conflicting types error, got %v", err)
+	}
+}

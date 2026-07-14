@@ -54,15 +54,14 @@ func (r *argResolver) resolveServiceRef(container *Container, svcID string, idx 
 func (r *argResolver) resolveParam(container *Container, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
 	param, ok := container.Parameters[arg.Value]
 	if !ok {
-		// Parameter might be provided at runtime
-		return &Argument{
-			Type:      paramType,
-			Kind:      ParamRefArg,
-			Parameter: &Parameter{Name: arg.Value, Type: paramType},
-		}, nil
+		// The parameter might be provided at runtime. Register it alongside
+		// declared parameters so every usage resolves to the same IR entry.
+		param = &Parameter{Name: arg.Value, Type: paramType}
+		container.Parameters[arg.Value] = param
 	}
 	if !types.AssignableTo(param.Type, paramType) {
-		return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: parameter %q type mismatch", svcID, idx, arg.Value)
+		return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: parameter %q type mismatch: conflicting types %s and %s",
+			svcID, idx, arg.Value, param.Type, paramType)
 	}
 	return &Argument{Type: paramType, Kind: ParamRefArg, Parameter: param}, nil
 }
