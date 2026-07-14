@@ -70,3 +70,33 @@ func TestCollectTypePackages(t *testing.T) {
 		})
 	}
 }
+
+func TestCollectFieldAccessGoPackages(t *testing.T) {
+	tests := []struct {
+		value string
+		want  string // package path that must be among the candidates
+	}{
+		{"os.Stdout.Fd", "os"},
+		{"example.com/app.DefaultCfg.Host", "example.com/app"},
+		// Multi-field chains: the symbol boundary is ambiguous, so the real
+		// package must be among the returned candidates.
+		{"example.com/app.DefaultCfg.Database.DSN", "example.com/app"},
+		{"example.com/app.DefaultCfg.A.B.C", "example.com/app"},
+		// Dotted package paths (gopkg.in style) must stay supported.
+		{"gopkg.in/yaml.v3.Defaults.Field", "gopkg.in/yaml.v3"},
+		{"gopkg.in/yaml.v3.Defaults.Sub.Field", "gopkg.in/yaml.v3"},
+	}
+	for _, tt := range tests {
+		got := CollectFieldAccessGoPackages(tt.value)
+		found := false
+		for _, p := range got {
+			if p == tt.want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("CollectFieldAccessGoPackages(%q) = %v, want to contain %q", tt.value, got, tt.want)
+		}
+	}
+}

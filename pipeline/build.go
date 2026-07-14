@@ -25,9 +25,9 @@ func Build(cfg *di.Config, moduleRoot string) (*Output, error) {
 	// Re-populate Packages fields after passes may have added/modified services.
 	refreshPackages(cfg)
 
-	paths := collectPackagePaths(cfg)
+	paths, candidatePaths := collectPackagePaths(cfg)
 	typeResolver := typeres.NewResolver(moduleRoot)
-	if err := typeResolver.LoadPackages(paths); err != nil {
+	if err := typeResolver.LoadPackagesWithCandidates(paths, candidatePaths); err != nil {
 		return nil, err
 	}
 
@@ -71,7 +71,10 @@ func refreshPackages(cfg *di.Config) {
 	}
 }
 
-func collectPackagePaths(cfg *di.Config) []string {
+// collectPackagePaths returns the package paths a config requires. The second
+// list holds candidate paths from field access on Go symbols, where the
+// package/symbol boundary is ambiguous; they must be loaded leniently.
+func collectPackagePaths(cfg *di.Config) (required, candidates []string) {
 	seen := map[string]bool{}
 	addAll := func(pkgs []string) {
 		for _, p := range pkgs {
@@ -80,11 +83,20 @@ func collectPackagePaths(cfg *di.Config) []string {
 			}
 		}
 	}
+	candidateSet := map[string]bool{}
 
 	for _, svc := range cfg.Services {
 		addAll(svc.Packages)
 		addAll(svc.Constructor.Packages)
 		for _, arg := range svc.Constructor.Args {
+			if arg.Kind == di.ArgFieldAccessGo {
+				for _, p := range arg.Packages {
+					if p != "" {
+						candidateSet[p] = true
+					}
+				}
+				continue
+			}
 			addAll(arg.Packages)
 		}
 	}
@@ -99,7 +111,13 @@ func collectPackagePaths(cfg *di.Config) []string {
 		seen["github.com/asp24/gendi/stdlib"] = true
 	}
 
-	return xmaps.OrderedKeys(seen)
+	for p := range candidateSet {
+		if seen[p] {
+			delete(candidateSet, p)
+		}
+	}
+
+	return xmaps.OrderedKeys(seen), xmaps.OrderedKeys(candidateSet)
 }
 
 func hasTagsOrTaggedArgs(cfg *di.Config) bool {
