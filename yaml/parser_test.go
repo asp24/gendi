@@ -562,6 +562,18 @@ func TestThisSubstitutionInConstructor(t *testing.T) {
 			thisPkg:  "github.com/example/app",
 			wantFunc: "github.com/example/app.NewLogger",
 		},
+		{
+			name:     "func generic type args substituted",
+			raw:      &RawService{Type: "string", Constructor: RawConstructor{Func: "$this.NewPool[$this.Message]"}},
+			thisPkg:  "github.com/example/app",
+			wantFunc: "github.com/example/app.NewPool[github.com/example/app.Message]",
+		},
+		{
+			name:     "func nested generic type args substituted",
+			raw:      &RawService{Type: "string", Constructor: RawConstructor{Func: "external.com/pkg.NewMap[string, chan $this.User]"}},
+			thisPkg:  "github.com/example/app",
+			wantFunc: "external.com/pkg.NewMap[string, chan github.com/example/app.User]",
+		},
 	}
 
 	p := NewParser()
