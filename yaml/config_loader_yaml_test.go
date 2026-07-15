@@ -41,31 +41,23 @@ imports:
   - path: b
   - path: c
 parameters:
-  a:
-    type: string
-    value: "A"
+  a: "A"
 `)
 	bPath := writeFile(t, dir, "b.yaml", `
 imports:
   - path: d
 parameters:
-  b:
-    type: string
-    value: "B"
+  b: "B"
 `)
 	cPath := writeFile(t, dir, "c.yaml", `
 imports:
   - path: d
 parameters:
-  c:
-    type: string
-    value: "C"
+  c: "C"
 `)
 	dPath := writeFile(t, dir, "d.yaml", `
 parameters:
-  d:
-    type: string
-    value: "D"
+  d: "D"
 `)
 
 	loader := NewConfigLoaderYaml(stubResolver{
@@ -105,21 +97,15 @@ func TestExcludeBasicGlob(t *testing.T) {
 
 	writeFile(t, servicesDir, "app.yaml", `
 parameters:
-  app:
-    type: string
-    value: "app"
+  app: "app"
 `)
 	writeFile(t, servicesDir, "db.yaml", `
 parameters:
-  db:
-    type: string
-    value: "db"
+  db: "db"
 `)
 	writeFile(t, servicesDir, "test_helper.yaml", `
 parameters:
-  test_helper:
-    type: string
-    value: "test"
+  test_helper: "test"
 `)
 
 	rootPath := writeFile(t, dir, "gendi.yaml", `
@@ -156,21 +142,15 @@ func TestExcludeMultiplePatterns(t *testing.T) {
 
 	writeFile(t, servicesDir, "app.yaml", `
 parameters:
-  app:
-    type: string
-    value: "app"
+  app: "app"
 `)
 	writeFile(t, servicesDir, "test_app.yaml", `
 parameters:
-  test_app:
-    type: string
-    value: "test"
+  test_app: "test"
 `)
 	writeFile(t, internalDir, "debug.yaml", `
 parameters:
-  debug:
-    type: string
-    value: "debug"
+  debug: "debug"
 `)
 
 	rootPath := writeFile(t, dir, "gendi.yaml", `
@@ -207,15 +187,11 @@ func TestExcludeAllFiles(t *testing.T) {
 
 	writeFile(t, servicesDir, "test1.yaml", `
 parameters:
-  test1:
-    type: string
-    value: "test1"
+  test1: "test1"
 `)
 	writeFile(t, servicesDir, "test2.yaml", `
 parameters:
-  test2:
-    type: string
-    value: "test2"
+  test2: "test2"
 `)
 
 	rootPath := writeFile(t, dir, "gendi.yaml", `
@@ -241,9 +217,7 @@ func TestExcludeNonGlobImport(t *testing.T) {
 
 	specificPath := writeFile(t, dir, "specific.yaml", `
 parameters:
-  specific:
-    type: string
-    value: "specific"
+  specific: "specific"
 `)
 
 	rootPath := writeFile(t, dir, "gendi.yaml", `
@@ -278,9 +252,7 @@ func TestExcludeInvalidPattern(t *testing.T) {
 
 	writeFile(t, servicesDir, "app.yaml", `
 parameters:
-  app:
-    type: string
-    value: "app"
+  app: "app"
 `)
 
 	rootPath := writeFile(t, dir, "gendi.yaml", `
@@ -306,15 +278,11 @@ func TestExcludeBackwardCompatibility(t *testing.T) {
 
 	writeFile(t, servicesDir, "app.yaml", `
 parameters:
-  app:
-    type: string
-    value: "app"
+  app: "app"
 `)
 	writeFile(t, servicesDir, "db.yaml", `
 parameters:
-  db:
-    type: string
-    value: "db"
+  db: "db"
 `)
 
 	// Test both scalar form and mapping form without exclude
@@ -352,21 +320,15 @@ func TestExcludeNestedGlob(t *testing.T) {
 
 	writeFile(t, prodDir, "database.yaml", `
 parameters:
-  prod_db:
-    type: string
-    value: "prod"
+  prod_db: "prod"
 `)
 	writeFile(t, devDir, "dev_database.yaml", `
 parameters:
-  dev_db:
-    type: string
-    value: "dev"
+  dev_db: "dev"
 `)
 	writeFile(t, configDir, "base.yaml", `
 parameters:
-  base:
-    type: string
-    value: "base"
+  base: "base"
 `)
 
 	rootPath := writeFile(t, dir, "gendi.yaml", `
@@ -402,15 +364,11 @@ func TestExcludeAbsolutePath(t *testing.T) {
 
 	writeFile(t, servicesDir, "app.yaml", `
 parameters:
-  app:
-    type: string
-    value: "app"
+  app: "app"
 `)
 	testPath := writeFile(t, servicesDir, "test.yaml", `
 parameters:
-  test:
-    type: string
-    value: "test"
+  test: "test"
 `)
 
 	rootPath := writeFile(t, dir, "gendi.yaml", fmt.Sprintf(`
@@ -519,21 +477,15 @@ func TestExcludeDirectory(t *testing.T) {
 
 	writeFile(t, servicesDir, "app.yaml", `
 parameters:
-  app:
-    type: string
-    value: "app"
+  app: "app"
 `)
 	writeFile(t, internalDir, "secret.yaml", `
 parameters:
-  secret:
-    type: string
-    value: "secret"
+  secret: "secret"
 `)
 	writeFile(t, internalDir, "debug.yaml", `
 parameters:
-  debug:
-    type: string
-    value: "debug"
+  debug: "debug"
 `)
 
 	rootPath := writeFile(t, dir, "gendi.yaml", `

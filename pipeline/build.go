@@ -47,10 +47,6 @@ func Build(cfg *di.Config, moduleRoot string) (*Output, error) {
 // refreshPackages re-populates the Packages field on all config structs.
 // This is needed after compiler passes that may add or modify services.
 func refreshPackages(cfg *di.Config) {
-	for name, param := range cfg.Parameters {
-		param.Packages = typeres.CollectTypePackages(param.Type)
-		cfg.Parameters[name] = param
-	}
 	for name, tag := range cfg.Tags {
 		tag.Packages = typeres.CollectTypePackages(tag.ElementType)
 		cfg.Tags[name] = tag
@@ -99,9 +95,6 @@ func collectPackagePaths(cfg *di.Config) (required, candidates []string) {
 			}
 			addAll(arg.Packages)
 		}
-	}
-	for _, param := range cfg.Parameters {
-		addAll(param.Packages)
 	}
 	for _, tag := range cfg.Tags {
 		addAll(tag.Packages)

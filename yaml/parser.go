@@ -38,20 +38,22 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 
 	// Convert parameters
 	for name, param := range raw.Parameters {
-		if param.Type == "" {
-			return nil, srcloc.Errorf(newLocation(filePath, param.Node), "parameter %q: type is required", name)
+		if _, ok := param.Value.(*ast.MappingNode); ok {
+			return nil, srcloc.Errorf(newLocation(filePath, param.Node),
+				"parameter %q: the {type, value} form was removed; use a plain scalar default, e.g. %s: 8080", name, name)
 		}
 		if param.Value == nil {
-			return nil, srcloc.Errorf(newLocation(filePath, param.Node), "parameter %q: value is required", name)
+			return nil, srcloc.Errorf(newLocation(filePath, param.Node), "parameter %q: null value is not supported", name)
 		}
 		lit, err := p.convertLiteral(param.Value, filePath)
 		if err != nil {
 			return nil, srcloc.AddContext(err, "parameter %q", name)
 		}
+		if lit.IsNull() {
+			return nil, srcloc.Errorf(newLocation(filePath, param.Node), "parameter %q: null value is not supported", name)
+		}
 		cfg.Parameters[name] = di.Parameter{
-			Type:      param.Type,
 			Value:     lit,
-			Packages:  typeres.CollectTypePackages(param.Type),
 			SourceLoc: newLocation(filePath, param.Node),
 		}
 	}

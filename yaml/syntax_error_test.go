@@ -37,7 +37,7 @@ func TestSyntaxError(t *testing.T) {
 		},
 		{
 			name: "unclosed_quote",
-			yaml: "parameters:\n  bad:\n    type: string\n    value: \"unclosed\n",
+			yaml: "parameters:\n  bad: \"unclosed\n",
 		},
 		{
 			// decoration_priority is int, not string. Triggers a
@@ -144,7 +144,7 @@ func TestBlockScalar(t *testing.T) {
 	}{
 		{
 			name: "param_pipe",
-			yaml: "parameters:\n  greeting:\n    type: string\n    value: |\n      hello\n      world\n",
+			yaml: "parameters:\n  greeting: |\n    hello\n    world\n",
 			extract: func(_ *testing.T, cfg *di.Config) string {
 				return cfg.Parameters["greeting"].Value.String()
 			},
@@ -152,7 +152,7 @@ func TestBlockScalar(t *testing.T) {
 		},
 		{
 			name: "param_folded",
-			yaml: "parameters:\n  greeting:\n    type: string\n    value: >\n      hello\n      world\n",
+			yaml: "parameters:\n  greeting: >\n    hello\n    world\n",
 			extract: func(_ *testing.T, cfg *di.Config) string {
 				return cfg.Parameters["greeting"].Value.String()
 			},
