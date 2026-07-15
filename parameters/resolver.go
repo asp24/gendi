@@ -18,14 +18,14 @@ type Resolver struct {
 // NewResolver returns a Resolver over the given provider and caster.
 // A nil provider falls back to ProviderNullInstance and a nil caster to
 // StandardCaster.
-func NewResolver(p Provider, c Caster) Resolver {
+func NewResolver(p Provider, c Caster) *Resolver {
 	if p == nil {
 		p = ProviderNullInstance
 	}
 	if c == nil {
 		c = StandardCaster{}
 	}
-	return Resolver{Provider: p, Caster: c}
+	return &Resolver{Provider: p, Caster: c}
 }
 
 func (r Resolver) String(name string) (string, error) {

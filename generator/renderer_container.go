@@ -50,7 +50,7 @@ func (r *ContainerRenderer) assignNames(ctx *GenContext) error {
 func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *GenContext, hasParams bool) error {
 	fmt.Fprintf(b, "type %s struct {\n", r.containerName)
 	fmt.Fprintf(b, "\tmu sync.Mutex\n")
-	fmt.Fprintf(b, "\tparams parameters.Resolver\n")
+	fmt.Fprintf(b, "\tparams *parameters.Resolver\n")
 	fmt.Fprintf(b, "\tonMustCallFailed func(serviceName string, err error)\n")
 
 	for _, id := range ctx.orderedServiceIDs {
