@@ -52,7 +52,9 @@ is generated). `uintptr` unsupported.
 
 Runtime split: `Provider.Lookup(name) (any, error)` returns the raw value;
 `parameters.Caster` (`StandardCaster` by default, override via
-`With<Container>ParameterCaster`) converts it per injection site. Unsupported
+`With<Container>ParameterCaster`) converts it per injection site. Generated
+code calls both through the `parameters.Resolver` facade struct:
+`c.params.Int("port")`. Unsupported
 targets and non-convertible defaults fail at generation time; runtime
 provider values are checked at construction with parameter name, service ID,
 argument index, raw and target types in the error.

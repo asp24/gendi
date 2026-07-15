@@ -19,8 +19,9 @@ func WithContainerErrorHandler(handler func(serviceName string, err error)) Cont
 func WithContainerParameterCaster(caster parameters.Caster) ContainerOption
 ```
 
-The container stores a `parameters.Caster` (default `parameters.StandardCaster`)
-and converts each looked-up parameter to the target type of its injection site.
+The container stores a `parameters.Resolver` (a facade over `Provider` and
+`Caster`, default caster `parameters.StandardCaster`) and resolves each
+parameter with one typed call per injection site, e.g. `c.params.Int("port")`.
 
 ## Getter Methods
 

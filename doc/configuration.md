@@ -79,12 +79,15 @@ generation time. Use exact `time.Duration` or a numeric default instead.
 
 At runtime a parameter is resolved in two steps: the provider locates the
 raw value (`Provider.Lookup(name)`), then the container's caster converts it
-to the injection site's target type. The default `parameters.StandardCaster`
-rejects lossy conversions: float→integer, bool→anything, values that
-overflow the target, inexact integer↔float conversions, NaN and infinities,
-and named input types. Cast errors name the raw value, its type, and the
-target type; the generated wrapping adds the parameter name, service ID, and
-argument index.
+to the injection site's target type. Generated code performs both steps
+through a single `parameters.Resolver` facade call (`c.params.Int("port")`);
+the facade is a concrete struct over `Provider` + `Caster`, so the two
+responsibilities stay independently replaceable. The default
+`parameters.StandardCaster` rejects lossy conversions: float→integer,
+bool→anything, values that overflow the target, inexact integer↔float
+conversions, NaN and infinities, and named input types. Cast errors name the
+raw value, its type, and the target type; the generated wrapping adds the
+parameter name, service ID, and argument index.
 
 A custom caster can override individual conversions:
 
