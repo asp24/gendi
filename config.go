@@ -65,11 +65,11 @@ func (cfg *Config) MergeWith(src *Config) *Config {
 	return cfg
 }
 
-// Parameter defines a typed parameter literal.
+// Parameter defines a parameter default value. Its target type is
+// contextual: it comes from each constructor argument the parameter is
+// injected into, not from the declaration.
 type Parameter struct {
-	Type     string
-	Value    Literal
-	Packages []string
+	Value Literal
 
 	// Source location (optional)
 	SourceLoc *srcloc.Location

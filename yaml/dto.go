@@ -26,13 +26,15 @@ func (c *RawConfig) UnmarshalYAML(node ast.Node) error {
 		for _, kv := range mapping.Values {
 			switch keyString(kv.Key) {
 			case "parameters":
+				// goccy does not call RawParameter.UnmarshalYAML for null
+				// values; register the entry here so the parser can report
+				// a located error for it.
 				if pm, ok := kv.Value.(*ast.MappingNode); ok {
 					for _, pv := range pm.Values {
 						name := keyString(pv.Key)
-						if param, ok := decoded.Parameters[name]; ok {
-							param.Node = pv.Value
-							decoded.Parameters[name] = param
-						}
+						param := decoded.Parameters[name]
+						param.Node = pv.Value
+						decoded.Parameters[name] = param
 					}
 				}
 			case "tags":
@@ -107,12 +109,18 @@ func (i *RawImport) UnmarshalYAML(node ast.Node) error {
 	}
 }
 
+// RawParameter holds the raw scalar node of a parameter default value.
 type RawParameter struct {
-	Type  string   `yaml:"type"`
-	Value ast.Node `yaml:"value"`
+	Value ast.Node
 
-	// Node holds the full parameter mapping node for location tracking.
+	// Node holds the parameter value node for location tracking.
 	Node ast.Node `yaml:"-"`
+}
+
+func (p *RawParameter) UnmarshalYAML(node ast.Node) error {
+	p.Value = node
+	p.Node = node
+	return nil
 }
 
 type RawTag struct {

@@ -752,42 +752,30 @@ func TestConvertLiteralTypes(t *testing.T) {
 func TestConvertConfigWithDirAndFile(t *testing.T) {
 	p := NewParser()
 
-	t.Run("parameter_missing_type", func(t *testing.T) {
+	t.Run("parameter_mapping_form_rejected", func(t *testing.T) {
 		raw := &RawConfig{
 			Parameters: map[string]RawParameter{
-				"bad": {Value: mustParseNode(t, "x")},
+				"bad": {Value: mustParseNode(t, "{type: int, value: 8080}")},
 			},
 		}
 		_, err := p.ConvertConfigWithDirAndFile(raw, "", "")
-		if err == nil || !strings.Contains(err.Error(), "type is required") {
-			t.Fatalf("expected 'type is required' error, got: %v", err)
-		}
-	})
-
-	t.Run("parameter_bad_literal", func(t *testing.T) {
-		raw := &RawConfig{
-			Parameters: map[string]RawParameter{
-				"bad": {Type: "int", Value: mustParseNode(t, "{a: b}")},
-			},
-		}
-		_, err := p.ConvertConfigWithDirAndFile(raw, "", "")
-		if err == nil {
-			t.Fatal("expected error for bad literal type")
+		if err == nil || !strings.Contains(err.Error(), "form was removed") {
+			t.Fatalf("expected migration error, got: %v", err)
 		}
 	})
 
 	t.Run("parameter_ok", func(t *testing.T) {
 		raw := &RawConfig{
 			Parameters: map[string]RawParameter{
-				"host": {Type: "string", Value: mustParseNode(t, "localhost")},
+				"host": {Value: mustParseNode(t, "localhost")},
 			},
 		}
 		cfg, err := p.ConvertConfigWithDirAndFile(raw, "", "")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if cfg.Parameters["host"].Type != "string" {
-			t.Fatal("expected parameter 'host' with type string")
+		if cfg.Parameters["host"].Value.String() != "localhost" {
+			t.Fatal("expected parameter 'host' with value localhost")
 		}
 	})
 
@@ -978,11 +966,11 @@ func TestConvertLiteral_LocatedErrors(t *testing.T) {
 func TestParameterMissingValueError(t *testing.T) {
 	raw := &RawConfig{
 		Parameters: map[string]RawParameter{
-			"p": {Type: "string"},
+			"p": {},
 		},
 	}
 	_, err := NewParser().ConvertConfigWithDirAndFile(raw, "", "")
-	if err == nil || !strings.Contains(err.Error(), "value is required") {
-		t.Fatalf("expected value-required error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "null value is not supported") {
+		t.Fatalf("expected null-value error, got %v", err)
 	}
 }
