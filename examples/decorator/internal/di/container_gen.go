@@ -10,7 +10,7 @@ import (
 
 type Container struct {
 	mu                                   sync.Mutex
-	params                               parameters.Resolver
+	params                               *parameters.Resolver
 	onMustCallFailed                     func(serviceName string, err error)
 	svc_payment_provider_with_comission  *app.PaymentProviderCommissionDecorator
 	svc_payment_provider_with_comission2 *app.PaymentProviderCommissionDecorator

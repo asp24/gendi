@@ -18,7 +18,7 @@ var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
 
 type Container struct {
 	mu               sync.Mutex
-	params           parameters.Resolver
+	params           *parameters.Resolver
 	onMustCallFailed func(serviceName string, err error)
 	svc_stdlib_slog  *slog.Logger
 	svc_server       *app.Server

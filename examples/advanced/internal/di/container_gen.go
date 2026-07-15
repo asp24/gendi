@@ -18,7 +18,7 @@ var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
 
 type Container struct {
 	mu                 sync.Mutex
-	params             parameters.Resolver
+	params             *parameters.Resolver
 	onMustCallFailed   func(serviceName string, err error)
 	svc_notifier_email *app.EmailNotifier
 	svc_notifier_sms   *app.SMSNotifier
