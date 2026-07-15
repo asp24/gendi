@@ -31,48 +31,81 @@ For local schema validation:
 
 ## Parameters
 
-Parameters are typed configuration values injected using `%name%` syntax.
+Parameters are scalar configuration values injected using `%name%` syntax.
+A declaration is just a default value — parameters have no declared type.
+The target type is contextual: it comes from the constructor argument the
+parameter is injected into, so the same parameter can be requested as
+different types at different injection sites.
 
 ### Parameter Definition
 
 ```yaml
 parameters:
-  app_name:
-    type: string
-    value: "MyApp"
-
-  port:
-    type: int
-    value: 8080
-
-  timeout:
-    type: time.Duration
-    value: "30s"
-
-  debug:
-    type: bool
-    value: true
-
-  rate_limit:
-    type: float64
-    value: 99.5
+  app_name: "MyApp"
+  port: 8080
+  timeout: 30s
+  debug: true
+  rate_limit: 99.5
 ```
 
-### Supported Parameter Types
+Null values are rejected. The old `{type, value}` mapping form was removed;
+using it fails with a migration error.
 
-| Type | Example Value | Notes |
-|------|--------------|-------|
-| `string` | `"hello"` | String literals |
-| `int` | `8080` | 64-bit integers |
-| `float64` | `99.5` | Floating point numbers |
-| `bool` | `true`, `false` | Boolean values |
-| `time.Duration` | `"30s"`, `1000000000` | String format or nanoseconds |
+### Supported Target Types
 
-### Duration Format
+The constructor argument a parameter is injected into must have one of these
+types (or a named type whose underlying type is one of them — a static
+conversion is generated):
 
-Duration parameters accept either:
-- String literals: `"1h30m"`, `"500ms"`, `"2s"`
-- Integer nanoseconds: `1000000000` (= 1 second)
+| Target | Conversion method | Notes |
+|--------|-------------------|-------|
+| `string` | `ToString` | numeric values format canonically |
+| `bool` | `ToBool` | strings parse via `strconv.ParseBool` |
+| `int`, `int8`–`int64` | `ToInt`–`ToInt64` | range-checked; strings parse base 10 |
+| `uint`, `uint8`–`uint64` | `ToUint`–`ToUint64` | sign- and range-checked |
+| `float32`, `float64` | `ToFloat32`, `ToFloat64` | integers must convert exactly |
+| `time.Duration` | `ToDuration` | strings via `time.ParseDuration`, integers as nanoseconds |
+| `time.Time` | `ToTime` | strings parse as RFC3339 |
+
+`uintptr` and complex types are not supported. A parameter injected into any
+other target type fails generation.
+
+Exact `time.Duration` targets use `ToDuration`; a named type defined as
+`type Timeout time.Duration` has underlying `int64` and therefore uses
+`ToInt64` — a string default like `"5s"` for such a target fails at
+generation time. Use exact `time.Duration` or a numeric default instead.
+
+### Lookup and Casting
+
+At runtime a parameter is resolved in two steps: the provider locates the
+raw value (`Provider.Lookup(name)`), then the container's caster converts it
+to the injection site's target type. The default `parameters.StandardCaster`
+rejects lossy conversions: float→integer, bool→anything, values that
+overflow the target, inexact integer↔float conversions, NaN and infinities,
+and named input types. Cast errors name the raw value, its type, and the
+target type; the generated wrapping adds the parameter name, service ID, and
+argument index.
+
+A custom caster can override individual conversions:
+
+```go
+type LenientCaster struct {
+	parameters.StandardCaster
+}
+
+func (LenientCaster) ToInt(value any) (int, error) {
+	// custom policy
+}
+
+container := di.NewContainer(nil, di.WithContainerParameterCaster(LenientCaster{}))
+```
+
+### Generation-Time Validation
+
+Declared defaults are validated during generation by executing the real
+`StandardCaster` against every usage's target type, so a default like
+`timeout: "5x"` injected as `time.Duration` fails generation, not startup.
+Values supplied by a runtime provider are checked at construction time.
 
 ### Parameter References
 
@@ -95,18 +128,14 @@ Later imports override earlier parameter values:
 ```yaml
 # base.yaml
 parameters:
-  db_dsn:
-    type: string
-    value: "postgres://localhost/dev"
+  db_dsn: "postgres://localhost/dev"
 
 # production.yaml
 imports:
   - ./base.yaml
 
 parameters:
-  db_dsn:
-    type: string
-    value: "postgres://prod-host/app"  # Overrides base.yaml
+  db_dsn: "postgres://prod-host/app"  # Overrides base.yaml
 ```
 
 ## Services
@@ -619,9 +648,7 @@ Reference parameters using `%param_name%`:
 
 ```yaml
 parameters:
-  db_dsn:
-    type: string
-    value: "postgres://localhost/app"
+  db_dsn: "postgres://localhost/app"
 
 services:
   database:
@@ -759,17 +786,11 @@ imports:
 
 # Configuration parameters
 parameters:
-  app_name:
-    type: string
-    value: "MyApp"
+  app_name: "MyApp"
 
-  db_dsn:
-    type: string
-    value: "postgres://localhost/myapp"
+  db_dsn: "postgres://localhost/myapp"
 
-  http_timeout:
-    type: time.Duration
-    value: "30s"
+  http_timeout: "30s"
 
 # Tag definitions
 tags:

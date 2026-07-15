@@ -102,7 +102,7 @@ The generator follows a multi-stage pipeline:
 - **`ir/`**: Intermediate representation and multi-phase analysis
 - **`generator/`**: Code generation from IR to Go source
 - **`typeres/`**: Wrapper around `go/packages` for type resolution
-- **`parameters/`**: Runtime parameter provider interface and implementations
+- **`parameters/`**: Runtime parameter lookup (`Provider`) and conversion (`Caster`/`StandardCaster`) implementations
 - **`stdlib/`**: Pre-built factory functions for stdlib types (channels, HTTP clients, loggers)
 
 ### Important Files
@@ -128,6 +128,10 @@ Constructor arguments use special syntax:
 - `!field:!go:pkg.Symbol.Field` - Field access on a Go package-level variable (e.g., `!field:!go:http.DefaultClient.Timeout`)
 - `@service.Method` - Method constructor
 - `literal` - YAML scalar literal
+
+### Parameters
+
+Parameters are declared as plain scalar defaults (`parameters: {port: 8080, timeout: 5s}`) — there is no `type` field. The target type is contextual: it comes from each constructor argument the parameter is injected into, so one parameter can be requested as different types at different injection sites. At runtime `parameters.Provider.Lookup(name)` returns the raw value and the container's `parameters.Caster` (default `StandardCaster`, replaceable via the generated `With<Container>ParameterCaster` option) converts it per injection site. Unsupported target types and non-convertible declared defaults fail at generation time.
 
 ### Service Lifecycle
 

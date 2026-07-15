@@ -42,9 +42,7 @@ This adds gendi to your `go.mod` and allows running it via `go tool gendi`.
 # yaml-language-server: $schema=https://raw.githubusercontent.com/asp24/gendi/master/gendi.schema.json
 
 parameters:
-  db_dsn:
-    type: string
-    value: "postgres://localhost/myapp"
+  db_dsn: "postgres://localhost/myapp"
 
 services:
   database:

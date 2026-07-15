@@ -37,14 +37,25 @@ imports:
 
 ## Parameters
 
-Parameter `type` is a Go type string. Supported:
-- `string`
-- `int`
-- `bool`
-- `float`
-- `time.Duration`
+Declared as plain scalar defaults (no `type` field; null rejected):
+```yaml
+parameters:
+  port: 8080
+  timeout: 5s
+```
 
-Duration literals accept string (e.g. "1s") or int (nanoseconds).
+The target type is contextual — taken from each constructor argument. One
+parameter may be injected as different types at different sites. Supported
+targets: `string`, `bool`, all int/uint widths, `float32`, `float64`,
+`time.Duration`, `time.Time`, and named types over those (static conversion
+is generated). `uintptr` unsupported.
+
+Runtime split: `Provider.Lookup(name) (any, error)` returns the raw value;
+`parameters.Caster` (`StandardCaster` by default, override via
+`With<Container>ParameterCaster`) converts it per injection site. Unsupported
+targets and non-convertible defaults fail at generation time; runtime
+provider values are checked at construction with parameter name, service ID,
+argument index, raw and target types in the error.
 
 ## Spread Rules
 
@@ -60,6 +71,7 @@ func NewContainer(params parameters.Provider, opts ...ContainerOption) *Containe
 func (c *Container) GetServiceName() (ServiceType, error)
 func (c *Container) MustServiceName() ServiceType
 func WithContainerErrorHandler(handler func(serviceName string, err error)) ContainerOption
+func WithContainerParameterCaster(caster parameters.Caster) ContainerOption
 ```
 
 ## Generated File Conventions

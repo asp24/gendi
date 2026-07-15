@@ -38,24 +38,10 @@
       }
     },
     "parameters": {
-      "description": "Typed configuration parameters",
+      "description": "Parameter default values (plain scalars; the target type is taken from each constructor argument)",
       "type": "object",
       "additionalProperties": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "description": "Go type of the parameter, e.g. string, int, float64, bool, time.Duration, or a qualified type like log/slog.Level"
-          },
-          "value": {
-            "description": "Parameter value (type depends on 'type' field)"
-          }
-        },
-        "required": [
-          "type",
-          "value"
-        ],
-        "additionalProperties": false
+        "type": ["string", "number", "integer", "boolean"]
       }
     },
     "tags": {
@@ -245,18 +231,9 @@
   "examples": [
     {
       "parameters": {
-        "db_dsn": {
-          "type": "string",
-          "value": "postgres://localhost/myapp"
-        },
-        "port": {
-          "type": "int",
-          "value": 8080
-        },
-        "timeout": {
-          "type": "time.Duration",
-          "value": "30s"
-        }
+        "db_dsn": "postgres://localhost/myapp",
+        "port": 8080,
+        "timeout": "30s"
       },
       "tags": {
         "handler": {
