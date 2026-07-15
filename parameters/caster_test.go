@@ -1,7 +1,9 @@
 package parameters
 
 import (
+	"errors"
 	"math"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -55,6 +57,37 @@ func TestNewCastError(t *testing.T) {
 		if got := NewCastError(tt.value, tt.target).Error(); got != tt.want {
 			t.Fatalf("NewCastError(%v, %s): got %q, want %q", tt.value, tt.target, got, tt.want)
 		}
+	}
+}
+
+func TestCastErrorsMatchSentinel(t *testing.T) {
+	c := StandardCaster{}
+	cases := []struct {
+		name string
+		err  func() error
+	}{
+		{"NewCastError", func() error { return NewCastError("x", "int") }},
+		{"unsupported type", func() error { _, err := c.ToInt(true); return err }},
+		{"overflow", func() error { _, err := c.ToInt8(int64(300)); return err }},
+		{"negative", func() error { _, err := c.ToUint(-1); return err }},
+		{"inexact", func() error { _, err := c.ToFloat64(int64(1<<53 + 1)); return err }},
+		{"non-finite", func() error { _, err := c.ToFloat64("NaN"); return err }},
+		{"parse failure", func() error { _, err := c.ToInt("abc"); return err }},
+		{"bad duration", func() error { _, err := c.ToDuration("5x"); return err }},
+	}
+	for _, tt := range cases {
+		if err := tt.err(); !errors.Is(err, ErrCannotCast) {
+			t.Fatalf("%s: expected errors.Is(err, ErrCannotCast), got %v", tt.name, err)
+		}
+	}
+
+	// The parse cause stays unwrappable alongside the sentinel.
+	if _, err := c.ToInt("abc"); !errors.Is(err, strconv.ErrSyntax) {
+		t.Fatalf("expected strconv.ErrSyntax in chain, got %v", err)
+	}
+	// A missing parameter is not a cast failure.
+	if _, err := NewProviderMap(nil).Lookup("x"); errors.Is(err, ErrCannotCast) {
+		t.Fatalf("ErrParameterNotFound must not match ErrCannotCast")
 	}
 }
 

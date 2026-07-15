@@ -1,6 +1,7 @@
 package parameters
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -90,7 +91,7 @@ func (c StandardCaster) ToBool(value any) (bool, error) {
 	case string:
 		b, err := strconv.ParseBool(cv)
 		if err != nil {
-			return false, fmt.Errorf("%s: %w", NewCastError(value, "bool"), err)
+			return false, fmt.Errorf("%w: %w", NewCastError(value, "bool"), err)
 		}
 		return b, nil
 	default:
@@ -162,7 +163,7 @@ func (c StandardCaster) ToDuration(value any) (time.Duration, error) {
 	case string:
 		d, err := time.ParseDuration(cv)
 		if err != nil {
-			return 0, fmt.Errorf("%s: %w", NewCastError(value, "time.Duration"), err)
+			return 0, fmt.Errorf("%w: %w", NewCastError(value, "time.Duration"), err)
 		}
 		return d, nil
 	case float32, float64, bool, time.Time:
@@ -183,7 +184,7 @@ func (c StandardCaster) ToTime(value any) (time.Time, error) {
 	case string:
 		ts, err := time.Parse(time.RFC3339, cv)
 		if err != nil {
-			return time.Time{}, fmt.Errorf("%s: %w", NewCastError(value, "time.Time"), err)
+			return time.Time{}, fmt.Errorf("%w: %w", NewCastError(value, "time.Time"), err)
 		}
 		return ts, nil
 	default:
@@ -227,7 +228,7 @@ func (c StandardCaster) toSigned(value any, target string, min, max int64) (int6
 	case string:
 		parsed, err := strconv.ParseInt(cv, 10, 64)
 		if err != nil {
-			return 0, fmt.Errorf("%s: %w", NewCastError(value, target), err)
+			return 0, fmt.Errorf("%w: %w", NewCastError(value, target), err)
 		}
 		v = parsed
 	default:
@@ -287,7 +288,7 @@ func (c StandardCaster) toUnsigned(value any, target string, max uint64) (uint64
 	case string:
 		parsed, err := strconv.ParseUint(cv, 10, 64)
 		if err != nil {
-			return 0, fmt.Errorf("%s: %w", NewCastError(value, target), err)
+			return 0, fmt.Errorf("%w: %w", NewCastError(value, target), err)
 		}
 		v = parsed
 	default:
@@ -344,7 +345,7 @@ func (c StandardCaster) toFloat(value any, target string, bitSize int) (float64,
 	case string:
 		parsed, err := strconv.ParseFloat(cv, bitSize)
 		if err != nil {
-			return 0, fmt.Errorf("%s: %w", NewCastError(value, target), err)
+			return 0, fmt.Errorf("%w: %w", NewCastError(value, target), err)
 		}
 		f = parsed
 	default:
@@ -381,27 +382,31 @@ func (c StandardCaster) exactUnsignedFloat(v uint64, raw any, target string) (fl
 
 func (c StandardCaster) rejectNonFinite(f float64, raw any, target string) error {
 	if math.IsNaN(f) || math.IsInf(f, 0) {
-		return fmt.Errorf("%s: NaN and infinities are rejected", NewCastError(raw, target))
+		return fmt.Errorf("%w: NaN and infinities are rejected", NewCastError(raw, target))
 	}
 	return nil
 }
 
 func (c StandardCaster) overflowError(value any, target string) error {
-	return fmt.Errorf("%s: value overflows %s", NewCastError(value, target), target)
+	return fmt.Errorf("%w: value overflows %s", NewCastError(value, target), target)
 }
 
 func (c StandardCaster) negativeError(value any, target string) error {
-	return fmt.Errorf("%s: negative value", NewCastError(value, target))
+	return fmt.Errorf("%w: negative value", NewCastError(value, target))
 }
 
 func (c StandardCaster) inexactError(value any, target string) error {
-	return fmt.Errorf("%s: value is not exactly representable", NewCastError(value, target))
+	return fmt.Errorf("%w: value is not exactly representable", NewCastError(value, target))
 }
 
+// ErrCannotCast is wrapped by every conversion rejection, so callers can
+// distinguish cast failures from missing parameters (ErrParameterNotFound).
+var ErrCannotCast = errors.New("cannot cast")
+
 // NewCastError reports that a raw parameter value cannot be converted to the
-// target type, naming both the value's dynamic type and the target. Custom
-// Caster implementations can use it to keep their errors consistent with
-// StandardCaster.
+// target type, naming both the value's dynamic type and the target. The
+// returned error wraps ErrCannotCast. Custom Caster implementations can use
+// it to keep their errors consistent with StandardCaster.
 func NewCastError(value any, target string) error {
 	var desc string
 	switch v := value.(type) {
@@ -412,5 +417,5 @@ func NewCastError(value any, target string) error {
 	default:
 		desc = fmt.Sprintf("%T %v", value, v)
 	}
-	return fmt.Errorf("cannot cast %s to %s", desc, target)
+	return fmt.Errorf("%w %s to %s", ErrCannotCast, desc, target)
 }
