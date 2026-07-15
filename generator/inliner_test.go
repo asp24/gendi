@@ -26,7 +26,7 @@ func TestInlinerMakeSlice_Inlines(t *testing.T) {
 	inliner := NewInlinerMakeSlice(imports)
 	cons := constructorDef{
 		kind:    "func",
-		funcObj: newFunc("github.com/asp24/gendi/stdlib", "stdlib", "MakeSlice"),
+		funcObj: newFunc("github.com/gendi-org/gendi/stdlib", "stdlib", "MakeSlice"),
 		result:  types.NewSlice(types.Typ[types.Int]),
 	}
 
@@ -75,7 +75,7 @@ func TestInlinerMakeChan_Inlines(t *testing.T) {
 	inliner := NewInlinerMakeChan(imports)
 	cons := constructorDef{
 		kind:    "func",
-		funcObj: newFunc("github.com/asp24/gendi/stdlib", "stdlib", "NewChan"),
+		funcObj: newFunc("github.com/gendi-org/gendi/stdlib", "stdlib", "NewChan"),
 		result:  types.NewChan(types.SendRecv, types.Typ[types.Int]),
 	}
 
@@ -93,7 +93,7 @@ func TestInlinerMakeChan_WrongArgCount(t *testing.T) {
 	inliner := NewInlinerMakeChan(imports)
 	cons := constructorDef{
 		kind:    "func",
-		funcObj: newFunc("github.com/asp24/gendi/stdlib", "stdlib", "NewChan"),
+		funcObj: newFunc("github.com/gendi-org/gendi/stdlib", "stdlib", "NewChan"),
 		result:  types.NewChan(types.SendRecv, types.Typ[types.Int]),
 	}
 

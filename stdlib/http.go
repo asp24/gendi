@@ -18,7 +18,7 @@ import (
 //	services:
 //	  http_client:
 //	    constructor:
-//	      func: "github.com/asp24/gendi/stdlib.NewHTTPClient"
+//	      func: "github.com/gendi-org/gendi/stdlib.NewHTTPClient"
 //	      args:
 //	        - "%http.timeout%"
 //	    public: true
@@ -36,12 +36,12 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 //	services:
 //	  http_transport:
 //	    constructor:
-//	      func: "github.com/asp24/gendi/stdlib.NewHTTPTransport"
+//	      func: "github.com/gendi-org/gendi/stdlib.NewHTTPTransport"
 //	      args: [100, 10, 90s]
 //
 //	  http_client:
 //	    constructor:
-//	      func: "github.com/asp24/gendi/stdlib.NewHTTPClientWithTransport"
+//	      func: "github.com/gendi-org/gendi/stdlib.NewHTTPClientWithTransport"
 //	      args:
 //	        - "%http.timeout%"
 //	        - "@http.transport"
@@ -65,7 +65,7 @@ func NewHTTPClientWithTransport(timeout time.Duration, transport http.RoundTripp
 //	services:
 //	  http_transport:
 //	    constructor:
-//	      func: "github.com/asp24/gendi/stdlib.NewHTTPTransport"
+//	      func: "github.com/gendi-org/gendi/stdlib.NewHTTPTransport"
 //	      args: [100, 10, 90s]
 func NewHTTPTransport(maxIdleConns, maxIdleConnsPerHost int, idleConnTimeout time.Duration) *http.Transport {
 	return &http.Transport{

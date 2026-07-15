@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	di "github.com/asp24/gendi"
+	di "github.com/gendi-org/gendi"
 )
 
 func loadConfigString(t *testing.T, content string) (*di.Config, error) {

@@ -5,9 +5,9 @@ import (
 	"go/types"
 	"strings"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/srcloc"
-	"github.com/asp24/gendi/typeres"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/srcloc"
+	"github.com/gendi-org/gendi/typeres"
 )
 
 // constructorResolverPhase resolves service constructors (functions, methods, and aliases)

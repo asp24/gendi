@@ -1,8 +1,8 @@
 package yaml
 
 import (
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/imprt"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/imprt"
 )
 
 // LoadConfig loads a YAML config file with imports resolved.

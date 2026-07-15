@@ -3,7 +3,7 @@ package generator
 import (
 	"go/types"
 
-	"github.com/asp24/gendi/ir"
+	"github.com/gendi-org/gendi/ir"
 )
 
 type serviceDef struct {

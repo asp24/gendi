@@ -1,8 +1,8 @@
 package ir
 
 import (
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/srcloc"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/srcloc"
 )
 
 // parameterPhase registers declared parameters (defaults) from config.

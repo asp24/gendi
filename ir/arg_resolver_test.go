@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	di "github.com/asp24/gendi"
+	di "github.com/gendi-org/gendi"
 )
 
 // testResolver implements TypeResolver for arg_resolver tests.

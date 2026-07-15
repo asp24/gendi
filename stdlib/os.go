@@ -13,7 +13,7 @@ import (
 //	services:
 //	  stdlib.stdout:
 //	    constructor:
-//	      func: "github.com/asp24/gendi/stdlib.NewStdout"
+//	      func: "github.com/gendi-org/gendi/stdlib.NewStdout"
 //	  	shared: false
 func NewStdout() io.Writer {
 	return os.Stdout
@@ -27,7 +27,7 @@ func NewStdout() io.Writer {
 //	services:
 //	  stdlib.stderr:
 //	    constructor:
-//	      func: "github.com/asp24/gendi/stdlib.NewStderr"
+//	      func: "github.com/gendi-org/gendi/stdlib.NewStderr"
 //	  	shared: false
 func NewStderr() io.Writer {
 	return os.Stderr

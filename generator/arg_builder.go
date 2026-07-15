@@ -5,8 +5,8 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/asp24/gendi/ir"
-	"github.com/asp24/gendi/typeres"
+	"github.com/gendi-org/gendi/ir"
+	"github.com/gendi-org/gendi/typeres"
 )
 
 // argBuildContext bundles parameters for building constructor arguments.

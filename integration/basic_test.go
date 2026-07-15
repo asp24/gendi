@@ -85,9 +85,9 @@ func createGoMod(goModPath string) error {
 
 go 1.25.4
 
-require github.com/asp24/gendi v0.0.0
+require github.com/gendi-org/gendi v0.0.0
 
-replace github.com/asp24/gendi => %s
+replace github.com/gendi-org/gendi => %s
 `, getModuleRoot())
 
 	return os.WriteFile(goModPath, []byte(goModContent), 0644)

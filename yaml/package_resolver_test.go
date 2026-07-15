@@ -20,8 +20,8 @@ func TestResolvePackagePath(t *testing.T) {
 	}
 
 	// Should end with /yaml since this is the yaml package
-	if pkg != "github.com/asp24/gendi/yaml" {
-		t.Errorf("expected package 'github.com/asp24/gendi/yaml', got '%s'", pkg)
+	if pkg != "github.com/gendi-org/gendi/yaml" {
+		t.Errorf("expected package 'github.com/gendi-org/gendi/yaml', got '%s'", pkg)
 	}
 }
 
@@ -41,8 +41,8 @@ func TestResolvePackagePathModuleRoot(t *testing.T) {
 	}
 
 	// Module root should return just the module path
-	if pkg != "github.com/asp24/gendi" {
-		t.Errorf("expected package 'github.com/asp24/gendi', got '%s'", pkg)
+	if pkg != "github.com/gendi-org/gendi" {
+		t.Errorf("expected package 'github.com/gendi-org/gendi', got '%s'", pkg)
 	}
 }
 

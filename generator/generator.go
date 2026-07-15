@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"go/format"
 
-	di "github.com/asp24/gendi"
+	di "github.com/gendi-org/gendi"
 )
 
 // Options holds rendering-specific options for code generation.
@@ -38,7 +38,7 @@ func (g *Generator) assembleOutput(options Options, importManager *ImportManager
 	fmt.Fprintf(out, "package %s\n\n", options.Package)
 
 	// fmt is only imported when emitted code needs it (importManager.Require).
-	extraImports := []string{"sync", "github.com/asp24/gendi/parameters"}
+	extraImports := []string{"sync", "github.com/gendi-org/gendi/parameters"}
 	out.WriteString(importManager.renderImports(extraImports))
 	out.Write(body.Bytes())
 

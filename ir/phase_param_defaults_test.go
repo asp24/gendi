@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	di "github.com/asp24/gendi"
+	di "github.com/gendi-org/gendi"
 )
 
 func buildParamUsageContainer(paramName string, target types.Type) *Container {

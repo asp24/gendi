@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/asp24/gendi/cmd"
+	"github.com/gendi-org/gendi/cmd"
 )
 
 func main() {

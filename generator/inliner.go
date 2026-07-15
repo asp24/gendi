@@ -34,7 +34,7 @@ func isStdlibCall(cons constructorDef, funcName string) bool {
 	}
 
 	pkg := cons.funcObj.Pkg()
-	return pkg != nil && pkg.Path() == "github.com/asp24/gendi/stdlib"
+	return pkg != nil && pkg.Path() == "github.com/gendi-org/gendi/stdlib"
 }
 
 type InlinerMakeSlice struct {

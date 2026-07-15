@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/asp24/gendi/ir"
+	"github.com/gendi-org/gendi/ir"
 )
 
 func literalValueExpr(lit ir.LiteralValue) (string, error) {

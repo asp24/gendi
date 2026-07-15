@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/asp24/gendi/examples/basic/internal/di"
-	"github.com/asp24/gendi/parameters"
+	"github.com/gendi-org/gendi/examples/basic/internal/di"
+	"github.com/gendi-org/gendi/parameters"
 )
 
 func TestMustGetterWithCallback(t *testing.T) {

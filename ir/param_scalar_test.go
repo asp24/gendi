@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asp24/gendi/parameters"
+	"github.com/gendi-org/gendi/parameters"
 )
 
 func newNamedType(pkgPath, pkgName, typeName string, underlying types.Type) types.Type {

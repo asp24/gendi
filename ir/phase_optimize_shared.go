@@ -3,7 +3,7 @@ package ir
 import (
 	"slices"
 
-	di "github.com/asp24/gendi"
+	di "github.com/gendi-org/gendi"
 )
 
 type sharedOptimizerPhase struct{}

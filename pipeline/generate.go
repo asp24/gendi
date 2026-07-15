@@ -1,8 +1,8 @@
 package pipeline
 
 import (
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/generator"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/generator"
 )
 
 // Emit compiles a DI config and emits generated Go source code.

@@ -1,9 +1,9 @@
 package generator
 
 import (
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/ir"
-	"github.com/asp24/gendi/typeres"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/ir"
+	"github.com/gendi-org/gendi/typeres"
 )
 
 // IrConverter builds the generation context using the IR layer.

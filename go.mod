@@ -1,4 +1,4 @@
-module github.com/asp24/gendi
+module github.com/gendi-org/gendi
 
 go 1.25.4
 

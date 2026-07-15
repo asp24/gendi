@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"maps"
 
-	"github.com/asp24/gendi/srcloc"
+	"github.com/gendi-org/gendi/srcloc"
 )
 
 // Pass is a compiler pass that transforms config before validation and generation.

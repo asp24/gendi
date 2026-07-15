@@ -1,7 +1,15 @@
 # gendi - Compile-Time Dependency Injection for Go
 
-[![CI](https://github.com/asp24/gendi/actions/workflows/ci.yml/badge.svg)](https://github.com/asp24/gendi/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/asp24/gendi)](https://goreportcard.com/report/github.com/asp24/gendi)
+> **Repository migration:** gendi has moved from `github.com/asp24/gendi` to
+> `github.com/gendi-org/gendi`. Update module dependencies and imports to the
+> new path. From your project's root directory, run:
+>
+> ```bash
+> find . -type f -not -path './.git/*' -exec perl -pi -e 's{github\.com/asp24/gendi}{github.com/gendi-org/gendi}g' {} +
+> ```
+
+[![CI](https://github.com/gendi-org/gendi/actions/workflows/ci.yml/badge.svg)](https://github.com/gendi-org/gendi/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/gendi-org/gendi)](https://goreportcard.com/report/github.com/gendi-org/gendi)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 
 `gendi` is a compile-time dependency injection container generator for Go. It reads YAML configuration files and generates type-safe, efficient container code with full compile-time validation.
@@ -28,7 +36,7 @@
 Add gendi as a tool dependency to your project:
 
 ```bash
-go get -tool github.com/asp24/gendi/cmd/gendi
+go get -tool github.com/gendi-org/gendi/cmd/gendi
 ```
 
 This adds gendi to your `go.mod` and allows running it via `go tool gendi`.
@@ -177,7 +185,7 @@ Pre-configured services for common stdlib types (HTTP clients, loggers, channels
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib/gendi.yaml
+  - github.com/gendi-org/gendi/stdlib/gendi.yaml
 
 services:
   my_service:
@@ -206,12 +214,12 @@ services:
 - **[Custom Passes Guide](./doc/custom-passes.md)** - Writing custom compiler passes
 - **[stdlib Services](./stdlib/README.md)** - Pre-configured standard library services
 - **[Technical Specification](./doc/spec/README.md)** - Architecture and design decisions
-- **[API Documentation](https://pkg.go.dev/github.com/asp24/gendi)** - Go package documentation
+- **[API Documentation](https://pkg.go.dev/github.com/gendi-org/gendi)** - Go package documentation
 
 ## Requirements
 
 - Go 1.25.4 or later
-- No runtime dependencies for generated code (except `github.com/asp24/gendi/parameters`)
+- No runtime dependencies for generated code (except `github.com/gendi-org/gendi/parameters`)
 
 ## License
 

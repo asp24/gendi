@@ -308,7 +308,7 @@ Support for Go generics with type arguments:
 services:
   events:
     constructor:
-      func: "github.com/asp24/gendi/stdlib.NewChan[github.com/myapp/events.Event]"
+      func: "github.com/gendi-org/gendi/stdlib.NewChan[github.com/myapp/events.Event]"
       args:
         - 100  # buffer size
     public: true
@@ -547,7 +547,7 @@ Import from Go modules:
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib/gendi.yaml
+  - github.com/gendi-org/gendi/stdlib/gendi.yaml
 ```
 
 Resolves to module's root directory and loads `gendi.yaml`.
@@ -791,7 +791,7 @@ return logger.With("channel", "database"), nil
 ```yaml
 # Import stdlib and base services
 imports:
-  - github.com/asp24/gendi/stdlib/gendi.yaml
+  - github.com/gendi-org/gendi/stdlib/gendi.yaml
   - ./services/base.yaml
 
 # Configuration parameters

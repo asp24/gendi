@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/asp24/gendi/examples/decorator/internal/di"
+	"github.com/gendi-org/gendi/examples/decorator/internal/di"
 )
 
-//go:generate go run github.com/asp24/gendi/cmd/gendi --config=gendi.yaml --out=./internal/di --pkg=di
+//go:generate go run github.com/gendi-org/gendi/cmd/gendi --config=gendi.yaml --out=./internal/di --pkg=di
 
 func main() {
 	container := &di.Container{}

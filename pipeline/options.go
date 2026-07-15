@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/asp24/gendi/typeres"
+	"github.com/gendi-org/gendi/typeres"
 )
 
 type Options struct {

@@ -1,7 +1,7 @@
 package ir
 
 import (
-	di "github.com/asp24/gendi"
+	di "github.com/gendi-org/gendi"
 )
 
 type unreachablePrunePhase struct{}

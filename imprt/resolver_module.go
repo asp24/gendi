@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/asp24/gendi/gomod"
+	"github.com/gendi-org/gendi/gomod"
 )
 
 // ResolverModule handles Go module imports.

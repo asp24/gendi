@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/srcloc"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/srcloc"
 )
 
 func writeYAML(t *testing.T, content string) string {

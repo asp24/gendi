@@ -5,7 +5,7 @@ import (
 	"iter"
 	"slices"
 
-	"github.com/asp24/gendi/xmaps"
+	"github.com/gendi-org/gendi/xmaps"
 )
 
 // Container is the fully resolved intermediate representation of a DI container.

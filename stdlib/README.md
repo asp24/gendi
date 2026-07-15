@@ -8,7 +8,7 @@ Import the stdlib services in your gendi configuration:
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib/gendi.yaml
+  - github.com/gendi-org/gendi/stdlib/gendi.yaml
 ```
 
 This imports pre-configured services for HTTP clients, loggers, and I/O.
@@ -17,7 +17,7 @@ This imports pre-configured services for HTTP clients, loggers, and I/O.
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib/gendi.yaml
+  - github.com/gendi-org/gendi/stdlib/gendi.yaml
 
 services:
   my_service:
@@ -154,7 +154,7 @@ Creates a buffered channel of any type.
 services:
   events:
     constructor:
-      func: "github.com/asp24/gendi/stdlib.NewChan[github.com/myapp.Event]"
+      func: "github.com/gendi-org/gendi/stdlib.NewChan[github.com/myapp.Event]"
       args:
         - 100  # Buffer size
     public: true
@@ -182,7 +182,7 @@ Creates HTTP client with timeout.
 services:
   fast_client:
     constructor:
-      func: "github.com/asp24/gendi/stdlib.NewHTTPClient"
+      func: "github.com/gendi-org/gendi/stdlib.NewHTTPClient"
       args:
         - 5000000000  # 5 seconds in nanoseconds
 ```
@@ -195,7 +195,7 @@ Creates HTTP client with custom transport.
 services:
   custom_client:
     constructor:
-      func: "github.com/asp24/gendi/stdlib.NewHTTPClientWithTransport"
+      func: "github.com/gendi-org/gendi/stdlib.NewHTTPClientWithTransport"
       args:
         - "%http_timeout%"
         - "@custom_transport"
@@ -209,7 +209,7 @@ Creates HTTP transport with connection pooling.
 services:
   high_perf_transport:
     constructor:
-      func: "github.com/asp24/gendi/stdlib.NewHTTPTransport"
+      func: "github.com/gendi-org/gendi/stdlib.NewHTTPTransport"
       args:
         - 200   # Max idle connections
         - 20    # Max idle per host
@@ -226,7 +226,7 @@ Creates text format log handler.
 services:
   text_handler:
     constructor:
-      func: "github.com/asp24/gendi/stdlib.NewSlogTextHandler"
+      func: "github.com/gendi-org/gendi/stdlib.NewSlogTextHandler"
       args:
         - "@stdlib.stdout"
         - 0  # Info level
@@ -240,7 +240,7 @@ Creates JSON format log handler.
 services:
   json_handler:
     constructor:
-      func: "github.com/asp24/gendi/stdlib.NewSlogJSONHandler"
+      func: "github.com/gendi-org/gendi/stdlib.NewSlogJSONHandler"
       args:
         - "@stdlib.stderr"
         - -4  # Debug level
@@ -254,7 +254,7 @@ Creates logger from handler.
 services:
   custom_logger:
     constructor:
-      func: "github.com/asp24/gendi/stdlib.NewSlogLogger"
+      func: "github.com/gendi-org/gendi/stdlib.NewSlogLogger"
       args:
         - "@custom_handler"
 ```
@@ -269,7 +269,7 @@ Returns `os.Stdout`.
 services:
   stdout:
     constructor:
-      func: "github.com/asp24/gendi/stdlib.NewStdout"
+      func: "github.com/gendi-org/gendi/stdlib.NewStdout"
 ```
 
 **`NewStderr() io.Writer`**
@@ -280,7 +280,7 @@ Returns `os.Stderr`.
 services:
   stderr:
     constructor:
-      func: "github.com/asp24/gendi/stdlib.NewStderr"
+      func: "github.com/gendi-org/gendi/stdlib.NewStderr"
 ```
 
 ### Slices
@@ -293,7 +293,7 @@ Creates an empty slice of any type.
 services:
   handlers:
     constructor:
-      func: "github.com/asp24/gendi/stdlib.NewSlice[github.com/myapp.Handler]"
+      func: "github.com/gendi-org/gendi/stdlib.NewSlice[github.com/myapp.Handler]"
 ```
 
 ## Parameter Overrides
@@ -302,7 +302,7 @@ Override default parameters in your configuration:
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib/gendi.yaml
+  - github.com/gendi-org/gendi/stdlib/gendi.yaml
 
 parameters:
   # Override HTTP timeout
@@ -446,7 +446,7 @@ services:
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib/gendi.yaml
+  - github.com/gendi-org/gendi/stdlib/gendi.yaml
 
 parameters:
   stdlib.http.timeout:
@@ -465,7 +465,7 @@ services:
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib/gendi.yaml
+  - github.com/gendi-org/gendi/stdlib/gendi.yaml
 
 parameters:
   stdlib.slog.level:
@@ -487,7 +487,7 @@ services:
 services:
   order_events:
     constructor:
-      func: "github.com/asp24/gendi/stdlib.NewChan[github.com/myapp/orders.OrderEvent]"
+      func: "github.com/gendi-org/gendi/stdlib.NewChan[github.com/myapp/orders.OrderEvent]"
       args:
         - 100  # Buffer size
     public: true
@@ -503,7 +503,7 @@ services:
 
 ```yaml
 imports:
-  - github.com/asp24/gendi/stdlib/gendi.yaml
+  - github.com/gendi-org/gendi/stdlib/gendi.yaml
 
 parameters:
   stdlib.http.timeout:
@@ -562,9 +562,9 @@ Automatically wires structured logging into services that follow the slog naming
 ```go
 import (
     "flag"
-    gendi "github.com/asp24/gendi"
-    "github.com/asp24/gendi/cmd"
-    "github.com/asp24/gendi/stdlib"
+    gendi "github.com/gendi-org/gendi"
+    "github.com/gendi-org/gendi/cmd"
+    "github.com/gendi-org/gendi/stdlib"
 )
 
 func main() {
@@ -591,5 +591,5 @@ func main() {
 ## See Also
 
 - [Configuration Reference](../doc/configuration.md)
-- [API Documentation](https://pkg.go.dev/github.com/asp24/gendi/stdlib)
+- [API Documentation](https://pkg.go.dev/github.com/gendi-org/gendi/stdlib)
 - [Examples](../examples/)

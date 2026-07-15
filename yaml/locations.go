@@ -3,7 +3,7 @@ package yaml
 import (
 	"github.com/goccy/go-yaml/ast"
 
-	"github.com/asp24/gendi/srcloc"
+	"github.com/gendi-org/gendi/srcloc"
 )
 
 // newLocation builds a *srcloc.Location from a goccy AST node.

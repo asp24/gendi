@@ -12,8 +12,8 @@ import (
 	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/parser"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/srcloc"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/srcloc"
 )
 
 // mustParseNode parses a YAML snippet via goccy and returns the

@@ -1,10 +1,10 @@
 package pipeline
 
 import (
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/ir"
-	"github.com/asp24/gendi/typeres"
-	"github.com/asp24/gendi/xmaps"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/ir"
+	"github.com/gendi-org/gendi/typeres"
+	"github.com/gendi-org/gendi/xmaps"
 )
 
 // Output is the compiled result of the config pipeline, ready for code generation.
@@ -101,7 +101,7 @@ func collectPackagePaths(cfg *di.Config) (required, candidates []string) {
 	}
 
 	if hasTagsOrTaggedArgs(cfg) {
-		seen["github.com/asp24/gendi/stdlib"] = true
+		seen["github.com/gendi-org/gendi/stdlib"] = true
 	}
 
 	for p := range candidateSet {

@@ -3,7 +3,7 @@ package ir
 import (
 	"testing"
 
-	di "github.com/asp24/gendi"
+	di "github.com/gendi-org/gendi"
 )
 
 func TestPruneUnusedParamsRemovesUnreferenced(t *testing.T) {

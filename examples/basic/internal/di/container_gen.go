@@ -3,8 +3,8 @@ package di
 
 import (
 	"fmt"
-	app "github.com/asp24/gendi/examples/basic/app"
-	"github.com/asp24/gendi/parameters"
+	app "github.com/gendi-org/gendi/examples/basic/app"
+	"github.com/gendi-org/gendi/parameters"
 	"sync"
 )
 

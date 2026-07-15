@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/asp24/gendi/imprt"
-	"github.com/asp24/gendi/srcloc"
+	"github.com/gendi-org/gendi/imprt"
+	"github.com/gendi-org/gendi/srcloc"
 )
 
 type stubResolver struct {

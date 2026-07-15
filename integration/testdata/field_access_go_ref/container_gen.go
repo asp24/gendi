@@ -4,7 +4,7 @@ package main
 import (
 	"sync"
 
-	"github.com/asp24/gendi/parameters"
+	"github.com/gendi-org/gendi/parameters"
 )
 
 type Container struct {

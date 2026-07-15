@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"go/types"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/typeres"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/typeres"
 )
 
 // convertLiteral converts a di.Literal to IR LiteralValue

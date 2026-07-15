@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/asp24/gendi/ir"
+	"github.com/gendi-org/gendi/ir"
 )
 
 func durationLiteralValue(lit ir.LiteralValue) (int64, error) {

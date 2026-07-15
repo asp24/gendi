@@ -3,8 +3,8 @@ package generator
 import (
 	"testing"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/ir"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/ir"
 )
 
 func TestLiteralExpr_Float(t *testing.T) {

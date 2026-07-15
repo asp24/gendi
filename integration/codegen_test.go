@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/pipeline"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/pipeline"
 )
 
 func testEmitOptions(t *testing.T) pipeline.Options {
@@ -41,7 +41,7 @@ func TestRequiresPublicService(t *testing.T) {
 		Services: map[string]di.Service{
 			"a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
 				},
 			},
 		},
@@ -57,12 +57,12 @@ func TestReachabilityAndPublicGetters(t *testing.T) {
 		Services: map[string]di.Service{
 			"a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
 				},
 			},
 			"b": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewB",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewB",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "a"},
 					},
@@ -71,7 +71,7 @@ func TestReachabilityAndPublicGetters(t *testing.T) {
 			},
 			"unused": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewC",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewC",
 				},
 			},
 		},
@@ -100,14 +100,14 @@ func TestPublicTagGetter(t *testing.T) {
 	cfg := &di.Config{
 		Tags: map[string]di.Tag{
 			"svc.tag": {
-				ElementType: "github.com/asp24/gendi/generator/testdata/app.Service",
+				ElementType: "github.com/gendi-org/gendi/generator/testdata/app.Service",
 				Public:      true,
 			},
 		},
 		Services: map[string]di.Service{
 			"base": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
 				},
 				Tags: []di.ServiceTag{
 					{Name: "svc.tag"},
@@ -142,13 +142,13 @@ func TestTaggedInjectionConversion(t *testing.T) {
 	cfg := &di.Config{
 		Tags: map[string]di.Tag{
 			"test.tag": {
-				ElementType: "*github.com/asp24/gendi/generator/testdata/app.A",
+				ElementType: "*github.com/gendi-org/gendi/generator/testdata/app.A",
 			},
 		},
 		Services: map[string]di.Service{
 			"a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
 				},
 				Tags: []di.ServiceTag{
 					{Name: "test.tag"},
@@ -156,7 +156,7 @@ func TestTaggedInjectionConversion(t *testing.T) {
 			},
 			"consumer": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewInterfaceConsumer",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewInterfaceConsumer",
 					Args: []di.Argument{
 						{Kind: di.ArgTagged, Value: "test.tag"},
 					},
@@ -195,7 +195,7 @@ func TestParameterProviderCodegen(t *testing.T) {
 		Services: map[string]di.Service{
 			"logger": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
 						{Kind: di.ArgParam, Value: "log_prefix"},
 					},
@@ -227,7 +227,7 @@ func TestDurationParameterCodegen(t *testing.T) {
 		Services: map[string]di.Service{
 			"timer": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimer",
 					Args: []di.Argument{
 						{Kind: di.ArgParam, Value: "timeout"},
 					},
@@ -255,7 +255,7 @@ func TestIntParameterDefaultRenderedAsInt64(t *testing.T) {
 		Services: map[string]di.Service{
 			"timer": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimer",
 					Args: []di.Argument{
 						{Kind: di.ArgParam, Value: "timeout"},
 					},
@@ -281,7 +281,7 @@ func TestParameterDefaultCastRejected(t *testing.T) {
 		Services: map[string]di.Service{
 			"timer": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimer",
 					Args: []di.Argument{
 						{Kind: di.ArgParam, Value: "timeout"},
 					},
@@ -302,7 +302,7 @@ func TestNullLiteralArgument(t *testing.T) {
 		Services: map[string]di.Service{
 			"b": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewB",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewB",
 					Args: []di.Argument{
 						{Kind: di.ArgLiteral, Literal: di.NewNullLiteral()},
 					},
@@ -323,7 +323,7 @@ func TestServiceAliasCodegen(t *testing.T) {
 		Services: map[string]di.Service{
 			"logger": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
 						{Kind: di.ArgParam, Value: "log_prefix"},
 					},
@@ -359,7 +359,7 @@ func TestServiceAliasSharedRejected(t *testing.T) {
 		Services: map[string]di.Service{
 			"logger": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
 				},
 			},
 			"logger.alias": {
@@ -383,14 +383,14 @@ func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 		Services: map[string]di.Service{
 			"svc": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
 				},
 				Public: true,
 				Shared: true,
 			},
 			"svc.decoratorA": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorA",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -401,7 +401,7 @@ func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
 			},
 			"svc.decoratorB": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorB",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorB",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -439,12 +439,12 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 		Services: map[string]di.Service{
 			"svc": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
 				},
 			},
 			"svc.decoratorA": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorA",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -454,7 +454,7 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 			},
 			"consumer": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewConsumer",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewConsumer",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "svc.decoratorA"},
 					},
@@ -477,9 +477,9 @@ func TestServiceTypeAssignableOverride(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{
 			"svc": {
-				Type: "github.com/asp24/gendi/generator/testdata/app.Service",
+				Type: "github.com/gendi-org/gendi/generator/testdata/app.Service",
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBaseConcrete",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBaseConcrete",
 				},
 				Public: true,
 			},
@@ -495,15 +495,15 @@ func TestDecoratorAssignableToDeclaredBaseType(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{
 			"svc": {
-				Type: "github.com/asp24/gendi/generator/testdata/app.Service",
+				Type: "github.com/gendi-org/gendi/generator/testdata/app.Service",
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBaseConcrete",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBaseConcrete",
 				},
 				Public: true,
 			},
 			"svc.decorator": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorAConcrete",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorAConcrete",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -524,7 +524,7 @@ func TestGenericFunctionConstructor(t *testing.T) {
 		Services: map[string]di.Service{
 			"events": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/generics.NewChan[github.com/asp24/gendi/generator/testdata/generics.Event]",
+					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewChan[github.com/gendi-org/gendi/generator/testdata/generics.Event]",
 					Args: []di.Argument{
 						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(100)},
 					},
@@ -549,7 +549,7 @@ func TestGenericPoolConstructor(t *testing.T) {
 		Services: map[string]di.Service{
 			"message_pool": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/generics.NewPool[github.com/asp24/gendi/generator/testdata/generics.Message]",
+					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewPool[github.com/gendi-org/gendi/generator/testdata/generics.Message]",
 					Args: []di.Argument{
 						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
 					},
@@ -574,7 +574,7 @@ func TestGenericSliceTypeArg(t *testing.T) {
 		Services: map[string]di.Service{
 			"event_slice": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/generics.NewSlice[[]github.com/asp24/gendi/generator/testdata/generics.Event]",
+					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewSlice[[]github.com/gendi-org/gendi/generator/testdata/generics.Event]",
 					Args: []di.Argument{
 						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
 					},
@@ -596,7 +596,7 @@ func TestGenericMapTypeArgs(t *testing.T) {
 		Services: map[string]di.Service{
 			"event_map": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/generics.NewMap[string, github.com/asp24/gendi/generator/testdata/generics.Event]",
+					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewMap[string, github.com/gendi-org/gendi/generator/testdata/generics.Event]",
 				},
 				Public: true,
 			},
@@ -618,7 +618,7 @@ func TestGenericChanTypeArg(t *testing.T) {
 		Services: map[string]di.Service{
 			"chan_of_chans": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/generics.NewChan[chan github.com/asp24/gendi/generator/testdata/generics.Event]",
+					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewChan[chan github.com/gendi-org/gendi/generator/testdata/generics.Event]",
 					Args: []di.Argument{
 						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(5)},
 					},
@@ -643,7 +643,7 @@ func TestGenericFunctionWithoutTypeArgsError(t *testing.T) {
 		Services: map[string]di.Service{
 			"events": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/generics.NewChan",
+					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewChan",
 					Args: []di.Argument{
 						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(100)},
 					},
@@ -666,9 +666,9 @@ func TestGenericTypeWithTypeArgs(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{
 			"pool": {
-				Type: "*github.com/asp24/gendi/generator/testdata/generics.Pool[github.com/asp24/gendi/generator/testdata/generics.Message]",
+				Type: "*github.com/gendi-org/gendi/generator/testdata/generics.Pool[github.com/gendi-org/gendi/generator/testdata/generics.Message]",
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/generics.NewPool[github.com/asp24/gendi/generator/testdata/generics.Message]",
+					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewPool[github.com/gendi-org/gendi/generator/testdata/generics.Message]",
 					Args: []di.Argument{
 						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
 					},
@@ -689,9 +689,9 @@ func TestGenericTypeWithoutTypeArgsError(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{
 			"pool": {
-				Type: "github.com/asp24/gendi/generator/testdata/generics.Pool",
+				Type: "github.com/gendi-org/gendi/generator/testdata/generics.Pool",
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/generics.NewPool[github.com/asp24/gendi/generator/testdata/generics.Message]",
+					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewPool[github.com/gendi-org/gendi/generator/testdata/generics.Message]",
 					Args: []di.Argument{
 						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
 					},
@@ -714,9 +714,9 @@ func TestNonGenericTypeWithTypeArgsError(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{
 			"event": {
-				Type: "github.com/asp24/gendi/generator/testdata/generics.Event[string]",
+				Type: "github.com/gendi-org/gendi/generator/testdata/generics.Event[string]",
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/generics.NewChan[github.com/asp24/gendi/generator/testdata/generics.Event]",
+					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewChan[github.com/gendi-org/gendi/generator/testdata/generics.Event]",
 					Args: []di.Argument{
 						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
 					},
@@ -740,17 +740,17 @@ func TestSpreadWithServiceRef(t *testing.T) {
 		Services: map[string]di.Service{
 			"handler.a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
 				},
 			},
 			"handler.b": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerB",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerB",
 				},
 			},
 			"all_handlers": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.GetAllHandlers",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.GetAllHandlers",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "handler.a"},
 						{Kind: di.ArgServiceRef, Value: "handler.a"},
@@ -760,7 +760,7 @@ func TestSpreadWithServiceRef(t *testing.T) {
 			},
 			"server": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServer",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServer",
 					Args: []di.Argument{
 						{Kind: di.ArgSpread, Value: "@all_handlers"},
 					},
@@ -788,12 +788,12 @@ func TestSpreadWithServiceRefPropagatesDependencyErrors(t *testing.T) {
 		Services: map[string]di.Service{
 			"handler.a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
 				},
 			},
 			"all_handlers": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.GetAllHandlersWithError",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.GetAllHandlersWithError",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "handler.a"},
 						{Kind: di.ArgServiceRef, Value: "handler.a"},
@@ -802,7 +802,7 @@ func TestSpreadWithServiceRefPropagatesDependencyErrors(t *testing.T) {
 			},
 			"server": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServer",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServer",
 					Args: []di.Argument{
 						{Kind: di.ArgSpread, Value: "@all_handlers"},
 					},
@@ -826,13 +826,13 @@ func TestSpreadWithTagged(t *testing.T) {
 	cfg := &di.Config{
 		Tags: map[string]di.Tag{
 			"handler": {
-				ElementType: "github.com/asp24/gendi/generator/testdata/app.Handler",
+				ElementType: "github.com/gendi-org/gendi/generator/testdata/app.Handler",
 			},
 		},
 		Services: map[string]di.Service{
 			"handler.a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
 				},
 				Tags: []di.ServiceTag{
 					{Name: "handler"},
@@ -840,7 +840,7 @@ func TestSpreadWithTagged(t *testing.T) {
 			},
 			"handler.b": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerB",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerB",
 				},
 				Tags: []di.ServiceTag{
 					{Name: "handler"},
@@ -848,7 +848,7 @@ func TestSpreadWithTagged(t *testing.T) {
 			},
 			"server": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServer",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServer",
 					Args: []di.Argument{
 						{Kind: di.ArgSpread, Value: "!tagged:handler"},
 					},
@@ -876,17 +876,17 @@ func TestSpreadWithMixedArgs(t *testing.T) {
 		Services: map[string]di.Service{
 			"handler.a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
 				},
 			},
 			"handler.b": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerB",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerB",
 				},
 			},
 			"more_handlers": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.GetAllHandlers",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.GetAllHandlers",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "handler.a"},
 						{Kind: di.ArgServiceRef, Value: "handler.a"},
@@ -898,7 +898,7 @@ func TestSpreadWithMixedArgs(t *testing.T) {
 				Constructor: di.Constructor{
 					// NewPrefixedServer(prefix string, handlers ...Handler):
 					// regular parameters may precede the spread.
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewPrefixedServer",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewPrefixedServer",
 					Args: []di.Argument{
 						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("api")},
 						{Kind: di.ArgSpread, Value: "@more_handlers"},
@@ -930,7 +930,7 @@ func TestGoRefArgument(t *testing.T) {
 		Services: map[string]di.Service{
 			"writer": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewWriter",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewWriter",
 					Args: []di.Argument{
 						{Kind: di.ArgGoRef, Value: "os.Stdout"},
 					},
@@ -955,9 +955,9 @@ func TestGoRefArgumentWithPackageLevelVar(t *testing.T) {
 		Services: map[string]di.Service{
 			"logger": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
-						{Kind: di.ArgGoRef, Value: "github.com/asp24/gendi/generator/testdata/app.DefaultPrefix"},
+						{Kind: di.ArgGoRef, Value: "github.com/gendi-org/gendi/generator/testdata/app.DefaultPrefix"},
 					},
 				},
 				Public: true,
@@ -980,7 +980,7 @@ func TestGoRefArgumentTypeMismatch(t *testing.T) {
 		Services: map[string]di.Service{
 			"logger": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
 						{Kind: di.ArgGoRef, Value: "os.Stdout"},
 					},
@@ -1004,12 +1004,12 @@ func TestFieldAccessOnService(t *testing.T) {
 		Services: map[string]di.Service{
 			"config": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.LoadConfig",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.LoadConfig",
 				},
 			},
 			"server": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServerWithAddr",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServerWithAddr",
 					Args: []di.Argument{
 						{Kind: di.ArgFieldAccessService, Value: "config.Host"},
 						{Kind: di.ArgFieldAccessService, Value: "config.Port"},
@@ -1035,12 +1035,12 @@ func TestFieldAccessOnServicePropagatesDependencyErrors(t *testing.T) {
 		Services: map[string]di.Service{
 			"config": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.LoadConfigWithError",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.LoadConfigWithError",
 				},
 			},
 			"server": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
 						{Kind: di.ArgFieldAccessService, Value: "config.Host"},
 					},
@@ -1065,12 +1065,12 @@ func TestFieldAccessNested(t *testing.T) {
 		Services: map[string]di.Service{
 			"config": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.LoadConfig",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.LoadConfig",
 				},
 			},
 			"logger": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
 						{Kind: di.ArgFieldAccessService, Value: "config.Database.DSN"},
 					},
@@ -1092,7 +1092,7 @@ func TestFieldAccessOnGoRef(t *testing.T) {
 		Services: map[string]di.Service{
 			"timer": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimer",
 					Args: []di.Argument{
 						{Kind: di.ArgFieldAccessGo, Value: "net/http.DefaultClient.Timeout"},
 					},
@@ -1114,12 +1114,12 @@ func TestFieldAccessTypeMismatch(t *testing.T) {
 		Services: map[string]di.Service{
 			"config": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.LoadConfig",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.LoadConfig",
 				},
 			},
 			"timer": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimer",
 					Args: []di.Argument{
 						{Kind: di.ArgFieldAccessService, Value: "config.Host"},
 					},
@@ -1143,12 +1143,12 @@ func TestFieldAccessUnknownField(t *testing.T) {
 		Services: map[string]di.Service{
 			"config": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.LoadConfig",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.LoadConfig",
 				},
 			},
 			"logger": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewLogger",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
 					Args: []di.Argument{
 						{Kind: di.ArgFieldAccessService, Value: "config.NonExistentField"},
 					},
@@ -1172,7 +1172,7 @@ func TestDecoratorOnAlias(t *testing.T) {
 		Services: map[string]di.Service{
 			"svc": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
 				},
 				Public: true,
 			},
@@ -1182,7 +1182,7 @@ func TestDecoratorOnAlias(t *testing.T) {
 			},
 			"svc.decorator": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorA",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -1209,13 +1209,13 @@ func TestDecoratorSpreadInnerRejected(t *testing.T) {
 		Services: map[string]di.Service{
 			"svc": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
 				},
 				Public: true,
 			},
 			"svc.decorator": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorA",
 					Args: []di.Argument{
 						{Kind: di.ArgSpread, Value: "@.inner"},
 					},
@@ -1238,19 +1238,19 @@ func TestDecoratorWithPublicTagHasPrivateGetter(t *testing.T) {
 	cfg := &di.Config{
 		Tags: map[string]di.Tag{
 			"public.tag": {
-				ElementType: "github.com/asp24/gendi/generator/testdata/app.Service",
+				ElementType: "github.com/gendi-org/gendi/generator/testdata/app.Service",
 				Public:      true,
 			},
 		},
 		Services: map[string]di.Service{
 			"svc": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
 				},
 			},
 			"svc.decorator": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorA",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -1281,14 +1281,14 @@ func TestDecoratorSharesStorageWithBase(t *testing.T) {
 		Services: map[string]di.Service{
 			"svc": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
 				},
 				Public: true,
 				Shared: true,
 			},
 			"svc.decorator": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorA",
 					Args: []di.Argument{
 						{Kind: di.ArgInner},
 					},
@@ -1353,14 +1353,14 @@ func TestDecoratorKeepsSharedFlagsIndependent(t *testing.T) {
 				Services: map[string]di.Service{
 					"svc": {
 						Constructor: di.Constructor{
-							Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
 						},
 						Public: true,
 						Shared: tc.baseShared,
 					},
 					"svc.decorator": {
 						Constructor: di.Constructor{
-							Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceDecoratorA",
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorA",
 							Args: []di.Argument{{Kind: di.ArgInner}},
 						},
 						Decorates: "svc",
@@ -1385,19 +1385,19 @@ func TestMustGettersGenerated(t *testing.T) {
 		Services: map[string]di.Service{
 			"foo": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
 				},
 				Public: true,
 			},
 			"bar": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewC",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewC",
 				},
 				Public: true,
 			},
 			"internal": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServiceBase",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
 				},
 				Public: false, // not public
 			},
@@ -1452,7 +1452,7 @@ func TestNoUnusedFmtImport(t *testing.T) {
 		Services: map[string]di.Service{
 			"a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
 				},
 				Public: true,
 			},
@@ -1473,12 +1473,12 @@ func TestFmtImportedWhenErrorHandlingPresent(t *testing.T) {
 		Services: map[string]di.Service{
 			"a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
 				},
 			},
 			"b": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewB",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewB",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "a"},
 					},
@@ -1500,13 +1500,13 @@ func TestTaggedConversionInValueTypeBuild(t *testing.T) {
 	cfg := &di.Config{
 		Tags: map[string]di.Tag{
 			"test.tag": {
-				ElementType: "*github.com/asp24/gendi/generator/testdata/app.A",
+				ElementType: "*github.com/gendi-org/gendi/generator/testdata/app.A",
 			},
 		},
 		Services: map[string]di.Service{
 			"a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
 				},
 				Tags: []di.ServiceTag{
 					{Name: "test.tag"},
@@ -1514,7 +1514,7 @@ func TestTaggedConversionInValueTypeBuild(t *testing.T) {
 			},
 			"hub": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewHub",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHub",
 					Args: []di.Argument{
 						{Kind: di.ArgTagged, Value: "test.tag"},
 					},
@@ -1541,7 +1541,7 @@ func TestVariadicDurationLiterals(t *testing.T) {
 		Services: map[string]di.Service{
 			"timed": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimed",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimed",
 					Args: []di.Argument{
 						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("5s")},
 						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("10s")},
@@ -1563,12 +1563,12 @@ func TestServiceRefTypeMismatchFailsGeneration(t *testing.T) {
 		Services: map[string]di.Service{
 			"c": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewC",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewC",
 				},
 			},
 			"b": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewB",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewB",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "c"},
 					},
@@ -1592,7 +1592,7 @@ func TestUserPackageNamedParameters(t *testing.T) {
 		Services: map[string]di.Service{
 			"store": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/parameters.NewStore",
+					Func: "github.com/gendi-org/gendi/generator/testdata/parameters.NewStore",
 				},
 				Public: true,
 			},
@@ -1600,7 +1600,7 @@ func TestUserPackageNamedParameters(t *testing.T) {
 	}
 
 	out := generate(t, cfg)
-	if !strings.Contains(out, "parameters2 \"github.com/asp24/gendi/generator/testdata/parameters\"") {
+	if !strings.Contains(out, "parameters2 \"github.com/gendi-org/gendi/generator/testdata/parameters\"") {
 		t.Fatalf("expected user parameters package to get a distinct alias:\n%s", out)
 	}
 }
@@ -1610,12 +1610,12 @@ func TestSpreadMixedWithPositionalVariadicFailsGeneration(t *testing.T) {
 		Services: map[string]di.Service{
 			"handler.a": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewHandlerA",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
 				},
 			},
 			"more_handlers": {
 				Constructor: di.Constructor{
-					Func: "github.com/asp24/gendi/generator/testdata/app.GetAllHandlers",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.GetAllHandlers",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "handler.a"},
 						{Kind: di.ArgServiceRef, Value: "handler.a"},
@@ -1626,7 +1626,7 @@ func TestSpreadMixedWithPositionalVariadicFailsGeneration(t *testing.T) {
 				Constructor: di.Constructor{
 					// NewServer(handlers ...Handler): Go forbids mixing
 					// positional variadic values with a spread.
-					Func: "github.com/asp24/gendi/generator/testdata/app.NewServer",
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServer",
 					Args: []di.Argument{
 						{Kind: di.ArgServiceRef, Value: "handler.a"},
 						{Kind: di.ArgSpread, Value: "@more_handlers"},

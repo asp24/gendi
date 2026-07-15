@@ -10,9 +10,9 @@ import (
 
 	"github.com/goccy/go-yaml/ast"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/srcloc"
-	"github.com/asp24/gendi/typeres"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/srcloc"
+	"github.com/gendi-org/gendi/typeres"
 )
 
 // Parser converts raw YAML structures to di.Config.

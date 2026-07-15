@@ -3,9 +3,9 @@ package main
 
 import (
 	"fmt"
-	app "github.com/asp24/gendi/examples/custom-pass/internal/app"
-	"github.com/asp24/gendi/parameters"
-	stdlib "github.com/asp24/gendi/stdlib"
+	app "github.com/gendi-org/gendi/examples/custom-pass/internal/app"
+	"github.com/gendi-org/gendi/parameters"
+	stdlib "github.com/gendi-org/gendi/stdlib"
 	io "io"
 	slog "log/slog"
 	"sync"

@@ -6,8 +6,8 @@ import (
 	"go/types"
 	"strings"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/xmaps"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/xmaps"
 )
 
 // validatorPhase validates the IR for correctness

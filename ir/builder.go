@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"go/types"
 
-	di "github.com/asp24/gendi"
+	di "github.com/gendi-org/gendi"
 )
 
 // TypeResolver resolves type strings to Go types.

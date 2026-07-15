@@ -9,7 +9,7 @@ import (
 
 	"github.com/bmatcuk/doublestar/v4"
 
-	"github.com/asp24/gendi/gomod"
+	"github.com/gendi-org/gendi/gomod"
 )
 
 func fileExists(path string) bool {

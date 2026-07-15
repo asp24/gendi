@@ -10,9 +10,9 @@ import (
 	"github.com/bmatcuk/doublestar/v4"
 	yamllib "github.com/goccy/go-yaml"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/imprt"
-	"github.com/asp24/gendi/srcloc"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/imprt"
+	"github.com/gendi-org/gendi/srcloc"
 )
 
 // ConfigLoaderYaml loads YAML configuration files with import resolution.

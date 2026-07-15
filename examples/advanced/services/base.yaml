@@ -10,27 +10,27 @@ tags:
   notifier:
     public: true
     sort_by: priority
-    element_type: "github.com/asp24/gendi/examples/advanced/app.Notifier"
+    element_type: "github.com/gendi-org/gendi/examples/advanced/app.Notifier"
 
 services:
   logger:
     constructor:
-      func: "github.com/asp24/gendi/examples/advanced/app.NewLogger"
+      func: "github.com/gendi-org/gendi/examples/advanced/app.NewLogger"
       args:
         - "%log_prefix%"
   db:
     constructor:
-      func: "github.com/asp24/gendi/examples/advanced/app.NewDB"
+      func: "github.com/gendi-org/gendi/examples/advanced/app.NewDB"
       args:
         - "%dsn%"
   mailer:
     constructor:
-      func: "github.com/asp24/gendi/examples/advanced/app.NewMailerBasic"
+      func: "github.com/gendi-org/gendi/examples/advanced/app.NewMailerBasic"
       args:
         - "%mail_host%"
   mailer.retry:
     constructor:
-      func: "github.com/asp24/gendi/examples/advanced/app.NewMailerRetryDecorator"
+      func: "github.com/gendi-org/gendi/examples/advanced/app.NewMailerRetryDecorator"
       args:
         - "@.inner"
         - "%mail_retries%"
@@ -38,7 +38,7 @@ services:
     decoration_priority: 10
   mailer.prefix:
     constructor:
-      func: "github.com/asp24/gendi/examples/advanced/app.NewMailerPrefixDecorator"
+      func: "github.com/gendi-org/gendi/examples/advanced/app.NewMailerPrefixDecorator"
       args:
         - "@.inner"
         - "%mail_prefix%"
@@ -46,7 +46,7 @@ services:
     decoration_priority: 20
   factory:
     constructor:
-      func: "github.com/asp24/gendi/examples/advanced/app.NewFactory"
+      func: "github.com/gendi-org/gendi/examples/advanced/app.NewFactory"
       args:
         - "@logger"
   handler:
@@ -58,7 +58,7 @@ services:
     public: true
   notifier.email:
     constructor:
-      func: "github.com/asp24/gendi/examples/advanced/app.NewEmailNotifier"
+      func: "github.com/gendi-org/gendi/examples/advanced/app.NewEmailNotifier"
       args:
         - "@mailer"
     tags:
@@ -66,13 +66,13 @@ services:
         priority: 50
   notifier.sms:
     constructor:
-      func: "github.com/asp24/gendi/examples/advanced/app.NewSMSNotifier"
+      func: "github.com/gendi-org/gendi/examples/advanced/app.NewSMSNotifier"
     tags:
       - name: notifier
         priority: 10
   notifier.aggregate:
     constructor:
-      func: "github.com/asp24/gendi/examples/advanced/app.NewAggregateNotifier"
+      func: "github.com/gendi-org/gendi/examples/advanced/app.NewAggregateNotifier"
       args:
         - "!tagged:notifier"
   notifier: "@notifier.aggregate"

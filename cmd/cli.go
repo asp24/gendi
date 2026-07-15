@@ -6,11 +6,11 @@ import (
 	"os"
 	"path/filepath"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/pipeline"
-	"github.com/asp24/gendi/srcloc"
-	"github.com/asp24/gendi/stdlib"
-	"github.com/asp24/gendi/yaml"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/pipeline"
+	"github.com/gendi-org/gendi/srcloc"
+	"github.com/gendi-org/gendi/stdlib"
+	"github.com/gendi-org/gendi/yaml"
 )
 
 func BuiltinSelectablePasses() []di.Pass {

@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/asp24/gendi/pipeline"
-	"github.com/asp24/gendi/yaml"
+	"github.com/gendi-org/gendi/pipeline"
+	"github.com/gendi-org/gendi/yaml"
 )
 
 // TestErrorCases tests that invalid configurations are properly rejected during the
@@ -149,9 +149,9 @@ func prepareErrorTestDir(t *testing.T, srcDir string) string {
 
 go 1.25.4
 
-require github.com/asp24/gendi v0.0.0
+require github.com/gendi-org/gendi v0.0.0
 
-replace github.com/asp24/gendi => %s
+replace github.com/gendi-org/gendi => %s
 `, moduleRoot)
 
 	if err := os.WriteFile(goModPath, []byte(goModContent), 0644); err != nil {

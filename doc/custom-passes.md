@@ -88,7 +88,7 @@ Use `di.Pass` when calling `di.ApplyPasses`, `cmd.Generate`, `cmd.Run`, or `cmd.
 package passes
 
 import (
-    di "github.com/asp24/gendi"
+    di "github.com/gendi-org/gendi"
 )
 
 type AutoTagPass struct {
@@ -198,8 +198,8 @@ import (
     "fmt"
     "os"
 
-    di "github.com/asp24/gendi"
-    "github.com/asp24/gendi/cmd"
+    di "github.com/gendi-org/gendi"
+    "github.com/gendi-org/gendi/cmd"
     "github.com/myapp/internal/passes"
 )
 
@@ -685,4 +685,4 @@ func NewNullLiteral() Literal
 - [Configuration Reference](./configuration.md)
 - [Custom Pass Example](../examples/custom-pass/)
 - [Technical Specification](./spec/README.md)
-- [API Documentation](https://pkg.go.dev/github.com/asp24/gendi)
+- [API Documentation](https://pkg.go.dev/github.com/gendi-org/gendi)

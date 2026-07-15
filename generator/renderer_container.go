@@ -6,8 +6,8 @@ import (
 	"go/types"
 	"strings"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/ir"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/ir"
 )
 
 // ContainerRenderer contains tools for rendering generated code.

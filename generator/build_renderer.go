@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/asp24/gendi/ir"
+	"github.com/gendi-org/gendi/ir"
 )
 
 // buildFunctionRenderer renders a build function for a service.

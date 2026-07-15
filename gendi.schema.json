@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/asp24/gendi/schema",
+  "$id": "https://github.com/gendi-org/gendi/schema",
   "title": "gendi Configuration",
   "description": "Configuration schema for gendi dependency injection container generator",
   "type": "object",

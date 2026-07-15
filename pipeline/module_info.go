@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/asp24/gendi/gomod"
+	"github.com/gendi-org/gendi/gomod"
 )
 
 // ModuleInfo contains information about the Go module.

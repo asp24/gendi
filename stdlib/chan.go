@@ -8,7 +8,7 @@ package stdlib
 //	services:
 //	  events:
 //	    constructor:
-//	      func: "github.com/asp24/gendi/stdlib.NewChan[github.com/myapp.Event]"
+//	      func: "github.com/gendi-org/gendi/stdlib.NewChan[github.com/myapp.Event]"
 //	      args: [100]
 func NewChan[T any](size int) chan T {
 	return make(chan T, size)

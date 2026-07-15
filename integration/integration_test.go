@@ -10,8 +10,8 @@ import (
 
 	"golang.org/x/tools/imports"
 
-	"github.com/asp24/gendi/pipeline"
-	"github.com/asp24/gendi/yaml"
+	"github.com/gendi-org/gendi/pipeline"
+	"github.com/gendi-org/gendi/yaml"
 )
 
 func runEmbeddedTest(t *testing.T, testName string, expectedOutput string, wantCompileErr, wantRuntimeErr bool) {

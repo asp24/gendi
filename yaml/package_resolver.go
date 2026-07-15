@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/asp24/gendi/gomod"
+	"github.com/gendi-org/gendi/gomod"
 )
 
 // resolvePackagePath determines the Go package path for a given directory.

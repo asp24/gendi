@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	di "github.com/asp24/gendi"
+	di "github.com/gendi-org/gendi"
 )
 
 // ParseArgumentString analyzes a string to determine if it represents a special argument kind

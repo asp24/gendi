@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sort"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/pipeline"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/pipeline"
 )
 
 // Config holds CLI configuration

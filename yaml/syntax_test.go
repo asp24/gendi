@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	di "github.com/asp24/gendi"
+	di "github.com/gendi-org/gendi"
 )
 
 func TestParseArgumentString(t *testing.T) {

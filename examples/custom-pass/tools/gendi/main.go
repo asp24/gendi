@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 
-	gendi "github.com/asp24/gendi"
-	"github.com/asp24/gendi/cmd"
-	"github.com/asp24/gendi/examples/custom-pass/internal/di"
-	"github.com/asp24/gendi/stdlib"
+	gendi "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/cmd"
+	"github.com/gendi-org/gendi/examples/custom-pass/internal/di"
+	"github.com/gendi-org/gendi/stdlib"
 )
 
 func main() {

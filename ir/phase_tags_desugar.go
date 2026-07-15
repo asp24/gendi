@@ -7,15 +7,15 @@ import (
 	"slices"
 	"strconv"
 
-	di "github.com/asp24/gendi"
-	"github.com/asp24/gendi/xmaps"
+	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/xmaps"
 )
 
 const (
 	// TagServicePrefix is the prefix for desugared tag service IDs
 	TagServicePrefix = "__tagged_with."
 	// stdlibPkgPath is the package path for stdlib functions
-	stdlibPkgPath = "github.com/asp24/gendi/stdlib"
+	stdlibPkgPath = "github.com/gendi-org/gendi/stdlib"
 )
 
 // tagDesugarPhase transforms tags into regular services with MakeSlice constructors.

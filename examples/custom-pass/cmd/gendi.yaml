@@ -1,5 +1,5 @@
 imports:
-  - github.com/asp24/gendi/stdlib/gendi.yaml
+  - github.com/gendi-org/gendi/stdlib/gendi.yaml
   - ./../internal/**/gendi.yaml
 
 parameters:

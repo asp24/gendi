@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	di "github.com/asp24/gendi"
+	di "github.com/gendi-org/gendi"
 )
 
 // funcResolver resolves constructor funcs from a fixed map.

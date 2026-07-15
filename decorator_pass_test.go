@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asp24/gendi/srcloc"
+	"github.com/gendi-org/gendi/srcloc"
 )
 
 func TestDecoratorPassSingleDecorator(t *testing.T) {

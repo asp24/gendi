@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/asp24/gendi/gomod"
+	"github.com/gendi-org/gendi/gomod"
 )
 
 // ResolverGlob handles glob patterns (*, ?, []).

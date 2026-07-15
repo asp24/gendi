@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"go/types"
 
-	"github.com/asp24/gendi/parameters"
-	"github.com/asp24/gendi/typeres"
+	"github.com/gendi-org/gendi/parameters"
+	"github.com/gendi-org/gendi/typeres"
 )
 
 // ParamScalarKind classifies a parameter injection target. needsConversion
