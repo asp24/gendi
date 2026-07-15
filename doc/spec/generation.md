@@ -21,7 +21,7 @@ func WithContainerParameterCaster(caster parameters.Caster) ContainerOption
 
 The container stores a `parameters.Resolver` (a facade over `Provider` and
 `Caster`, default caster `parameters.StandardCaster`) and resolves each
-parameter with one typed call per injection site, e.g. `c.params.Int("port")`.
+parameter with one typed call per injection site, e.g. `c.paramsResolver.Int("port")`.
 
 ## Getter Methods
 
