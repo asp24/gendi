@@ -104,7 +104,9 @@ container := di.NewContainer(nil, di.WithContainerParameterCaster(LenientCaster{
 ```
 
 Custom casters can build rejection errors with `parameters.NewCastError(value, "int")`
-to keep their messages consistent with the standard policy.
+to keep their messages consistent with the standard policy. Every rejection wraps
+the `parameters.ErrCannotCast` sentinel, so applications can distinguish cast
+failures from missing parameters (`parameters.ErrParameterNotFound`) via `errors.Is`.
 
 ### Generation-Time Validation
 
