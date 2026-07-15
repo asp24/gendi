@@ -69,17 +69,17 @@ func (c StandardCaster) ToString(value any) (string, error) {
 	case uint64:
 		return strconv.FormatUint(cv, 10), nil
 	case float32:
-		if err := rejectNonFinite(float64(cv), value, "string"); err != nil {
+		if err := c.rejectNonFinite(float64(cv), value, "string"); err != nil {
 			return "", err
 		}
 		return strconv.FormatFloat(float64(cv), 'g', -1, 32), nil
 	case float64:
-		if err := rejectNonFinite(cv, value, "string"); err != nil {
+		if err := c.rejectNonFinite(cv, value, "string"); err != nil {
 			return "", err
 		}
 		return strconv.FormatFloat(cv, 'g', -1, 64), nil
 	default:
-		return "", castError(value, "string")
+		return "", c.castError(value, "string")
 	}
 }
 
@@ -90,11 +90,11 @@ func (c StandardCaster) ToBool(value any) (bool, error) {
 	case string:
 		b, err := strconv.ParseBool(cv)
 		if err != nil {
-			return false, fmt.Errorf("cannot cast %s to bool: %w", describeValue(value), err)
+			return false, fmt.Errorf("cannot cast %s to bool: %w", c.describeValue(value), err)
 		}
 		return b, nil
 	default:
-		return false, castError(value, "bool")
+		return false, c.castError(value, "bool")
 	}
 }
 
@@ -162,11 +162,11 @@ func (c StandardCaster) ToDuration(value any) (time.Duration, error) {
 	case string:
 		d, err := time.ParseDuration(cv)
 		if err != nil {
-			return 0, fmt.Errorf("cannot cast %s to time.Duration: %w", describeValue(value), err)
+			return 0, fmt.Errorf("cannot cast %s to time.Duration: %w", c.describeValue(value), err)
 		}
 		return d, nil
 	case float32, float64, bool, time.Time:
-		return 0, castError(value, "time.Duration")
+		return 0, c.castError(value, "time.Duration")
 	default:
 		v, err := c.toSigned(value, "time.Duration", math.MinInt64, math.MaxInt64)
 		if err != nil {
@@ -183,11 +183,11 @@ func (c StandardCaster) ToTime(value any) (time.Time, error) {
 	case string:
 		ts, err := time.Parse(time.RFC3339, cv)
 		if err != nil {
-			return time.Time{}, fmt.Errorf("cannot cast %s to time.Time: %w", describeValue(value), err)
+			return time.Time{}, fmt.Errorf("cannot cast %s to time.Time: %w", c.describeValue(value), err)
 		}
 		return ts, nil
 	default:
-		return time.Time{}, castError(value, "time.Time")
+		return time.Time{}, c.castError(value, "time.Time")
 	}
 }
 
@@ -210,7 +210,7 @@ func (c StandardCaster) toSigned(value any, target string, min, max int64) (int6
 		v = int64(cv)
 	case uint:
 		if uint64(cv) > math.MaxInt64 {
-			return 0, overflowError(value, target)
+			return 0, c.overflowError(value, target)
 		}
 		v = int64(cv)
 	case uint8:
@@ -221,20 +221,20 @@ func (c StandardCaster) toSigned(value any, target string, min, max int64) (int6
 		v = int64(cv)
 	case uint64:
 		if cv > math.MaxInt64 {
-			return 0, overflowError(value, target)
+			return 0, c.overflowError(value, target)
 		}
 		v = int64(cv)
 	case string:
 		parsed, err := strconv.ParseInt(cv, 10, 64)
 		if err != nil {
-			return 0, fmt.Errorf("cannot cast %s to %s: %w", describeValue(value), target, err)
+			return 0, fmt.Errorf("cannot cast %s to %s: %w", c.describeValue(value), target, err)
 		}
 		v = parsed
 	default:
-		return 0, castError(value, target)
+		return 0, c.castError(value, target)
 	}
 	if v < min || v > max {
-		return 0, overflowError(value, target)
+		return 0, c.overflowError(value, target)
 	}
 	return v, nil
 }
@@ -256,45 +256,45 @@ func (c StandardCaster) toUnsigned(value any, target string, max uint64) (uint64
 		v = cv
 	case int:
 		if cv < 0 {
-			return 0, negativeError(value, target)
+			return 0, c.negativeError(value, target)
 		}
 		v = uint64(cv)
 	case int8:
 		if cv < 0 {
-			return 0, negativeError(value, target)
+			return 0, c.negativeError(value, target)
 		}
 		v = uint64(cv)
 	case int16:
 		if cv < 0 {
-			return 0, negativeError(value, target)
+			return 0, c.negativeError(value, target)
 		}
 		v = uint64(cv)
 	case int32:
 		if cv < 0 {
-			return 0, negativeError(value, target)
+			return 0, c.negativeError(value, target)
 		}
 		v = uint64(cv)
 	case int64:
 		if cv < 0 {
-			return 0, negativeError(value, target)
+			return 0, c.negativeError(value, target)
 		}
 		v = uint64(cv)
 	case time.Duration:
 		if cv < 0 {
-			return 0, negativeError(value, target)
+			return 0, c.negativeError(value, target)
 		}
 		v = uint64(cv)
 	case string:
 		parsed, err := strconv.ParseUint(cv, 10, 64)
 		if err != nil {
-			return 0, fmt.Errorf("cannot cast %s to %s: %w", describeValue(value), target, err)
+			return 0, fmt.Errorf("cannot cast %s to %s: %w", c.describeValue(value), target, err)
 		}
 		v = parsed
 	default:
-		return 0, castError(value, target)
+		return 0, c.castError(value, target)
 	}
 	if v > max {
-		return 0, overflowError(value, target)
+		return 0, c.overflowError(value, target)
 	}
 	return v, nil
 }
@@ -311,7 +311,7 @@ func (c StandardCaster) toFloat(value any, target string, bitSize int) (float64,
 		f = float64(cv)
 	case int:
 		var err error
-		if f, err = exactSignedFloat(int64(cv), value, target); err != nil {
+		if f, err = c.exactSignedFloat(int64(cv), value, target); err != nil {
 			return 0, err
 		}
 	case int8:
@@ -322,12 +322,12 @@ func (c StandardCaster) toFloat(value any, target string, bitSize int) (float64,
 		f = float64(cv)
 	case int64:
 		var err error
-		if f, err = exactSignedFloat(cv, value, target); err != nil {
+		if f, err = c.exactSignedFloat(cv, value, target); err != nil {
 			return 0, err
 		}
 	case uint:
 		var err error
-		if f, err = exactUnsignedFloat(uint64(cv), value, target); err != nil {
+		if f, err = c.exactUnsignedFloat(uint64(cv), value, target); err != nil {
 			return 0, err
 		}
 	case uint8:
@@ -338,73 +338,73 @@ func (c StandardCaster) toFloat(value any, target string, bitSize int) (float64,
 		f = float64(cv)
 	case uint64:
 		var err error
-		if f, err = exactUnsignedFloat(cv, value, target); err != nil {
+		if f, err = c.exactUnsignedFloat(cv, value, target); err != nil {
 			return 0, err
 		}
 	case string:
 		parsed, err := strconv.ParseFloat(cv, bitSize)
 		if err != nil {
-			return 0, fmt.Errorf("cannot cast %s to %s: %w", describeValue(value), target, err)
+			return 0, fmt.Errorf("cannot cast %s to %s: %w", c.describeValue(value), target, err)
 		}
 		f = parsed
 	default:
-		return 0, castError(value, target)
+		return 0, c.castError(value, target)
 	}
-	if err := rejectNonFinite(f, value, target); err != nil {
+	if err := c.rejectNonFinite(f, value, target); err != nil {
 		return 0, err
 	}
 	if bitSize == 32 {
 		if _, isString := value.(string); !isString {
 			if float64(float32(f)) != f {
-				return 0, inexactError(value, target)
+				return 0, c.inexactError(value, target)
 			}
 		}
 	}
 	return f, nil
 }
 
-func exactSignedFloat(v int64, raw any, target string) (float64, error) {
+func (c StandardCaster) exactSignedFloat(v int64, raw any, target string) (float64, error) {
 	f := float64(v)
 	if f >= -9223372036854775808.0 && f < 9223372036854775808.0 && int64(f) == v {
 		return f, nil
 	}
-	return 0, inexactError(raw, target)
+	return 0, c.inexactError(raw, target)
 }
 
-func exactUnsignedFloat(v uint64, raw any, target string) (float64, error) {
+func (c StandardCaster) exactUnsignedFloat(v uint64, raw any, target string) (float64, error) {
 	f := float64(v)
 	if f < 18446744073709551616.0 && uint64(f) == v {
 		return f, nil
 	}
-	return 0, inexactError(raw, target)
+	return 0, c.inexactError(raw, target)
 }
 
-func rejectNonFinite(f float64, raw any, target string) error {
+func (c StandardCaster) rejectNonFinite(f float64, raw any, target string) error {
 	if math.IsNaN(f) || math.IsInf(f, 0) {
-		return fmt.Errorf("cannot cast %s to %s: NaN and infinities are rejected", describeValue(raw), target)
+		return fmt.Errorf("cannot cast %s to %s: NaN and infinities are rejected", c.describeValue(raw), target)
 	}
 	return nil
 }
 
 // castError reports the dynamic type and value of the raw input plus the
 // target type.
-func castError(value any, target string) error {
-	return fmt.Errorf("cannot cast %s to %s", describeValue(value), target)
+func (c StandardCaster) castError(value any, target string) error {
+	return fmt.Errorf("cannot cast %s to %s", c.describeValue(value), target)
 }
 
-func overflowError(value any, target string) error {
-	return fmt.Errorf("cannot cast %s to %s: value overflows %s", describeValue(value), target, target)
+func (c StandardCaster) overflowError(value any, target string) error {
+	return fmt.Errorf("cannot cast %s to %s: value overflows %s", c.describeValue(value), target, target)
 }
 
-func negativeError(value any, target string) error {
-	return fmt.Errorf("cannot cast %s to %s: negative value", describeValue(value), target)
+func (c StandardCaster) negativeError(value any, target string) error {
+	return fmt.Errorf("cannot cast %s to %s: negative value", c.describeValue(value), target)
 }
 
-func inexactError(value any, target string) error {
-	return fmt.Errorf("cannot cast %s to %s: value is not exactly representable", describeValue(value), target)
+func (c StandardCaster) inexactError(value any, target string) error {
+	return fmt.Errorf("cannot cast %s to %s: value is not exactly representable", c.describeValue(value), target)
 }
 
-func describeValue(value any) string {
+func (c StandardCaster) describeValue(value any) string {
 	switch v := value.(type) {
 	case nil:
 		return "<nil>"
