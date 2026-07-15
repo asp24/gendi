@@ -50,8 +50,7 @@ func (r *ContainerRenderer) assignNames(ctx *GenContext) error {
 func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *GenContext, hasParams bool) error {
 	fmt.Fprintf(b, "type %s struct {\n", r.containerName)
 	fmt.Fprintf(b, "\tmu sync.Mutex\n")
-	fmt.Fprintf(b, "\tparams parameters.Provider\n")
-	fmt.Fprintf(b, "\tcaster parameters.Caster\n")
+	fmt.Fprintf(b, "\tparams parameters.Resolver\n")
 	fmt.Fprintf(b, "\tonMustCallFailed func(serviceName string, err error)\n")
 
 	for _, id := range ctx.orderedServiceIDs {
@@ -80,7 +79,7 @@ func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *GenConte
 	// With<Container>ParameterCaster function
 	fmt.Fprintf(b, "func %s(caster parameters.Caster) %sOption {\n", withParameterCasterName(r.containerName), r.containerName)
 	fmt.Fprintf(b, "\treturn func(c *%s) {\n", r.containerName)
-	fmt.Fprintf(b, "\t\tc.caster = caster\n")
+	fmt.Fprintf(b, "\t\tc.params.Caster = caster\n")
 	fmt.Fprintf(b, "\t}\n")
 	fmt.Fprintf(b, "}\n\n")
 
@@ -96,8 +95,7 @@ func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *GenConte
 
 	fmt.Fprintf(b, "\t}\n")
 	fmt.Fprintf(b, "\tc := &%s{\n", r.containerName)
-	fmt.Fprintf(b, "\t\tparams: params,\n")
-	fmt.Fprintf(b, "\t\tcaster: parameters.StandardCaster{},\n")
+	fmt.Fprintf(b, "\t\tparams: parameters.NewResolver(params, nil),\n")
 	fmt.Fprintf(b, "\t\tonMustCallFailed: func(string, error) {},\n")
 	fmt.Fprintf(b, "\t}\n")
 	fmt.Fprintf(b, "\tfor _, opt := range opts {\n")
