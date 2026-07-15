@@ -41,7 +41,24 @@
       "description": "Parameter default values (plain scalars; the target type is taken from each constructor argument)",
       "type": "object",
       "additionalProperties": {
-        "type": ["string", "number", "integer", "boolean"]
+        "anyOf": [
+          {
+            "type": ["string", "number", "integer", "boolean"]
+          },
+          {
+            "type": "object",
+            "description": "Deprecated {type, value} form; use a plain scalar default. The type field is ignored.",
+            "deprecated": true,
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "value": {}
+            },
+            "required": ["value"],
+            "additionalProperties": false
+          }
+        ]
       }
     },
     "tags": {

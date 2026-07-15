@@ -37,7 +37,9 @@ imports:
 
 ## Parameters
 
-Declared as plain scalar defaults (no `type` field; null rejected):
+Declared as plain scalar defaults (no `type` field; null rejected; the old
+`{type, value}` form still loads with a stderr deprecation warning, `type`
+ignored):
 ```yaml
 parameters:
   port: 8080
