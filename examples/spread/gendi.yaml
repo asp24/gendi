@@ -1,7 +1,5 @@
 parameters:
-  server_prefix:
-    type: string
-    value: "/api/v1"
+  server_prefix: "/api/v1"
 
 tags:
   handler:

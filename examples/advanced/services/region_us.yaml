@@ -1,13 +1,7 @@
 parameters:
-  log_prefix:
-    type: string
-    value: "[us-east-1] "
-  mail_host:
-    type: string
-    value: "smtp.us.example"
-  mail_retries:
-    type: int
-    value: 5
+  log_prefix: "[us-east-1] "
+  mail_host: "smtp.us.example"
+  mail_retries: 5
 
 services:
   mailer:
