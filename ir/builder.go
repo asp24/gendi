@@ -28,7 +28,7 @@ type Builder struct {
 func NewBuilder(resolver TypeResolver) *Builder {
 	phases := []Phase{
 		// Phase 1: Build foundational structures
-		&parameterPhase{resolver: resolver},
+		&parameterPhase{},
 		&tagPhase{resolver: resolver},
 		&servicePhase{},
 
@@ -42,6 +42,7 @@ func NewBuilder(resolver TypeResolver) *Builder {
 
 		// Phase 3: Validate and analyze
 		&validatorPhase{},
+		&paramDefaultValidatorPhase{},
 
 		// Phase 4: Optimizations
 		&unreachablePrunePhase{},

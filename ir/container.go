@@ -4,9 +4,7 @@ import (
 	"go/types"
 	"iter"
 	"slices"
-	"time"
 
-	"github.com/asp24/gendi/typeres"
 	"github.com/asp24/gendi/xmaps"
 )
 
@@ -63,18 +61,6 @@ func (c *Container) ServicesPostOrder() iter.Seq[*Service] {
 			}
 		}
 	}
-}
-
-// ParamGetters returns parameter getter methods needed by the container.
-func (c *Container) ParamGetters() map[string]string {
-	getters := make(map[string]string)
-	for name, param := range c.Parameters {
-		method := param.GetterMethod()
-		if method != "" {
-			getters[name] = method
-		}
-	}
-	return getters
 }
 
 // Service is a fully resolved service definition.
@@ -280,11 +266,11 @@ const (
 	DurationLiteral
 )
 
-// Parameter is a resolved parameter definition.
+// Parameter is a parameter referenced by at least one constructor argument.
+// Its conversion target is contextual (per injection site), so the IR keeps
+// only the name.
 type Parameter struct {
-	Name  string
-	Type  types.Type
-	Value LiteralValue
+	Name string
 }
 
 // Tag is a resolved tag definition.
@@ -302,24 +288,3 @@ type ServiceTag struct {
 	Tag        *Tag
 	Attributes map[string]any
 }
-
-// GetterMethod returns the Provider method name for this parameter's type.
-func (p *Parameter) GetterMethod() string {
-	switch {
-	case typeres.IsString(p.Type):
-		return "GetString"
-	case typeres.IsInt(p.Type):
-		return "GetInt"
-	case typeres.IsBool(p.Type):
-		return "GetBool"
-	case typeres.IsFloat64(p.Type):
-		return "GetFloat"
-	case typeres.IsDuration(p.Type):
-		return "GetDuration"
-	default:
-		return ""
-	}
-}
-
-// DurationValue represents a parsed duration.
-type DurationValue time.Duration

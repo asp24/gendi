@@ -103,7 +103,7 @@ func TestResolve(t *testing.T) {
 
 	container := NewContainer()
 	container.Services["dep"] = &Service{ID: "dep", Type: stringType}
-	container.Parameters["db.host"] = &Parameter{Name: "db.host", Type: stringType}
+	container.Parameters["db.host"] = &Parameter{Name: "db.host"}
 
 	// Also add a tagged service for spread test
 	container.Services["handler_svc"] = &Service{
@@ -149,10 +149,12 @@ func TestResolve(t *testing.T) {
 			wantKind:  ParamRefArg,
 		},
 		{
-			name:      "param_type_mismatch",
+			// The same parameter may be requested as a different scalar
+			// type at another injection site: conversion is contextual.
+			name:      "param_contextual_type",
 			arg:       di.Argument{Kind: di.ArgParam, Value: "db.host"},
 			paramType: intType,
-			wantErr:   "type mismatch",
+			wantKind:  ParamRefArg,
 		},
 		{
 			name:      "tagged_not_slice",
@@ -382,7 +384,7 @@ func TestSpreadLiteralInnerRejected(t *testing.T) {
 	}
 }
 
-func TestRuntimeParamConflictingTypesRejected(t *testing.T) {
+func TestRuntimeParamContextualTypes(t *testing.T) {
 	container := NewContainer()
 	r := &argResolver{}
 
@@ -392,18 +394,22 @@ func TestRuntimeParamConflictingTypesRejected(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Same type: must reuse the same parameter object.
-	second, err := r.resolve(container, noResolve, "svc.two", 0, arg, types.Typ[types.String])
+	// A different target type at another injection site is allowed: the
+	// conversion is contextual. Both usages share one parameter entry.
+	second, err := r.resolve(container, noResolve, "svc.two", 0, arg, types.Typ[types.Int])
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if first.Parameter != second.Parameter {
 		t.Fatalf("expected repeated usages to share one parameter object")
 	}
+	if !types.Identical(first.Type, types.Typ[types.String]) || !types.Identical(second.Type, types.Typ[types.Int]) {
+		t.Fatalf("expected each usage to keep its own target type, got %s and %s", first.Type, second.Type)
+	}
 
-	// Conflicting type: one runtime parameter cannot be both string and int.
-	_, err = r.resolve(container, noResolve, "svc.three", 0, arg, types.Typ[types.Int])
-	if err == nil || !strings.Contains(err.Error(), "conflicting") {
-		t.Fatalf("expected conflicting types error, got %v", err)
+	// A target type outside the scalar set fails generation.
+	_, err = r.resolve(container, noResolve, "svc.three", 0, arg, types.NewStruct(nil, nil))
+	if err == nil || !strings.Contains(err.Error(), "unsupported target type") {
+		t.Fatalf("expected unsupported target type error, got %v", err)
 	}
 }
