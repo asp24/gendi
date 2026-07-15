@@ -3,9 +3,7 @@ imports:
   - ./../internal/**/gendi.yaml
 
 parameters:
-  db_dsn:
-    type: string
-    value: "postgres://localhost/myapp"
+  db_dsn: "postgres://localhost/myapp"
 
 services:
   logger: '@stdlib.slog'

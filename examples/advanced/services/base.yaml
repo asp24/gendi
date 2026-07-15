@@ -1,19 +1,9 @@
 parameters:
-  dsn:
-    type: string
-    value: "postgres://localhost/advanced"
-  log_prefix:
-    type: string
-    value: "[base] "
-  mail_host:
-    type: string
-    value: "smtp.example"
-  mail_retries:
-    type: int
-    value: 3
-  mail_prefix:
-    type: string
-    value: "ADV-"
+  dsn: "postgres://localhost/advanced"
+  log_prefix: "[base] "
+  mail_host: "smtp.example"
+  mail_retries: 3
+  mail_prefix: "ADV-"
 
 # element_type is inferred from constructor arguments
 tags:
