@@ -43,7 +43,7 @@ func NewContainer(params parameters.Provider, opts ...ContainerOption) *Containe
 		params = DefaultContainerParameters
 	}
 	c := &Container{
-		params:           parameters.NewResolver(params, nil),
+		params:           parameters.NewResolver(params, parameters.StandardCaster{}),
 		onMustCallFailed: func(string, error) {},
 	}
 	for _, opt := range opts {

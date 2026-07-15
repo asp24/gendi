@@ -15,16 +15,10 @@ type Resolver struct {
 	Caster   Caster
 }
 
-// NewResolver returns a Resolver over the given provider and caster.
-// A nil provider falls back to ProviderNullInstance and a nil caster to
-// StandardCaster.
+// NewResolver returns a Resolver over the given provider and caster. Both
+// arguments are stored as-is: a misconfigured (nil) dependency fails loudly
+// on first use instead of being silently replaced by a default.
 func NewResolver(p Provider, c Caster) *Resolver {
-	if p == nil {
-		p = ProviderNullInstance
-	}
-	if c == nil {
-		c = StandardCaster{}
-	}
 	return &Resolver{Provider: p, Caster: c}
 }
 

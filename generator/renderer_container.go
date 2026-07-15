@@ -95,7 +95,7 @@ func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *GenConte
 
 	fmt.Fprintf(b, "\t}\n")
 	fmt.Fprintf(b, "\tc := &%s{\n", r.containerName)
-	fmt.Fprintf(b, "\t\tparams: parameters.NewResolver(params, nil),\n")
+	fmt.Fprintf(b, "\t\tparams: parameters.NewResolver(params, parameters.StandardCaster{}),\n")
 	fmt.Fprintf(b, "\t\tonMustCallFailed: func(string, error) {},\n")
 	fmt.Fprintf(b, "\t}\n")
 	fmt.Fprintf(b, "\tfor _, opt := range opts {\n")

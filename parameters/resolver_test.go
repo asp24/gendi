@@ -15,7 +15,7 @@ func TestResolver(t *testing.T) {
 		"small":   int64(7),
 		"timeout": "5s",
 		"when":    "2026-01-02T03:04:05Z",
-	}), nil)
+	}), StandardCaster{})
 
 	if got, err := r.String("host"); err != nil || got != "localhost" {
 		t.Fatalf("String: got %v (err=%v)", got, err)
@@ -53,20 +53,19 @@ func TestResolver(t *testing.T) {
 	}
 }
 
-func TestNewResolverDefaults(t *testing.T) {
+func TestNewResolverStoresArgumentsAsIs(t *testing.T) {
+	// No implicit defaults: a misconfigured resolver must fail loudly on
+	// first use, not silently resolve nothing.
 	r := NewResolver(nil, nil)
-	if r.Caster == nil || r.Provider == nil {
-		t.Fatalf("expected nil arguments to fall back to defaults")
-	}
-	if _, err := r.String("anything"); !errors.Is(err, ErrParameterNotFound) {
-		t.Fatalf("expected ErrParameterNotFound from null provider, got %v", err)
+	if r.Provider != nil || r.Caster != nil {
+		t.Fatalf("expected nil arguments to be stored as-is, got %+v", r)
 	}
 }
 
 // Every Caster method must have a Resolver counterpart; this keeps the
 // facade in sync when Caster grows.
 func TestResolverMirrorsCaster(t *testing.T) {
-	r := NewResolver(NewProviderMap(map[string]any{"v": "1"}), nil)
+	r := NewResolver(NewProviderMap(map[string]any{"v": "1"}), StandardCaster{})
 	calls := []func(string) error{
 		func(n string) error { _, err := r.String(n); return err },
 		func(n string) error { _, err := r.Bool(n); return err },
