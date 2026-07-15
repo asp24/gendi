@@ -19,6 +19,11 @@ Runtime resolution is split into two steps:
 - `Provider.Lookup(name)` returns the raw scalar value
 - `parameters.Caster` converts it to the target type of the injection site (`ToInt`, `ToString`, `ToDuration`, ...)
 
+Generated containers call both steps through `parameters.Resolver` — a
+concrete facade struct with one typed method per target (`Int`, `String`,
+`Duration`, ...). It is intentionally not an interface: the extension points
+remain `Provider` and `Caster`.
+
 Supported target types: `string`, `bool`, all signed and unsigned integer widths, `float32`, `float64`, `time.Duration`, `time.Time`, and named types with one of those underlying types (converted statically). `uintptr` and complex types are not supported.
 
 Generation-time guarantees:
