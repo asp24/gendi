@@ -41,7 +41,9 @@ func normalizeValue(v reflect.Value) any {
 		return v.Bool()
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return v.Int()
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+	// Uintptr is deliberately absent: it is not a supported scalar, so it
+	// must reach the caster as-is and be rejected uniformly across providers.
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return v.Uint()
 	case reflect.Float32:
 		return float32(v.Float())
