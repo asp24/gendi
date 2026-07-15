@@ -752,15 +752,18 @@ func TestConvertLiteralTypes(t *testing.T) {
 func TestConvertConfigWithDirAndFile(t *testing.T) {
 	p := NewParser()
 
-	t.Run("parameter_mapping_form_rejected", func(t *testing.T) {
+	t.Run("parameter_deprecated_mapping_form", func(t *testing.T) {
 		raw := &RawConfig{
 			Parameters: map[string]RawParameter{
-				"bad": {Value: mustParseNode(t, "{type: int, value: 8080}")},
+				"old": {Value: mustParseNode(t, "{type: int, value: 8080}")},
 			},
 		}
-		_, err := p.ConvertConfigWithDirAndFile(raw, "", "")
-		if err == nil || !strings.Contains(err.Error(), "form was removed") {
-			t.Fatalf("expected migration error, got: %v", err)
+		cfg, err := p.ConvertConfigWithDirAndFile(raw, "", "")
+		if err != nil {
+			t.Fatalf("deprecated form must still convert, got: %v", err)
+		}
+		if got := cfg.Parameters["old"].Value; got.Kind != di.LiteralInt || got.Int() != 8080 {
+			t.Fatalf("expected int 8080 from value field, got %+v", got)
 		}
 	})
 

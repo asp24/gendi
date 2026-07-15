@@ -58,8 +58,8 @@ services:
 	}
 }
 
-func TestMappingParameterRejected(t *testing.T) {
-	_, err := loadConfigString(t, `
+func TestMappingParameterDeprecatedFormStillLoads(t *testing.T) {
+	cfg, err := loadConfigString(t, `
 parameters:
   port:
     type: int
@@ -70,8 +70,27 @@ services:
     constructor:
       func: "test.NewApp"
 `)
-	if err == nil || !strings.Contains(err.Error(), "form was removed") {
-		t.Fatalf("expected migration error, got %v", err)
+	if err != nil {
+		t.Fatalf("deprecated form must still load, got %v", err)
+	}
+	if got := cfg.Parameters["port"].Value; got.Kind != di.LiteralInt || got.Int() != 8080 {
+		t.Fatalf("expected int 8080 from value field, got %+v", got)
+	}
+}
+
+func TestMappingParameterWithoutValueRejected(t *testing.T) {
+	_, err := loadConfigString(t, `
+parameters:
+  port:
+    type: int
+
+services:
+  app:
+    constructor:
+      func: "test.NewApp"
+`)
+	if err == nil || !strings.Contains(err.Error(), "requires a value") {
+		t.Fatalf("expected missing value error, got %v", err)
 	}
 }
 

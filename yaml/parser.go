@@ -4,6 +4,8 @@ package yaml
 import (
 	"fmt"
 	"math"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/goccy/go-yaml/ast"
@@ -38,19 +40,40 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 
 	// Convert parameters
 	for name, param := range raw.Parameters {
-		if _, ok := param.Value.(*ast.MappingNode); ok {
-			return nil, srcloc.Errorf(newLocation(filePath, param.Node),
-				"parameter %q: the {type, value} form was removed; use a plain scalar default, e.g. %s: 8080", name, name)
+		valueNode := param.Value
+		deprecatedForm := false
+		if mapping, ok := param.Value.(*ast.MappingNode); ok {
+			// Deprecated {type, value} form: type is ignored (target types
+			// are contextual), value becomes the scalar default.
+			// TODO(#44): reject after one release.
+			for _, kv := range mapping.Values {
+				if keyString(kv.Key) == "value" {
+					valueNode = kv.Value
+				}
+			}
+			if valueNode == param.Value {
+				return nil, srcloc.Errorf(newLocation(filePath, param.Node),
+					"parameter %q: the {type, value} form requires a value; use a plain scalar default", name)
+			}
+			deprecatedForm = true
 		}
-		if param.Value == nil {
+		if valueNode == nil {
 			return nil, srcloc.Errorf(newLocation(filePath, param.Node), "parameter %q: null value is not supported", name)
 		}
-		lit, err := p.convertLiteral(param.Value, filePath)
+		lit, err := p.convertLiteral(valueNode, filePath)
 		if err != nil {
 			return nil, srcloc.AddContext(err, "parameter %q", name)
 		}
 		if lit.IsNull() {
 			return nil, srcloc.Errorf(newLocation(filePath, param.Node), "parameter %q: null value is not supported", name)
+		}
+		if deprecatedForm {
+			hint := fmt.Sprintf("%v", lit.Value)
+			if lit.Kind == di.LiteralString {
+				hint = strconv.Quote(lit.String())
+			}
+			_, _ = fmt.Fprintf(os.Stderr, "warning: %s: parameter %q: the {type, value} form is deprecated and will be removed; use a plain scalar default: %s: %s\n",
+				newLocation(filePath, param.Node), name, name, hint)
 		}
 		cfg.Parameters[name] = di.Parameter{
 			Value:     lit,

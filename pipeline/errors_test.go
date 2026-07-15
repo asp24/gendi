@@ -36,8 +36,8 @@ func TestErrorCases(t *testing.T) {
 			phase:       "generate",
 		},
 		{
-			name:        "invalid_parameter_type",
-			expectError: "type",
+			name:        "invalid_parameter_form",
+			expectError: "requires a value",
 			phase:       "load",
 		},
 		{
