@@ -57,8 +57,31 @@ func TestNewResolverStoresArgumentsAsIs(t *testing.T) {
 	// No implicit defaults: a misconfigured resolver must fail loudly on
 	// first use, not silently resolve nothing.
 	r := NewResolver(nil, nil)
-	if r.Provider != nil || r.Caster != nil {
+	if r.provider != nil || r.caster != nil {
 		t.Fatalf("expected nil arguments to be stored as-is, got %+v", r)
+	}
+}
+
+type fixedIntCaster struct {
+	StandardCaster
+}
+
+func (fixedIntCaster) ToInt(any) (int, error) { return 777, nil }
+
+func TestResolverWithCaster(t *testing.T) {
+	base := NewResolver(NewProviderMap(map[string]any{"p": "1"}), StandardCaster{})
+	custom := base.WithCaster(fixedIntCaster{})
+
+	if got, err := custom.Int("p"); err != nil || got != 777 {
+		t.Fatalf("expected custom caster result 777, got %v (err=%v)", got, err)
+	}
+	// The original resolver is unchanged: WithCaster returns a copy.
+	if got, err := base.Int("p"); err != nil || got != 1 {
+		t.Fatalf("expected original resolver untouched, got %v (err=%v)", got, err)
+	}
+	// The provider is shared between the two.
+	if got, err := custom.String("p"); err != nil || got != "1" {
+		t.Fatalf("expected shared provider lookup, got %v (err=%v)", got, err)
 	}
 }
 

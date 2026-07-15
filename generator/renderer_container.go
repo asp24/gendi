@@ -79,7 +79,7 @@ func (r *ContainerRenderer) renderContainerStruct(b *bytes.Buffer, ctx *GenConte
 	// With<Container>ParameterCaster function
 	fmt.Fprintf(b, "func %s(caster parameters.Caster) %sOption {\n", withParameterCasterName(r.containerName), r.containerName)
 	fmt.Fprintf(b, "\treturn func(c *%s) {\n", r.containerName)
-	fmt.Fprintf(b, "\t\tc.paramsResolver.Caster = caster\n")
+	fmt.Fprintf(b, "\t\tc.paramsResolver = c.paramsResolver.WithCaster(caster)\n")
 	fmt.Fprintf(b, "\t}\n")
 	fmt.Fprintf(b, "}\n\n")
 

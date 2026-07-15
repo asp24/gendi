@@ -35,7 +35,7 @@ func WithContainerErrorHandler(handler func(serviceName string, err error)) Cont
 
 func WithContainerParameterCaster(caster parameters.Caster) ContainerOption {
 	return func(c *Container) {
-		c.paramsResolver.Caster = caster
+		c.paramsResolver = c.paramsResolver.WithCaster(caster)
 	}
 }
 
