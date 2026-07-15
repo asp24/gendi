@@ -44,11 +44,18 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 		deprecatedForm := false
 		if mapping, ok := param.Value.(*ast.MappingNode); ok {
 			// Deprecated {type, value} form: type is ignored (target types
-			// are contextual), value becomes the scalar default.
-			// TODO(#44): reject after one release.
+			// are contextual), value becomes the scalar default, any other
+			// key is a typo. TODO(#44): reject the whole form after one
+			// release.
 			for _, kv := range mapping.Values {
-				if keyString(kv.Key) == "value" {
+				switch key := keyString(kv.Key); key {
+				case "type":
+					// Ignored.
+				case "value":
 					valueNode = kv.Value
+				default:
+					return nil, srcloc.Errorf(newLocation(filePath, kv.Key),
+						"parameter %q: unsupported key %q in the deprecated {type, value} form; use a plain scalar default", name, key)
 				}
 			}
 			if valueNode == param.Value {

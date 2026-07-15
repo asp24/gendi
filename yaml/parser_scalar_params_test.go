@@ -78,6 +78,23 @@ services:
 	}
 }
 
+func TestMappingParameterUnknownKeyRejected(t *testing.T) {
+	_, err := loadConfigString(t, `
+parameters:
+  port:
+    typo: silently-ignored
+    value: 7
+
+services:
+  app:
+    constructor:
+      func: "test.NewApp"
+`)
+	if err == nil || !strings.Contains(err.Error(), `unsupported key "typo"`) {
+		t.Fatalf("expected unsupported key error, got %v", err)
+	}
+}
+
 func TestMappingParameterWithoutValueRejected(t *testing.T) {
 	_, err := loadConfigString(t, `
 parameters:
