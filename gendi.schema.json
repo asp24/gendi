@@ -53,7 +53,9 @@
               "type": {
                 "type": "string"
               },
-              "value": {}
+              "value": {
+                "type": ["string", "number", "integer", "boolean"]
+              }
             },
             "required": ["value"],
             "additionalProperties": false
