@@ -2,9 +2,7 @@ imports:
   - ./base.yaml
 
 parameters:
-  env:
-    type: string
-    value: "production"
+  env: "production"
 
 services:
   app:

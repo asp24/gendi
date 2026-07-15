@@ -1,0 +1,9 @@
+parameters:
+  p: "42"
+
+services:
+  app:
+    constructor:
+      func: "test.NewApp"
+      args: ["%p%", "%p%"]
+    public: true
