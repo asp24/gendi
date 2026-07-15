@@ -29,7 +29,7 @@ func (r *Resolver) WithCaster(c Caster) *Resolver {
 	return &Resolver{provider: r.provider, caster: c}
 }
 
-func (r Resolver) String(name string) (string, error) {
+func (r *Resolver) String(name string) (string, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return "", err
@@ -37,7 +37,7 @@ func (r Resolver) String(name string) (string, error) {
 	return r.caster.ToString(raw)
 }
 
-func (r Resolver) Bool(name string) (bool, error) {
+func (r *Resolver) Bool(name string) (bool, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return false, err
@@ -45,7 +45,7 @@ func (r Resolver) Bool(name string) (bool, error) {
 	return r.caster.ToBool(raw)
 }
 
-func (r Resolver) Int(name string) (int, error) {
+func (r *Resolver) Int(name string) (int, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return 0, err
@@ -53,7 +53,7 @@ func (r Resolver) Int(name string) (int, error) {
 	return r.caster.ToInt(raw)
 }
 
-func (r Resolver) Int8(name string) (int8, error) {
+func (r *Resolver) Int8(name string) (int8, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return 0, err
@@ -61,7 +61,7 @@ func (r Resolver) Int8(name string) (int8, error) {
 	return r.caster.ToInt8(raw)
 }
 
-func (r Resolver) Int16(name string) (int16, error) {
+func (r *Resolver) Int16(name string) (int16, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return 0, err
@@ -69,7 +69,7 @@ func (r Resolver) Int16(name string) (int16, error) {
 	return r.caster.ToInt16(raw)
 }
 
-func (r Resolver) Int32(name string) (int32, error) {
+func (r *Resolver) Int32(name string) (int32, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return 0, err
@@ -77,7 +77,7 @@ func (r Resolver) Int32(name string) (int32, error) {
 	return r.caster.ToInt32(raw)
 }
 
-func (r Resolver) Int64(name string) (int64, error) {
+func (r *Resolver) Int64(name string) (int64, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return 0, err
@@ -85,7 +85,7 @@ func (r Resolver) Int64(name string) (int64, error) {
 	return r.caster.ToInt64(raw)
 }
 
-func (r Resolver) Uint(name string) (uint, error) {
+func (r *Resolver) Uint(name string) (uint, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return 0, err
@@ -93,7 +93,7 @@ func (r Resolver) Uint(name string) (uint, error) {
 	return r.caster.ToUint(raw)
 }
 
-func (r Resolver) Uint8(name string) (uint8, error) {
+func (r *Resolver) Uint8(name string) (uint8, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return 0, err
@@ -101,7 +101,7 @@ func (r Resolver) Uint8(name string) (uint8, error) {
 	return r.caster.ToUint8(raw)
 }
 
-func (r Resolver) Uint16(name string) (uint16, error) {
+func (r *Resolver) Uint16(name string) (uint16, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return 0, err
@@ -109,7 +109,7 @@ func (r Resolver) Uint16(name string) (uint16, error) {
 	return r.caster.ToUint16(raw)
 }
 
-func (r Resolver) Uint32(name string) (uint32, error) {
+func (r *Resolver) Uint32(name string) (uint32, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return 0, err
@@ -117,7 +117,7 @@ func (r Resolver) Uint32(name string) (uint32, error) {
 	return r.caster.ToUint32(raw)
 }
 
-func (r Resolver) Uint64(name string) (uint64, error) {
+func (r *Resolver) Uint64(name string) (uint64, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return 0, err
@@ -125,7 +125,7 @@ func (r Resolver) Uint64(name string) (uint64, error) {
 	return r.caster.ToUint64(raw)
 }
 
-func (r Resolver) Float32(name string) (float32, error) {
+func (r *Resolver) Float32(name string) (float32, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return 0, err
@@ -133,7 +133,7 @@ func (r Resolver) Float32(name string) (float32, error) {
 	return r.caster.ToFloat32(raw)
 }
 
-func (r Resolver) Float64(name string) (float64, error) {
+func (r *Resolver) Float64(name string) (float64, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return 0, err
@@ -141,7 +141,7 @@ func (r Resolver) Float64(name string) (float64, error) {
 	return r.caster.ToFloat64(raw)
 }
 
-func (r Resolver) Duration(name string) (time.Duration, error) {
+func (r *Resolver) Duration(name string) (time.Duration, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return 0, err
@@ -149,7 +149,7 @@ func (r Resolver) Duration(name string) (time.Duration, error) {
 	return r.caster.ToDuration(raw)
 }
 
-func (r Resolver) Time(name string) (time.Time, error) {
+func (r *Resolver) Time(name string) (time.Time, error) {
 	raw, err := r.provider.Lookup(name)
 	if err != nil {
 		return time.Time{}, err
