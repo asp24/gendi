@@ -13,6 +13,15 @@ Constructor:
 func NewContainer(params parameters.Provider, opts ...ContainerOption) *Container
 ```
 
+Options:
+```go
+func WithContainerErrorHandler(handler func(serviceName string, err error)) ContainerOption
+func WithContainerParameterCaster(caster parameters.Caster) ContainerOption
+```
+
+The container stores a `parameters.Caster` (default `parameters.StandardCaster`)
+and converts each looked-up parameter to the target type of its injection site.
+
 ## Getter Methods
 
 - `GetX() (T, error)`
