@@ -9,3 +9,7 @@ func defaultParametersName(containerName string) string {
 func withErrorHandlerName(containerName string) string {
 	return fmt.Sprintf("With%sErrorHandler", containerName)
 }
+
+func withParameterCasterName(containerName string) string {
+	return fmt.Sprintf("With%sParameterCaster", containerName)
+}

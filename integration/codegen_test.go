@@ -189,7 +189,6 @@ func TestParameterProviderCodegen(t *testing.T) {
 	cfg := &di.Config{
 		Parameters: map[string]di.Parameter{
 			"log_prefix": {
-				Type:  "string",
 				Value: di.NewStringLiteral("[app] "),
 			},
 		},
@@ -210,8 +209,14 @@ func TestParameterProviderCodegen(t *testing.T) {
 	if !strings.Contains(out, "NewContainer") {
 		t.Fatalf("expected container constructor when parameters are present")
 	}
-	if !strings.Contains(out, "GetString(\"log_prefix\")") {
-		t.Fatalf("expected parameter provider lookup in generated code")
+	if !strings.Contains(out, "Lookup(\"log_prefix\")") {
+		t.Fatalf("expected raw parameter lookup in generated code:\n%s", out)
+	}
+	if !strings.Contains(out, ".ToString(") {
+		t.Fatalf("expected contextual string cast in generated code:\n%s", out)
+	}
+	if !strings.Contains(out, "WithContainerParameterCaster") {
+		t.Fatalf("expected caster option in generated code:\n%s", out)
 	}
 }
 
@@ -219,7 +224,6 @@ func TestDurationParameterCodegen(t *testing.T) {
 	cfg := &di.Config{
 		Parameters: map[string]di.Parameter{
 			"timeout": {
-				Type:  "time.Duration",
 				Value: di.NewStringLiteral("1s"),
 			},
 		},
@@ -237,8 +241,37 @@ func TestDurationParameterCodegen(t *testing.T) {
 	}
 
 	out := generate(t, cfg)
-	if !strings.Contains(out, "GetDuration(\"timeout\")") {
-		t.Fatalf("expected duration parameter lookup")
+	if !strings.Contains(out, "Lookup(\"timeout\")") {
+		t.Fatalf("expected raw parameter lookup:\n%s", out)
+	}
+	if !strings.Contains(out, ".ToDuration(") {
+		t.Fatalf("expected duration cast:\n%s", out)
+	}
+}
+
+func TestParameterDefaultCastRejected(t *testing.T) {
+	cfg := &di.Config{
+		Parameters: map[string]di.Parameter{
+			"timeout": {
+				Value: di.NewStringLiteral("not-a-duration"),
+			},
+		},
+		Services: map[string]di.Service{
+			"timer": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
+					Args: []di.Argument{
+						{Kind: di.ArgParam, Value: "timeout"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	err := generateErr(t, cfg)
+	if err == nil || !strings.Contains(err.Error(), "cannot cast") {
+		t.Fatalf("expected generation-time default cast error, got %v", err)
 	}
 }
 
@@ -282,7 +315,6 @@ func TestServiceAliasCodegen(t *testing.T) {
 		},
 		Parameters: map[string]di.Parameter{
 			"log_prefix": {
-				Type:  "string",
 				Value: di.NewStringLiteral("[app] "),
 			},
 		},

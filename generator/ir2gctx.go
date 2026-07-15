@@ -71,7 +71,6 @@ func (b *IrConverter) Convert(irContainer *ir.Container, cfg *di.Config) (*GenCo
 	ctx := &GenContext{
 		services:          services,
 		orderedServiceIDs: irContainer.ServiceIDsPostOrder(),
-		paramGetters:      irContainer.ParamGetters(),
 	}
 
 	return ctx, nil

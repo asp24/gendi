@@ -1,8 +1,4 @@
 parameters:
-  message:
-    type: string
-    value: "Hello"
+  message: "Hello"
 
-  env:
-    type: string
-    value: "development"
+  env: "development"

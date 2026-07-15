@@ -107,25 +107,26 @@ func (b *serviceRefBuilder) buildWithSliceConversion(ctx *argBuildContext, dep *
 type paramRefBuilder struct{}
 
 func (b *paramRefBuilder) build(ctx *argBuildContext) (string, []string, error) {
-	method := ctx.genCtx.paramGetters[ctx.argument.Parameter.Name]
-	if method == "" {
-		return "", nil, fmt.Errorf("unknown parameter %q", ctx.argument.Parameter.Name)
+	targetType := ctx.argument.Type
+	method, needsConversion, err := ir.CasterMethod(targetType)
+	if err != nil {
+		return "", nil, err
 	}
-	paramVar := ctx.rnd.identGenerator.Var(fmt.Sprintf("param%d", ctx.argIndex), ctx.argument.Parameter.Name)
+	name := ctx.argument.Parameter.Name
+	rawVar := ctx.rnd.identGenerator.Var(fmt.Sprintf("param%dRaw", ctx.argIndex), name)
+	paramVar := ctx.rnd.identGenerator.Var(fmt.Sprintf("param%d", ctx.argIndex), name)
 	stmts := []string{
 		// Note: No need to check c.params == nil because the constructor ensures params is never nil
-		fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, method, ctx.argument.Parameter.Name),
-		serviceParamError(ctx.rnd.importManager, ctx.service.id, ctx.argIndex, ctx.argument.Parameter.Name),
+		fmt.Sprintf("%s, err := c.params.Lookup(%q)", rawVar, name),
+		serviceParamError(ctx.rnd.importManager, ctx.service.id, ctx.argIndex, name),
+		fmt.Sprintf("%s, err := c.caster.%s(%s)", paramVar, method, rawVar),
+		serviceParamError(ctx.rnd.importManager, ctx.service.id, ctx.argIndex, name),
 	}
 
-	// Check if type conversion is needed (named type with basic underlying type)
-	paramType := ctx.argument.Parameter.Type
-	if named, ok := paramType.(*types.Named); ok {
-		// Named type - need to convert from underlying type
-		typeStr := ctx.rnd.importManager.typeString(named)
+	if needsConversion {
+		typeStr := ctx.rnd.importManager.typeString(targetType)
 		return fmt.Sprintf("%s(%s)", typeStr, paramVar), stmts, nil
 	}
-
 	return paramVar, stmts, nil
 }
 

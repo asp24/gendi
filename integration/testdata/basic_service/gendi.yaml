@@ -1,7 +1,5 @@
 parameters:
-  greeting:
-    type: string
-    value: "Hello, World!"
+  greeting: "Hello, World!"
 
 services:
   greeter:

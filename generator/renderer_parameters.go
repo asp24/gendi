@@ -32,8 +32,6 @@ func (r *ParametersRenderer) literalExpr(lit di.Literal) (string, error) {
 		return s, nil
 	case di.LiteralBool:
 		return fmt.Sprintf("%t", lit.Bool()), nil
-	case di.LiteralNull:
-		return "nil", nil
 	default:
 		return "", fmt.Errorf("unsupported literal kind %d", lit.Kind)
 	}

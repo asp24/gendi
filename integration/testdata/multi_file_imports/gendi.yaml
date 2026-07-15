@@ -3,9 +3,7 @@ imports:
   - ./services/handlers.yaml
 
 parameters:
-  app_name:
-    type: string
-    value: "TestApp"
+  app_name: "TestApp"
 
 services:
   app:

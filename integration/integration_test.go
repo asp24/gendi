@@ -148,6 +148,10 @@ func TestWorkflow(t *testing.T) {
 			expectedOutput: "Hello from production\n",
 		},
 		{
+			name:           "parameter_contextual",
+			expectedOutput: "42 42\n",
+		},
+		{
 			name:           "decorator_chain",
 			expectedOutput: "cache(metrics(log(base)))\n",
 		},
