@@ -18,8 +18,7 @@ var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
 
 type Container struct {
 	mu               sync.Mutex
-	params           parameters.Provider
-	caster           parameters.Caster
+	params           parameters.Resolver
 	onMustCallFailed func(serviceName string, err error)
 	svc_stdlib_slog  *slog.Logger
 	svc_server       *app.Server
@@ -35,7 +34,7 @@ func WithContainerErrorHandler(handler func(serviceName string, err error)) Cont
 
 func WithContainerParameterCaster(caster parameters.Caster) ContainerOption {
 	return func(c *Container) {
-		c.caster = caster
+		c.params.Caster = caster
 	}
 }
 
@@ -44,8 +43,7 @@ func NewContainer(params parameters.Provider, opts ...ContainerOption) *Containe
 		params = DefaultContainerParameters
 	}
 	c := &Container{
-		params:           params,
-		caster:           parameters.StandardCaster{},
+		params:           parameters.NewResolver(params, nil),
 		onMustCallFailed: func(string, error) {},
 	}
 	for _, opt := range opts {
@@ -64,11 +62,7 @@ func (c *Container) buildStdlibSlogHandlerText() (slog.Handler, error) {
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "stdlib.slog.handler.text", 0, err)
 	}
-	param1Raw_stdlib_slog_level, err := c.params.Lookup("stdlib.slog.level")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "stdlib.slog.handler.text", 1, "stdlib.slog.level", err)
-	}
-	param1_stdlib_slog_level, err := c.caster.ToInt(param1Raw_stdlib_slog_level)
+	param1_stdlib_slog_level, err := c.params.Int("stdlib.slog.level")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "stdlib.slog.handler.text", 1, "stdlib.slog.level", err)
 	}
@@ -95,11 +89,7 @@ func (c *Container) buildProductHandlerLogger() (*slog.Logger, error) {
 
 func (c *Container) buildProductRepo() (*app.ProductRepoImpl, error) {
 	var zero *app.ProductRepoImpl
-	param0Raw_db_dsn, err := c.params.Lookup("db_dsn")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "product.repo", 0, "db_dsn", err)
-	}
-	param0_db_dsn, err := c.caster.ToString(param0Raw_db_dsn)
+	param0_db_dsn, err := c.params.String("db_dsn")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "product.repo", 0, "db_dsn", err)
 	}
@@ -130,11 +120,7 @@ func (c *Container) buildUserHandlerLogger() (*slog.Logger, error) {
 
 func (c *Container) buildUserRepo() (*app.UserRepoImpl, error) {
 	var zero *app.UserRepoImpl
-	param0Raw_db_dsn, err := c.params.Lookup("db_dsn")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "user.repo", 0, "db_dsn", err)
-	}
-	param0_db_dsn, err := c.caster.ToString(param0Raw_db_dsn)
+	param0_db_dsn, err := c.params.String("db_dsn")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "user.repo", 0, "db_dsn", err)
 	}

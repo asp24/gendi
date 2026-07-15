@@ -10,8 +10,7 @@ import (
 
 type Container struct {
 	mu                                   sync.Mutex
-	params                               parameters.Provider
-	caster                               parameters.Caster
+	params                               parameters.Resolver
 	onMustCallFailed                     func(serviceName string, err error)
 	svc_payment_provider_with_comission  *app.PaymentProviderCommissionDecorator
 	svc_payment_provider_with_comission2 *app.PaymentProviderCommissionDecorator
@@ -27,7 +26,7 @@ func WithContainerErrorHandler(handler func(serviceName string, err error)) Cont
 
 func WithContainerParameterCaster(caster parameters.Caster) ContainerOption {
 	return func(c *Container) {
-		c.caster = caster
+		c.params.Caster = caster
 	}
 }
 
@@ -36,8 +35,7 @@ func NewContainer(params parameters.Provider, opts ...ContainerOption) *Containe
 		params = parameters.ProviderNullInstance
 	}
 	c := &Container{
-		params:           params,
-		caster:           parameters.StandardCaster{},
+		params:           parameters.NewResolver(params, nil),
 		onMustCallFailed: func(string, error) {},
 	}
 	for _, opt := range opts {

@@ -14,8 +14,7 @@ var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
 
 type Container struct {
 	mu                    sync.Mutex
-	params                parameters.Provider
-	caster                parameters.Caster
+	params                parameters.Resolver
 	onMustCallFailed      func(serviceName string, err error)
 	svc_logger            *app.Logger
 	svc_service_decorator *app.Service
@@ -32,7 +31,7 @@ func WithContainerErrorHandler(handler func(serviceName string, err error)) Cont
 
 func WithContainerParameterCaster(caster parameters.Caster) ContainerOption {
 	return func(c *Container) {
-		c.caster = caster
+		c.params.Caster = caster
 	}
 }
 
@@ -41,8 +40,7 @@ func NewContainer(params parameters.Provider, opts ...ContainerOption) *Containe
 		params = DefaultContainerParameters
 	}
 	c := &Container{
-		params:           params,
-		caster:           parameters.StandardCaster{},
+		params:           parameters.NewResolver(params, nil),
 		onMustCallFailed: func(string, error) {},
 	}
 	for _, opt := range opts {
@@ -78,11 +76,7 @@ func (c *Container) buildLogger() (*app.Logger, error) {
 
 func (c *Container) buildRepo() (*app.Repo, error) {
 	var zero *app.Repo
-	param0Raw_dsn, err := c.params.Lookup("dsn")
-	if err != nil {
-		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "repo", 0, "dsn", err)
-	}
-	param0_dsn, err := c.caster.ToString(param0Raw_dsn)
+	param0_dsn, err := c.params.String("dsn")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "repo", 0, "dsn", err)
 	}

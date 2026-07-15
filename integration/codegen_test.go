@@ -209,11 +209,8 @@ func TestParameterProviderCodegen(t *testing.T) {
 	if !strings.Contains(out, "NewContainer") {
 		t.Fatalf("expected container constructor when parameters are present")
 	}
-	if !strings.Contains(out, "Lookup(\"log_prefix\")") {
-		t.Fatalf("expected raw parameter lookup in generated code:\n%s", out)
-	}
-	if !strings.Contains(out, ".ToString(") {
-		t.Fatalf("expected contextual string cast in generated code:\n%s", out)
+	if !strings.Contains(out, ".String(\"log_prefix\")") {
+		t.Fatalf("expected contextual string resolution in generated code:\n%s", out)
 	}
 	if !strings.Contains(out, "WithContainerParameterCaster") {
 		t.Fatalf("expected caster option in generated code:\n%s", out)
@@ -241,11 +238,8 @@ func TestDurationParameterCodegen(t *testing.T) {
 	}
 
 	out := generate(t, cfg)
-	if !strings.Contains(out, "Lookup(\"timeout\")") {
-		t.Fatalf("expected raw parameter lookup:\n%s", out)
-	}
-	if !strings.Contains(out, ".ToDuration(") {
-		t.Fatalf("expected duration cast:\n%s", out)
+	if !strings.Contains(out, ".Duration(\"timeout\")") {
+		t.Fatalf("expected contextual duration resolution:\n%s", out)
 	}
 }
 

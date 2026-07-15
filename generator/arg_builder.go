@@ -113,13 +113,11 @@ func (b *paramRefBuilder) build(ctx *argBuildContext) (string, []string, error) 
 		return "", nil, err
 	}
 	name := ctx.argument.Parameter.Name
-	rawVar := ctx.rnd.identGenerator.Var(fmt.Sprintf("param%dRaw", ctx.argIndex), name)
 	paramVar := ctx.rnd.identGenerator.Var(fmt.Sprintf("param%d", ctx.argIndex), name)
 	stmts := []string{
-		// Note: No need to check c.params == nil because the constructor ensures params is never nil
-		fmt.Sprintf("%s, err := c.params.Lookup(%q)", rawVar, name),
-		serviceParamError(ctx.rnd.importManager, ctx.service.id, ctx.argIndex, name),
-		fmt.Sprintf("%s, err := c.caster.%s(%s)", paramVar, method, rawVar),
+		// c.params is a parameters.Resolver: one call performs the lookup
+		// and the contextual cast for this injection site.
+		fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, strings.TrimPrefix(method, "To"), name),
 		serviceParamError(ctx.rnd.importManager, ctx.service.id, ctx.argIndex, name),
 	}
 
