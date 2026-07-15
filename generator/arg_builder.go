@@ -108,7 +108,7 @@ type paramRefBuilder struct{}
 
 func (b *paramRefBuilder) build(ctx *argBuildContext) (string, []string, error) {
 	targetType := ctx.argument.Type
-	method, needsConversion, err := ir.CasterMethod(targetType)
+	kind, needsConversion, err := ir.ParamScalarKind(targetType)
 	if err != nil {
 		return "", nil, err
 	}
@@ -117,7 +117,7 @@ func (b *paramRefBuilder) build(ctx *argBuildContext) (string, []string, error) 
 	stmts := []string{
 		// c.paramsResolver combines the lookup and the contextual cast for
 		// this injection site in one call.
-		fmt.Sprintf("%s, err := c.paramsResolver.%s(%q)", paramVar, strings.TrimPrefix(method, "To"), name),
+		fmt.Sprintf("%s, err := c.paramsResolver.%s(%q)", paramVar, kind.ResolverMethod(), name),
 		serviceParamError(ctx.rnd.importManager, ctx.service.id, ctx.argIndex, name),
 	}
 

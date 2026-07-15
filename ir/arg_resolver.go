@@ -52,7 +52,7 @@ func (r *argResolver) resolveServiceRef(container *Container, svcID string, idx 
 }
 
 func (r *argResolver) resolveParam(container *Container, svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
-	if _, _, err := CasterMethod(paramType); err != nil {
+	if _, _, err := ParamScalarKind(paramType); err != nil {
 		return nil, srcloc.Errorf(arg.SourceLoc, "service %q arg[%d]: parameter %q: %v", svcID, idx, arg.Value, err)
 	}
 	param, ok := container.Parameters[arg.Value]
