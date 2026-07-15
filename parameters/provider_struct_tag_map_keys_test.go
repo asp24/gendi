@@ -1,6 +1,9 @@
 package parameters
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 type paramKey string
 
@@ -22,19 +25,16 @@ func TestProviderStructTagNamedMapKey(t *testing.T) {
 
 	provider := NewProviderStructTag(cfg)
 
-	if !provider.Has("vals.mode") {
-		t.Fatalf("expected Has(vals.mode) to be true")
+	if got, err := provider.Lookup("vals.mode"); err != nil || got != "fast" {
+		t.Fatalf("Lookup(vals.mode): expected fast, got %v (err=%v)", got, err)
 	}
-	if got, err := provider.GetString("vals.mode"); err != nil || got != "fast" {
-		t.Fatalf("GetString: expected fast, got %v (err=%v)", got, err)
-	}
-	if got, err := provider.GetInt("vals.nested.depth"); err != nil || got != 2 {
-		t.Fatalf("nested GetInt: expected 2, got %v (err=%v)", got, err)
+	if got, err := provider.Lookup("vals.nested.depth"); err != nil || got != int64(2) {
+		t.Fatalf("Lookup(vals.nested.depth): expected 2, got %v (err=%v)", got, err)
 	}
 
 	// Non-string map keys cannot be addressed by a string path; the lookup
 	// must miss instead of panicking.
-	if provider.Has("ids.1") {
-		t.Fatalf("expected Has(ids.1) to be false for non-string keyed map")
+	if _, err := provider.Lookup("ids.1"); !errors.Is(err, ErrParameterNotFound) {
+		t.Fatalf("expected ErrParameterNotFound for non-string keyed map, got %v", err)
 	}
 }

@@ -17,89 +17,38 @@ func NewProviderStructTag(value any) *ProviderStructTag {
 	return &ProviderStructTag{value: value}
 }
 
-func (p *ProviderStructTag) Has(name string) bool {
-	_, err := p.lookup(name)
-	return err == nil
-}
-
-func (p *ProviderStructTag) GetString(name string) (string, error) {
+func (p *ProviderStructTag) Lookup(name string) (any, error) {
 	val, err := p.lookup(name)
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("parameter %q: %w", name, err)
 	}
-	if val.Kind() == reflect.String {
-		return val.String(), nil
-	}
-	return "", fmt.Errorf("parameter %q: expected string, got %s", name, val.Type())
+	return normalizeValue(val), nil
 }
 
-func (p *ProviderStructTag) GetInt(name string) (int, error) {
-	val, err := p.lookup(name)
-	if err != nil {
-		return 0, err
+// normalizeValue reduces a reflectively read value to the base-kind scalar
+// form of the Lookup contract: named types collapse to their underlying
+// kind, exact time.Time and time.Duration are preserved, and non-scalar
+// values pass through for the caster to reject with a typed error.
+func normalizeValue(v reflect.Value) any {
+	switch v.Type() {
+	case reflect.TypeFor[time.Duration](), reflect.TypeFor[time.Time]():
+		return v.Interface()
 	}
-	switch val.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		v := val.Int()
-		if v < int64(intMin) || v > int64(intMax) {
-			return 0, fmt.Errorf("parameter %q: value out of int range", name)
-		}
-		return int(v), nil
-	default:
-		return 0, fmt.Errorf("parameter %q: expected int, got %s", name, val.Type())
-	}
-}
-
-func (p *ProviderStructTag) GetBool(name string) (bool, error) {
-	val, err := p.lookup(name)
-	if err != nil {
-		return false, err
-	}
-	if val.Kind() == reflect.Bool {
-		return val.Bool(), nil
-	}
-	return false, fmt.Errorf("parameter %q: expected bool, got %s", name, val.Type())
-}
-
-func (p *ProviderStructTag) GetFloat(name string) (float64, error) {
-	val, err := p.lookup(name)
-	if err != nil {
-		return 0, err
-	}
-	switch val.Kind() {
-	case reflect.Float32, reflect.Float64:
-		return val.Convert(reflect.TypeFor[float64]()).Float(), nil
-	default:
-		return 0, fmt.Errorf("parameter %q: expected float64, got %s", name, val.Type())
-	}
-}
-
-func (p *ProviderStructTag) GetDuration(name string) (time.Duration, error) {
-	val, err := p.lookup(name)
-	if err != nil {
-		return 0, err
-	}
-	durationType := reflect.TypeFor[time.Duration]()
-	if val.Type() == durationType {
-		return val.Convert(durationType).Interface().(time.Duration), nil
-	}
-	switch val.Kind() {
+	switch v.Kind() {
 	case reflect.String:
-		parsed, err := time.ParseDuration(val.String())
-		if err != nil {
-			return 0, fmt.Errorf("parameter %q: invalid duration: %w", name, err)
-		}
-		return parsed, nil
+		return v.String()
+	case reflect.Bool:
+		return v.Bool()
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return time.Duration(val.Int()), nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		u := val.Uint()
-		if u > uint64(^uint64(0)>>1) {
-			return 0, fmt.Errorf("parameter %q: duration overflows int64", name)
-		}
-		return time.Duration(u), nil
+		return v.Int()
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return v.Uint()
+	case reflect.Float32:
+		return float32(v.Float())
+	case reflect.Float64:
+		return v.Float()
 	default:
-		return 0, fmt.Errorf("parameter %q: expected duration, got %s", name, val.Type())
+		return v.Interface()
 	}
 }
 
@@ -145,6 +94,11 @@ func lookupStruct(v reflect.Value, name string) (reflect.Value, bool) {
 					}
 				}
 			case reflect.Struct:
+				// Exact match returns the struct itself as a leaf value
+				// (e.g. a time.Time field); the caster rejects other structs.
+				if name == tag {
+					return fieldVal, true
+				}
 				if after, ok0 := strings.CutPrefix(name, tag+"."); ok0 {
 					nestedName := after
 					if val, ok := lookupStruct(fieldVal, nestedName); ok {
@@ -201,8 +155,3 @@ func derefValue(v reflect.Value) (reflect.Value, bool) {
 	}
 	return v, true
 }
-
-const (
-	intMax = int(^uint(0) >> 1)
-	intMin = -intMax - 1
-)

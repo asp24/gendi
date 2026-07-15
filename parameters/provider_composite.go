@@ -1,12 +1,13 @@
 package parameters
 
 import (
-	"time"
+	"errors"
+	"fmt"
 )
 
-// ProviderComposite delegates to the last provider that has the parameter
-// (later providers override earlier ones); Has reports whether any provider
-// has it.
+// ProviderComposite queries providers in reverse priority order (later
+// providers override earlier ones): it continues past ErrParameterNotFound
+// and stops on the first other result, so each parameter is looked up once.
 type ProviderComposite struct {
 	providers []Provider
 }
@@ -16,45 +17,13 @@ func NewProviderComposite(providers ...Provider) *ProviderComposite {
 	return &ProviderComposite{providers: providers}
 }
 
-func (p *ProviderComposite) Has(name string) bool {
-	for _, provider := range p.providers {
-		if provider.Has(name) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (p *ProviderComposite) getLastProviderWhoHas(name string) Provider {
+func (p *ProviderComposite) Lookup(name string) (any, error) {
 	for i := len(p.providers) - 1; i >= 0; i-- {
-		provider := p.providers[i]
-		if !provider.Has(name) {
+		val, err := p.providers[i].Lookup(name)
+		if errors.Is(err, ErrParameterNotFound) {
 			continue
 		}
-
-		return provider
+		return val, err
 	}
-
-	return ProviderNullInstance
-}
-
-func (p *ProviderComposite) GetString(name string) (string, error) {
-	return p.getLastProviderWhoHas(name).GetString(name)
-}
-
-func (p *ProviderComposite) GetInt(name string) (int, error) {
-	return p.getLastProviderWhoHas(name).GetInt(name)
-}
-
-func (p *ProviderComposite) GetBool(name string) (bool, error) {
-	return p.getLastProviderWhoHas(name).GetBool(name)
-}
-
-func (p *ProviderComposite) GetFloat(name string) (float64, error) {
-	return p.getLastProviderWhoHas(name).GetFloat(name)
-}
-
-func (p *ProviderComposite) GetDuration(name string) (time.Duration, error) {
-	return p.getLastProviderWhoHas(name).GetDuration(name)
+	return nil, fmt.Errorf("parameter %q: %w", name, ErrParameterNotFound)
 }
