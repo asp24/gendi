@@ -20,6 +20,7 @@ type taggedConfig struct {
 	Ratio     float32       `di-param:"ratio"`
 	Wait      time.Duration `di-param:"wait"`
 	When      time.Time     `di-param:"when"`
+	Addr      uintptr       `di-param:"addr"`
 	Nested    nestedConfig
 	Prefixed  nestedConfig              `di-param:"pref"`
 	Values    map[string]any            `di-param:"vals"`
@@ -36,6 +37,7 @@ func TestProviderStructTagLookup(t *testing.T) {
 		Ratio:    2.5,
 		Wait:     30 * time.Second,
 		When:     when,
+		Addr:     7,
 		Nested:   nestedConfig{Timeout: "30s"},
 		Prefixed: nestedConfig{Timeout: "10s"},
 		Values: map[string]any{
@@ -64,6 +66,9 @@ func TestProviderStructTagLookup(t *testing.T) {
 		// Exact time.Duration and time.Time are preserved.
 		{"wait", 30 * time.Second},
 		{"when", when},
+		// uintptr is an unsupported scalar: it must NOT be normalized, so
+		// the caster rejects it identically for every provider.
+		{"addr", uintptr(7)},
 		{"timeout", "30s"},
 		{"pref.timeout", "10s"},
 		{"vals.mode", "fast"},
@@ -83,6 +88,16 @@ func TestProviderStructTagLookup(t *testing.T) {
 
 	if _, err := provider.Lookup("missing"); !errors.Is(err, ErrParameterNotFound) {
 		t.Fatalf("expected ErrParameterNotFound, got %v", err)
+	}
+
+	// The un-normalized uintptr is rejected by the standard caster exactly
+	// like a uintptr stored in a ProviderMap would be.
+	raw, err := provider.Lookup("addr")
+	if err != nil {
+		t.Fatalf("Lookup(addr): unexpected error %v", err)
+	}
+	if _, err := (StandardCaster{}).ToUint64(raw); !errors.Is(err, ErrCannotCast) {
+		t.Fatalf("expected uintptr to be rejected by the caster, got %v", err)
 	}
 }
 
