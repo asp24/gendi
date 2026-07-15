@@ -13,7 +13,7 @@ var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
 	"log_prefix":   "[us-east-1] ",
 	"mail_host":    "smtp.us.example",
 	"mail_prefix":  "ADV-",
-	"mail_retries": 5,
+	"mail_retries": int64(5),
 })
 
 type Container struct {

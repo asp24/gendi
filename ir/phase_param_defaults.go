@@ -53,9 +53,9 @@ func (p *paramDefaultValidatorPhase) validateArg(cfg *di.Config, svcID string, i
 }
 
 // castDefault runs the standard caster on a declared default exactly as the
-// generated container will at runtime. The raw value fed here (int64 for int
-// literals) and the value stored in the generated defaults map (untyped int
-// constant) differ only in width, never in conversion outcome.
+// generated container will at runtime: the raw value fed here matches the
+// representation rendered into the generated defaults map (int literals are
+// emitted as int64) on every target architecture.
 func castDefault(lit di.Literal, target types.Type) error {
 	var raw any
 	switch lit.Kind {
