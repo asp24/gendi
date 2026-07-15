@@ -70,46 +70,10 @@ func castDefault(lit di.Literal, target types.Type) error {
 	default:
 		return fmt.Errorf("unsupported default literal kind %d", lit.Kind)
 	}
-	method, _, err := CasterMethod(target)
+	kind, _, err := ParamScalarKind(target)
 	if err != nil {
 		return err
 	}
-	c := parameters.StandardCaster{}
-	switch method {
-	case "ToString":
-		_, err = c.ToString(raw)
-	case "ToBool":
-		_, err = c.ToBool(raw)
-	case "ToInt":
-		_, err = c.ToInt(raw)
-	case "ToInt8":
-		_, err = c.ToInt8(raw)
-	case "ToInt16":
-		_, err = c.ToInt16(raw)
-	case "ToInt32":
-		_, err = c.ToInt32(raw)
-	case "ToInt64":
-		_, err = c.ToInt64(raw)
-	case "ToUint":
-		_, err = c.ToUint(raw)
-	case "ToUint8":
-		_, err = c.ToUint8(raw)
-	case "ToUint16":
-		_, err = c.ToUint16(raw)
-	case "ToUint32":
-		_, err = c.ToUint32(raw)
-	case "ToUint64":
-		_, err = c.ToUint64(raw)
-	case "ToFloat32":
-		_, err = c.ToFloat32(raw)
-	case "ToFloat64":
-		_, err = c.ToFloat64(raw)
-	case "ToDuration":
-		_, err = c.ToDuration(raw)
-	case "ToTime":
-		_, err = c.ToTime(raw)
-	default:
-		err = fmt.Errorf("unknown caster method %s", method)
-	}
+	_, err = kind.Cast(parameters.StandardCaster{}, raw)
 	return err
 }
