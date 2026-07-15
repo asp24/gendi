@@ -243,6 +243,34 @@ func TestDurationParameterCodegen(t *testing.T) {
 	}
 }
 
+func TestIntParameterDefaultRenderedAsInt64(t *testing.T) {
+	cfg := &di.Config{
+		Parameters: map[string]di.Parameter{
+			// Value exceeds MaxInt32: as an untyped constant in the defaults
+			// map it would fail to compile on 32-bit targets.
+			"timeout": {
+				Value: di.NewIntLiteral(2147483648),
+			},
+		},
+		Services: map[string]di.Service{
+			"timer": {
+				Constructor: di.Constructor{
+					Func: "github.com/asp24/gendi/generator/testdata/app.NewTimer",
+					Args: []di.Argument{
+						{Kind: di.ArgParam, Value: "timeout"},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	out := generate(t, cfg)
+	if !strings.Contains(out, "int64(2147483648)") {
+		t.Fatalf("expected int default rendered as int64 for GOARCH independence:\n%s", out)
+	}
+}
+
 func TestParameterDefaultCastRejected(t *testing.T) {
 	cfg := &di.Config{
 		Parameters: map[string]di.Parameter{

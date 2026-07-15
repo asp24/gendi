@@ -13,7 +13,7 @@ import (
 
 var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
 	"db_dsn":            "postgres://localhost/myapp",
-	"stdlib.slog.level": 0,
+	"stdlib.slog.level": int64(0),
 })
 
 type Container struct {

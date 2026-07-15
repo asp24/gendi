@@ -23,7 +23,11 @@ func (r *ParametersRenderer) literalExpr(lit di.Literal) (string, error) {
 	case di.LiteralString:
 		return strconv.Quote(lit.String()), nil
 	case di.LiteralInt:
-		return fmt.Sprintf("%d", lit.Int()), nil
+		// Explicitly int64: an untyped constant would become a platform
+		// int inside map[string]any, breaking 32-bit builds for values
+		// above MaxInt32 and diverging from the generation-time validation
+		// representation.
+		return fmt.Sprintf("int64(%d)", lit.Int()), nil
 	case di.LiteralFloat:
 		s := strconv.FormatFloat(lit.Float(), 'g', -1, 64)
 		if !strings.ContainsAny(s, ".e") {
