@@ -40,6 +40,24 @@ func runCastTests(t *testing.T, tests []castTest, call func(any) (any, error)) {
 	}
 }
 
+func TestNewCastError(t *testing.T) {
+	tests := []struct {
+		value  any
+		target string
+		want   string
+	}{
+		{"abc", "int", `cannot cast string "abc" to int`},
+		{nil, "bool", "cannot cast <nil> to bool"},
+		{42, "string", "cannot cast int 42 to string"},
+		{namedInt(1), "int64", "cannot cast parameters.namedInt 1 to int64"},
+	}
+	for _, tt := range tests {
+		if got := NewCastError(tt.value, tt.target).Error(); got != tt.want {
+			t.Fatalf("NewCastError(%v, %s): got %q, want %q", tt.value, tt.target, got, tt.want)
+		}
+	}
+}
+
 func TestStandardCasterToInt64(t *testing.T) {
 	c := StandardCaster{}
 	runCastTests(t, []castTest{

@@ -103,6 +103,9 @@ func (LenientCaster) ToInt(value any) (int, error) {
 container := di.NewContainer(nil, di.WithContainerParameterCaster(LenientCaster{}))
 ```
 
+Custom casters can build rejection errors with `parameters.NewCastError(value, "int")`
+to keep their messages consistent with the standard policy.
+
 ### Generation-Time Validation
 
 Declared defaults are validated during generation by executing the real
