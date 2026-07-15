@@ -115,9 +115,9 @@ func (b *paramRefBuilder) build(ctx *argBuildContext) (string, []string, error) 
 	name := ctx.argument.Parameter.Name
 	paramVar := ctx.rnd.identGenerator.Var(fmt.Sprintf("param%d", ctx.argIndex), name)
 	stmts := []string{
-		// c.params is a parameters.Resolver: one call performs the lookup
-		// and the contextual cast for this injection site.
-		fmt.Sprintf("%s, err := c.params.%s(%q)", paramVar, strings.TrimPrefix(method, "To"), name),
+		// c.paramsResolver combines the lookup and the contextual cast for
+		// this injection site in one call.
+		fmt.Sprintf("%s, err := c.paramsResolver.%s(%q)", paramVar, strings.TrimPrefix(method, "To"), name),
 		serviceParamError(ctx.rnd.importManager, ctx.service.id, ctx.argIndex, name),
 	}
 

@@ -18,7 +18,7 @@ var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
 
 type Container struct {
 	mu                 sync.Mutex
-	params             *parameters.Resolver
+	paramsResolver     *parameters.Resolver
 	onMustCallFailed   func(serviceName string, err error)
 	svc_notifier_email *app.EmailNotifier
 	svc_notifier_sms   *app.SMSNotifier
@@ -35,7 +35,7 @@ func WithContainerErrorHandler(handler func(serviceName string, err error)) Cont
 
 func WithContainerParameterCaster(caster parameters.Caster) ContainerOption {
 	return func(c *Container) {
-		c.params.Caster = caster
+		c.paramsResolver.Caster = caster
 	}
 }
 
@@ -44,7 +44,7 @@ func NewContainer(params parameters.Provider, opts ...ContainerOption) *Containe
 		params = DefaultContainerParameters
 	}
 	c := &Container{
-		params:           parameters.NewResolver(params, parameters.StandardCaster{}),
+		paramsResolver:   parameters.NewResolver(params, parameters.StandardCaster{}),
 		onMustCallFailed: func(string, error) {},
 	}
 	for _, opt := range opts {
@@ -55,7 +55,7 @@ func NewContainer(params parameters.Provider, opts ...ContainerOption) *Containe
 
 func (c *Container) buildMailerRetryInner() (app.Mailer, error) {
 	var zero app.Mailer
-	param0_mail_host, err := c.params.String("mail_host")
+	param0_mail_host, err := c.paramsResolver.String("mail_host")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.retry.inner", 0, "mail_host", err)
 	}
@@ -68,7 +68,7 @@ func (c *Container) buildMailerRetry() (*app.MailerRetryDecorator, error) {
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "mailer.retry", 0, err)
 	}
-	param1_mail_retries, err := c.params.Int("mail_retries")
+	param1_mail_retries, err := c.paramsResolver.Int("mail_retries")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.retry", 1, "mail_retries", err)
 	}
@@ -81,7 +81,7 @@ func (c *Container) buildMailerPrefix() (*app.MailerPrefixDecorator, error) {
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d]: %w", "mailer.prefix", 0, err)
 	}
-	param1_mail_prefix, err := c.params.String("mail_prefix")
+	param1_mail_prefix, err := c.paramsResolver.String("mail_prefix")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "mailer.prefix", 1, "mail_prefix", err)
 	}
@@ -116,7 +116,7 @@ func (c *Container) buildTaggedWithNotifier() ([]app.Notifier, error) {
 
 func (c *Container) buildDb() (*app.DB, error) {
 	var zero *app.DB
-	param0_dsn, err := c.params.String("dsn")
+	param0_dsn, err := c.paramsResolver.String("dsn")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "db", 0, "dsn", err)
 	}
@@ -129,7 +129,7 @@ func (c *Container) buildDb() (*app.DB, error) {
 
 func (c *Container) buildLogger() (*app.Logger, error) {
 	var zero *app.Logger
-	param0_log_prefix, err := c.params.String("log_prefix")
+	param0_log_prefix, err := c.paramsResolver.String("log_prefix")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "logger", 0, "log_prefix", err)
 	}

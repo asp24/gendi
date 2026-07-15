@@ -14,7 +14,7 @@ var DefaultContainerParameters = parameters.NewProviderMap(map[string]any{
 
 type Container struct {
 	mu                  sync.Mutex
-	params              *parameters.Resolver
+	paramsResolver      *parameters.Resolver
 	onMustCallFailed    func(serviceName string, err error)
 	svc_handler_admin   *app.AdminHandler
 	svc_handler_api     *app.APIHandler
@@ -34,7 +34,7 @@ func WithContainerErrorHandler(handler func(serviceName string, err error)) Cont
 
 func WithContainerParameterCaster(caster parameters.Caster) ContainerOption {
 	return func(c *Container) {
-		c.params.Caster = caster
+		c.paramsResolver.Caster = caster
 	}
 }
 
@@ -43,7 +43,7 @@ func NewContainer(params parameters.Provider, opts ...ContainerOption) *Containe
 		params = DefaultContainerParameters
 	}
 	c := &Container{
-		params:           parameters.NewResolver(params, parameters.StandardCaster{}),
+		paramsResolver:   parameters.NewResolver(params, parameters.StandardCaster{}),
 		onMustCallFailed: func(string, error) {},
 	}
 	for _, opt := range opts {
@@ -100,7 +100,7 @@ func (c *Container) buildAllHandlers() ([]app.Handler, error) {
 
 func (c *Container) buildServerPrefixed() (*app.PrefixedServer, error) {
 	var zero *app.PrefixedServer
-	param0_server_prefix, err := c.params.String("server_prefix")
+	param0_server_prefix, err := c.paramsResolver.String("server_prefix")
 	if err != nil {
 		return zero, fmt.Errorf("service %q arg[%d] param %q: %w", "server.prefixed", 0, "server_prefix", err)
 	}

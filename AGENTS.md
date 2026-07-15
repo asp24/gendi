@@ -131,7 +131,7 @@ Constructor arguments use special syntax:
 
 ### Parameters
 
-Parameters are declared as plain scalar defaults (`parameters: {port: 8080, timeout: 5s}`) — there is no `type` field. The target type is contextual: it comes from each constructor argument the parameter is injected into, so one parameter can be requested as different types at different injection sites. At runtime `parameters.Provider.Lookup(name)` returns the raw value and the container's `parameters.Caster` (default `StandardCaster`, replaceable via the generated `With<Container>ParameterCaster` option) converts it per injection site; generated code performs both steps through one `parameters.Resolver` facade call (`c.params.Int("port")`). Unsupported target types and non-convertible declared defaults fail at generation time.
+Parameters are declared as plain scalar defaults (`parameters: {port: 8080, timeout: 5s}`) — there is no `type` field. The target type is contextual: it comes from each constructor argument the parameter is injected into, so one parameter can be requested as different types at different injection sites. At runtime `parameters.Provider.Lookup(name)` returns the raw value and the container's `parameters.Caster` (default `StandardCaster`, replaceable via the generated `With<Container>ParameterCaster` option) converts it per injection site; generated code performs both steps through one `parameters.Resolver` facade call (`c.paramsResolver.Int("port")`). Unsupported target types and non-convertible declared defaults fail at generation time.
 
 ### Service Lifecycle
 

@@ -80,7 +80,7 @@ generation time. Use exact `time.Duration` or a numeric default instead.
 At runtime a parameter is resolved in two steps: the provider locates the
 raw value (`Provider.Lookup(name)`), then the container's caster converts it
 to the injection site's target type. Generated code performs both steps
-through a single `parameters.Resolver` facade call (`c.params.Int("port")`);
+through a single `parameters.Resolver` facade call (`c.paramsResolver.Int("port")`);
 the facade is a concrete struct over `Provider` + `Caster`, so the two
 responsibilities stay independently replaceable. The default
 `parameters.StandardCaster` rejects lossy conversions: float→integer,
