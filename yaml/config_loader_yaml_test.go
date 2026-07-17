@@ -17,9 +17,9 @@ type stubResolver struct {
 
 func (r stubResolver) CanResolve(string) bool { return true }
 
-func (r stubResolver) Resolve(_, importPath string) ([]string, error) {
+func (r stubResolver) Resolve(baseDir, importPath string) (*imprt.Resolution, error) {
 	if paths, ok := r.paths[importPath]; ok {
-		return paths, nil
+		return &imprt.Resolution{Files: paths, BaseDir: baseDir}, nil
 	}
 	return nil, os.ErrNotExist
 }
@@ -389,6 +389,83 @@ imports:
 	}
 	if _, ok := cfg.Parameters["test"]; ok {
 		t.Error("expected test parameter to be excluded")
+	}
+}
+
+func TestExcludeModuleImport(t *testing.T) {
+	moduleRoot := t.TempDir()
+	writeFile(t, moduleRoot, "go.mod", "module example.com/testmod\n")
+
+	servicesDir := filepath.Join(moduleRoot, "services")
+	if err := os.MkdirAll(servicesDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeFile(t, servicesDir, "app.yaml", `
+parameters:
+  app: "app"
+`)
+	writeFile(t, servicesDir, "skip.yaml", `
+parameters:
+  skip_me: "skip"
+`)
+
+	// The importing file lives in a subdirectory of the module, so its
+	// directory differs from the module root the resolved files live under.
+	appDir := filepath.Join(moduleRoot, "app")
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	rootPath := writeFile(t, appDir, "gendi.yaml", `
+imports:
+  - path: example.com/testmod/services/*.yaml
+    exclude:
+      - services/skip.yaml
+`)
+
+	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	cfg, err := loader.Load(rootPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if _, ok := cfg.Parameters["app"]; !ok {
+		t.Error("expected app parameter to be loaded")
+	}
+	if _, ok := cfg.Parameters["skip_me"]; ok {
+		t.Error("expected skip_me parameter to be excluded")
+	}
+}
+
+func TestExcludeAbsoluteGlobRelativePattern(t *testing.T) {
+	extDir := t.TempDir()
+	writeFile(t, extDir, "keep.yaml", `
+parameters:
+  keep: "keep"
+`)
+	writeFile(t, extDir, "skip.yaml", `
+parameters:
+  skip_me: "skip"
+`)
+
+	rootDir := t.TempDir()
+	rootPath := writeFile(t, rootDir, "gendi.yaml", fmt.Sprintf(`
+imports:
+  - path: %s
+    exclude:
+      - skip.yaml
+`, filepath.Join(extDir, "*.yaml")))
+
+	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	cfg, err := loader.Load(rootPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if _, ok := cfg.Parameters["keep"]; !ok {
+		t.Error("expected keep parameter to be loaded")
+	}
+	if _, ok := cfg.Parameters["skip_me"]; ok {
+		t.Error("expected skip_me parameter to be excluded")
 	}
 }
 

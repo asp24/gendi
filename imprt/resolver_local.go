@@ -17,7 +17,7 @@ func (r *ResolverLocal) CanResolve(_ string) bool {
 	return true
 }
 
-func (r *ResolverLocal) Resolve(baseDir, importPath string) ([]string, error) {
+func (r *ResolverLocal) Resolve(baseDir, importPath string) (*Resolution, error) {
 	localPath := filepath.Join(baseDir, importPath)
 	if !fileExists(localPath) {
 		// If explicitly relative (./ or ../), fail immediately
@@ -34,5 +34,5 @@ func (r *ResolverLocal) Resolve(baseDir, importPath string) ([]string, error) {
 		return nil, err
 	}
 
-	return []string{path}, nil
+	return &Resolution{Files: []string{path}, BaseDir: baseDir}, nil
 }

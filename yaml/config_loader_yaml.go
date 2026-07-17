@@ -71,12 +71,15 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 
 	baseDir := filepath.Dir(abs)
 	for _, imp := range raw.Imports {
-		impPaths, err := l.resolver.Resolve(baseDir, imp.Path)
+		resolution, err := l.resolver.Resolve(baseDir, imp.Path)
 		if err != nil {
 			return nil, fmt.Errorf("resolve import %q: %w", imp.Path, err)
 		}
 
-		impPaths, err = l.filterExcludedFiles(impPaths, baseDir, imp.Exclude)
+		// Relative exclusion patterns are resolved against the base
+		// directory of the resolved files (module root, glob base, ...),
+		// not necessarily the importing file's directory.
+		impPaths, err := l.filterExcludedFiles(resolution.Files, resolution.BaseDir, imp.Exclude)
 		if err != nil {
 			return nil, fmt.Errorf("apply exclusions for import %q: %w", imp.Path, err)
 		}

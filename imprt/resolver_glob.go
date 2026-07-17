@@ -16,24 +16,34 @@ func (r *ResolverGlob) CanResolve(importPath string) bool {
 	return strings.ContainsAny(importPath, "*?[")
 }
 
-func (r *ResolverGlob) Resolve(baseDir, importPath string) ([]string, error) {
-	// Absolute glob
+func (r *ResolverGlob) Resolve(baseDir, importPath string) (*Resolution, error) {
+	// Absolute glob: resolved files live under the glob base, not the
+	// importing file's directory.
 	if filepath.IsAbs(importPath) {
-		return globFiles(importPath)
+		files, globBase, err := globFiles(importPath)
+		if err != nil {
+			return nil, err
+		}
+		return &Resolution{Files: files, BaseDir: globBase}, nil
 	}
 
-	// Relative glob or non-module glob
+	// Relative glob or non-module glob: resolved relative to the importing
+	// file's directory.
 	isExplicitRelative := strings.HasPrefix(importPath, "./") || strings.HasPrefix(importPath, "../")
 	if isExplicitRelative || !gomod.LooksLikeModulePath(importPath) {
 		pattern := filepath.Join(baseDir, importPath)
-		return globFiles(pattern)
+		files, _, err := globFiles(pattern)
+		if err != nil {
+			return nil, err
+		}
+		return &Resolution{Files: files, BaseDir: baseDir}, nil
 	}
 
 	// Module glob
 	return r.resolveModuleGlob(baseDir, importPath)
 }
 
-func (r *ResolverGlob) resolveModuleGlob(baseDir, importPath string) ([]string, error) {
+func (r *ResolverGlob) resolveModuleGlob(baseDir, importPath string) (*Resolution, error) {
 	moduleDir, modulePath, remainder, err := findModule(baseDir, importPath)
 	if err != nil {
 		return nil, err
@@ -43,9 +53,13 @@ func (r *ResolverGlob) resolveModuleGlob(baseDir, importPath string) ([]string, 
 		if !ok {
 			return nil, fmt.Errorf("module %s has no gendi.yaml", modulePath)
 		}
-		return []string{path}, nil
+		return &Resolution{Files: []string{path}, BaseDir: pathToAbs(moduleDir)}, nil
 	}
 	pattern := filepath.Join(moduleDir, filepath.FromSlash(remainder))
 
-	return globFiles(pattern)
+	files, _, err := globFiles(pattern)
+	if err != nil {
+		return nil, err
+	}
+	return &Resolution{Files: files, BaseDir: pathToAbs(moduleDir)}, nil
 }

@@ -15,7 +15,7 @@ func (r *ResolverModule) CanResolve(importPath string) bool {
 	return gomod.LooksLikeModulePath(importPath)
 }
 
-func (r *ResolverModule) Resolve(baseDir, importPath string) ([]string, error) {
+func (r *ResolverModule) Resolve(baseDir, importPath string) (*Resolution, error) {
 	moduleDir, modulePath, remainder, err := findModule(baseDir, importPath)
 	if err != nil {
 		return nil, err
@@ -24,7 +24,7 @@ func (r *ResolverModule) Resolve(baseDir, importPath string) ([]string, error) {
 	if remainder == "" {
 		// Looking for default config in module root
 		if path, ok := findDefaultConfig(moduleDir); ok {
-			return []string{path}, nil
+			return &Resolution{Files: []string{path}, BaseDir: pathToAbs(moduleDir)}, nil
 		}
 		return nil, fmt.Errorf("module %s has no gendi.yaml", modulePath)
 	}
@@ -39,5 +39,5 @@ func (r *ResolverModule) Resolve(baseDir, importPath string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []string{path}, nil
+	return &Resolution{Files: []string{path}, BaseDir: pathToAbs(moduleDir)}, nil
 }

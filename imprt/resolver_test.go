@@ -43,10 +43,7 @@ func TestImportResolverResolveLocalAndAbsolute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve relative failed: %v", err)
 	}
-	expected := []string{mustAbs(t, relativePath)}
-	if !reflect.DeepEqual(result, expected) {
-		t.Fatalf("expected %v, got %v", expected, result)
-	}
+	assertResolution(t, result, []string{mustAbs(t, relativePath)}, tempDir)
 
 	absolutePath := filepath.Join(tempDir, "absolute.yaml")
 	writeFile(t, absolutePath, "content")
@@ -54,10 +51,7 @@ func TestImportResolverResolveLocalAndAbsolute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve absolute failed: %v", err)
 	}
-	expected = []string{mustAbs(t, absolutePath)}
-	if !reflect.DeepEqual(result, expected) {
-		t.Fatalf("expected %v, got %v", expected, result)
-	}
+	assertResolution(t, result, []string{mustAbs(t, absolutePath)}, mustAbs(t, tempDir))
 }
 
 func TestImportResolverResolveGlob(t *testing.T) {
@@ -78,9 +72,28 @@ func TestImportResolverResolveGlob(t *testing.T) {
 		mustAbs(t, filepath.Join(tempDir, "a.yaml")),
 		mustAbs(t, filepath.Join(tempDir, "b.yaml")),
 	}
-	if !reflect.DeepEqual(result, expected) {
-		t.Fatalf("expected %v, got %v", expected, result)
+	assertResolution(t, result, expected, tempDir)
+}
+
+func TestImportResolverResolveGlobAbsolute(t *testing.T) {
+	t.Parallel()
+
+	resolver := NewResolverCompositeDefault()
+	tempDir := t.TempDir()
+
+	writeFile(t, filepath.Join(tempDir, "a.yaml"), "a")
+	writeFile(t, filepath.Join(tempDir, "b.yaml"), "b")
+
+	otherDir := t.TempDir()
+	result, err := resolver.Resolve(otherDir, filepath.Join(tempDir, "*.yaml"))
+	if err != nil {
+		t.Fatalf("resolve absolute glob failed: %v", err)
 	}
+	expected := []string{
+		mustAbs(t, filepath.Join(tempDir, "a.yaml")),
+		mustAbs(t, filepath.Join(tempDir, "b.yaml")),
+	}
+	assertResolution(t, result, expected, mustAbs(t, tempDir))
 }
 
 func TestImportResolverResolveModuleDefaultConfig(t *testing.T) {
@@ -95,10 +108,7 @@ func TestImportResolverResolveModuleDefaultConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve module default failed: %v", err)
 	}
-	expected := []string{mustAbs(t, defaultConfig)}
-	if !reflect.DeepEqual(result, expected) {
-		t.Fatalf("expected %v, got %v", expected, result)
-	}
+	assertResolution(t, result, []string{mustAbs(t, defaultConfig)}, mustAbs(t, moduleRoot))
 }
 
 func TestImportResolverResolveModuleFile(t *testing.T) {
@@ -113,10 +123,7 @@ func TestImportResolverResolveModuleFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve module file failed: %v", err)
 	}
-	expected := []string{mustAbs(t, configPath)}
-	if !reflect.DeepEqual(result, expected) {
-		t.Fatalf("expected %v, got %v", expected, result)
-	}
+	assertResolution(t, result, []string{mustAbs(t, configPath)}, mustAbs(t, moduleRoot))
 }
 
 func TestImportResolverResolveModuleFileMissing(t *testing.T) {
@@ -148,8 +155,17 @@ func TestImportResolverResolveModuleGlob(t *testing.T) {
 		mustAbs(t, filepath.Join(moduleRoot, "configs", "a.yaml")),
 		mustAbs(t, filepath.Join(moduleRoot, "configs", "b.yaml")),
 	}
-	if !reflect.DeepEqual(result, expected) {
-		t.Fatalf("expected %v, got %v", expected, result)
+	assertResolution(t, result, expected, mustAbs(t, moduleRoot))
+}
+
+func assertResolution(t *testing.T, result *Resolution, wantFiles []string, wantBaseDir string) {
+	t.Helper()
+
+	if !reflect.DeepEqual(result.Files, wantFiles) {
+		t.Fatalf("expected files %v, got %v", wantFiles, result.Files)
+	}
+	if result.BaseDir != wantBaseDir {
+		t.Fatalf("expected base dir %q, got %q", wantBaseDir, result.BaseDir)
 	}
 }
 

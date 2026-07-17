@@ -67,24 +67,28 @@ func findDefaultConfig(moduleDir string) (string, bool) {
 	return "", false
 }
 
-func globFiles(pattern string) ([]string, error) {
+// globFiles expands a glob pattern to matching files and returns them
+// together with the pattern's base directory (the fixed prefix before the
+// first meta character).
+func globFiles(pattern string) ([]string, string, error) {
 	// An empty match set is a valid no-op, but a glob rooted at a
 	// non-existent directory is almost certainly a typo.
 	base, _ := doublestar.SplitPattern(filepath.ToSlash(pattern))
-	if info, err := os.Stat(filepath.FromSlash(base)); err != nil || !info.IsDir() {
-		return nil, fmt.Errorf("import glob %q: directory %q does not exist", pattern, base)
+	baseDir := filepath.FromSlash(base)
+	if info, err := os.Stat(baseDir); err != nil || !info.IsDir() {
+		return nil, "", fmt.Errorf("import glob %q: directory %q does not exist", pattern, base)
 	}
 
 	matches, err := doublestar.FilepathGlob(pattern)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	files := make([]string, 0, len(matches))
 	for _, match := range matches {
 		if fileExists(match) {
 			abs, err := filepath.Abs(match)
 			if err != nil {
-				return nil, err
+				return nil, "", err
 			}
 			files = append(files, abs)
 		}
@@ -92,5 +96,5 @@ func globFiles(pattern string) ([]string, error) {
 	if len(files) != 0 {
 		sort.Strings(files)
 	}
-	return files, nil
+	return files, pathToAbs(baseDir), nil
 }

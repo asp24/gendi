@@ -13,7 +13,7 @@ func (r *ResolverAbs) CanResolve(importPath string) bool {
 	return filepath.IsAbs(importPath)
 }
 
-func (r *ResolverAbs) Resolve(_, importPath string) ([]string, error) {
+func (r *ResolverAbs) Resolve(_, importPath string) (*Resolution, error) {
 	if !fileExists(importPath) {
 		return nil, fmt.Errorf("import not found at %s", importPath)
 	}
@@ -21,5 +21,5 @@ func (r *ResolverAbs) Resolve(_, importPath string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []string{path}, nil
+	return &Resolution{Files: []string{path}, BaseDir: filepath.Dir(path)}, nil
 }
