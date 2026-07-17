@@ -373,6 +373,191 @@ func TestResolveFieldAccess(t *testing.T) {
 	}
 }
 
+func TestResolveLiteral(t *testing.T) {
+	pkg := types.NewPackage("test/lit", "lit")
+	namedString := types.NewNamed(types.NewTypeName(token.NoPos, pkg, "Name", nil), types.Typ[types.String], nil)
+	timePkg := types.NewPackage("time", "time")
+	durationType := types.NewNamed(types.NewTypeName(token.NoPos, timePkg, "Duration", nil), types.Typ[types.Int64], nil)
+	emptyIface := types.NewInterfaceType(nil, nil)
+	emptyIface.Complete()
+	errorType := types.Universe.Lookup("error").Type()
+
+	tests := []struct {
+		name        string
+		lit         di.Literal
+		paramType   types.Type
+		wantLitType LiteralType
+		wantErr     string
+	}{
+		// Literal kinds that cannot produce a value of the target type.
+		{
+			name:      "string_to_int",
+			lit:       di.NewStringLiteral("hello world"),
+			paramType: types.Typ[types.Int],
+			wantErr:   "cannot use",
+		},
+		{
+			name:      "null_to_int",
+			lit:       di.NewNullLiteral(),
+			paramType: types.Typ[types.Int],
+			wantErr:   "not nilable",
+		},
+		{
+			name:      "int_overflows_int8",
+			lit:       di.NewIntLiteral(5000),
+			paramType: types.Typ[types.Int8],
+			wantErr:   "overflows",
+		},
+		{
+			name:      "bool_to_int",
+			lit:       di.NewBoolLiteral(true),
+			paramType: types.Typ[types.Int],
+			wantErr:   "cannot use",
+		},
+		{
+			name:      "int_to_bool",
+			lit:       di.NewIntLiteral(1),
+			paramType: types.Typ[types.Bool],
+			wantErr:   "cannot use",
+		},
+		{
+			name:      "int_to_string",
+			lit:       di.NewIntLiteral(42),
+			paramType: types.Typ[types.String],
+			wantErr:   "cannot use",
+		},
+		{
+			name:      "string_to_bool",
+			lit:       di.NewStringLiteral("true"),
+			paramType: types.Typ[types.Bool],
+			wantErr:   "cannot use",
+		},
+		{
+			name:      "fractional_float_to_int",
+			lit:       di.NewFloatLiteral(3.14),
+			paramType: types.Typ[types.Int],
+			wantErr:   "truncated",
+		},
+		{
+			name:      "negative_int_to_uint",
+			lit:       di.NewIntLiteral(-1),
+			paramType: types.Typ[types.Uint],
+			wantErr:   "overflows",
+		},
+		{
+			name:      "float_overflows_float32",
+			lit:       di.NewFloatLiteral(1e39),
+			paramType: types.Typ[types.Float32],
+			wantErr:   "overflows",
+		},
+		{
+			name:      "string_to_struct",
+			lit:       di.NewStringLiteral("hello"),
+			paramType: types.NewStruct(nil, nil),
+			wantErr:   "cannot use",
+		},
+		{
+			name:      "string_to_error_iface",
+			lit:       di.NewStringLiteral("boom"),
+			paramType: errorType,
+			wantErr:   "cannot use",
+		},
+		// Cross-kind combinations Go's untyped constants permit must keep working.
+		{
+			name:        "int_to_float64",
+			lit:         di.NewIntLiteral(5),
+			paramType:   types.Typ[types.Float64],
+			wantLitType: IntLiteral,
+		},
+		{
+			name:        "integral_float_to_int",
+			lit:         di.NewFloatLiteral(5.0),
+			paramType:   types.Typ[types.Int],
+			wantLitType: FloatLiteral,
+		},
+		{
+			name:        "string_to_named_string",
+			lit:         di.NewStringLiteral("hello"),
+			paramType:   namedString,
+			wantLitType: StringLiteral,
+		},
+		{
+			name:        "int_to_duration",
+			lit:         di.NewIntLiteral(5000000000),
+			paramType:   durationType,
+			wantLitType: DurationLiteral,
+		},
+		{
+			name:        "string_to_duration",
+			lit:         di.NewStringLiteral("5s"),
+			paramType:   durationType,
+			wantLitType: DurationLiteral,
+		},
+		{
+			name:        "int_within_int8_range",
+			lit:         di.NewIntLiteral(5),
+			paramType:   types.Typ[types.Int8],
+			wantLitType: IntLiteral,
+		},
+		{
+			name:        "int_to_empty_interface",
+			lit:         di.NewIntLiteral(42),
+			paramType:   emptyIface,
+			wantLitType: IntLiteral,
+		},
+		{
+			name:        "string_to_empty_interface",
+			lit:         di.NewStringLiteral("hello"),
+			paramType:   emptyIface,
+			wantLitType: StringLiteral,
+		},
+		{
+			name:        "null_to_pointer",
+			lit:         di.NewNullLiteral(),
+			paramType:   types.NewPointer(types.Typ[types.Int]),
+			wantLitType: NullLiteral,
+		},
+		{
+			name:        "null_to_slice",
+			lit:         di.NewNullLiteral(),
+			paramType:   types.NewSlice(types.Typ[types.Int]),
+			wantLitType: NullLiteral,
+		},
+		{
+			name:        "null_to_interface",
+			lit:         di.NewNullLiteral(),
+			paramType:   errorType,
+			wantLitType: NullLiteral,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &argResolver{}
+			arg := di.Argument{Kind: di.ArgLiteral, Literal: tt.lit}
+			result, err := r.resolve(NewContainer(), noResolve, "svc", 0, arg, tt.paramType)
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.wantErr)
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result.Kind != LiteralArg {
+				t.Fatalf("expected LiteralArg, got %d", result.Kind)
+			}
+			if result.Literal.Type != tt.wantLitType {
+				t.Fatalf("expected literal type %d, got %d", tt.wantLitType, result.Literal.Type)
+			}
+		})
+	}
+}
+
 func TestSpreadLiteralInnerRejected(t *testing.T) {
 	container := NewContainer()
 	r := &argResolver{}

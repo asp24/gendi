@@ -318,6 +318,122 @@ func TestNullLiteralArgument(t *testing.T) {
 	}
 }
 
+func TestLiteralTypeMismatchFailsGeneration(t *testing.T) {
+	// NewServerWithAddr(host string, port int): a string literal in the int
+	// position must fail at generation time, not break the generated build.
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"server": {
+				Constructor: di.Constructor{
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServerWithAddr",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("localhost")},
+						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("hello world")},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	err := generateErr(t, cfg)
+	if err == nil || !strings.Contains(err.Error(), "cannot use") {
+		t.Fatalf("expected literal type mismatch error, got %v", err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "arg[1]") {
+		t.Fatalf("expected error to locate arg[1], got %v", err)
+	}
+}
+
+func TestNullLiteralForNonNilableFailsGeneration(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"server": {
+				Constructor: di.Constructor{
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServerWithAddr",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("localhost")},
+						{Kind: di.ArgLiteral, Literal: di.NewNullLiteral()},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	err := generateErr(t, cfg)
+	if err == nil || !strings.Contains(err.Error(), "not nilable") {
+		t.Fatalf("expected null literal nilability error, got %v", err)
+	}
+}
+
+func TestBoolLiteralForIntFailsGeneration(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"server": {
+				Constructor: di.Constructor{
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServerWithAddr",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("localhost")},
+						{Kind: di.ArgLiteral, Literal: di.NewBoolLiteral(true)},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	err := generateErr(t, cfg)
+	if err == nil || !strings.Contains(err.Error(), "cannot use") {
+		t.Fatalf("expected literal type mismatch error, got %v", err)
+	}
+}
+
+func TestIntegralFloatLiteralForIntArg(t *testing.T) {
+	// Go permits untyped float constants with integral values for integer
+	// targets, so 5.0 in the int position must keep generating.
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"server": {
+				Constructor: di.Constructor{
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServerWithAddr",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("localhost")},
+						{Kind: di.ArgLiteral, Literal: di.NewFloatLiteral(5.0)},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	out := generate(t, cfg)
+	if !strings.Contains(out, `NewServerWithAddr("localhost", 5.0)`) {
+		t.Fatalf("expected integral float literal in int position, got:\n%s", out)
+	}
+}
+
+func TestIntLiteralForDurationArg(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"timer": {
+				Constructor: di.Constructor{
+					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimer",
+					Args: []di.Argument{
+						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(5000000000)},
+					},
+				},
+				Public: true,
+			},
+		},
+	}
+
+	out := generate(t, cfg)
+	if !strings.Contains(out, "NewTimer(5000000000)") {
+		t.Fatalf("expected int literal for duration argument, got:\n%s", out)
+	}
+}
+
 func TestServiceAliasCodegen(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{

@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"go/types"
+	"math"
 	"strings"
 
 	di "github.com/gendi-org/gendi"
@@ -171,11 +172,191 @@ func (r *argResolver) resolveGoRef(svcID string, idx int, arg di.Argument, param
 }
 
 func (r *argResolver) resolveLiteral(svcID string, idx int, arg di.Argument, paramType types.Type) (*Argument, error) {
-	litVal, err := convertLiteral(arg.Literal, paramType)
+	litVal, err := r.convertLiteral(arg.Literal, paramType)
 	if err != nil {
 		return nil, srcloc.WrapError(arg.SourceLoc, fmt.Sprintf("service %q arg[%d]", svcID, idx), err)
 	}
 	return &Argument{Type: paramType, Kind: LiteralArg, Literal: litVal}, nil
+}
+
+// convertLiteral converts a di.Literal to an IR LiteralValue, validating that
+// the literal can produce a value of targetType so mismatches fail at
+// generation time instead of breaking compilation of the generated code.
+func (r *argResolver) convertLiteral(lit di.Literal, targetType types.Type) (LiteralValue, error) {
+	if typeres.IsDuration(targetType) {
+		return r.convertDurationLiteral(lit)
+	}
+	if err := r.checkLiteralAssignable(lit, targetType); err != nil {
+		return LiteralValue{}, err
+	}
+
+	switch lit.Kind {
+	case di.LiteralString:
+		return LiteralValue{Type: StringLiteral, Value: lit.String()}, nil
+	case di.LiteralInt:
+		return LiteralValue{Type: IntLiteral, Value: lit.Int()}, nil
+	case di.LiteralFloat:
+		return LiteralValue{Type: FloatLiteral, Value: lit.Float()}, nil
+	case di.LiteralBool:
+		return LiteralValue{Type: BoolLiteral, Value: lit.Bool()}, nil
+	case di.LiteralNull:
+		return LiteralValue{Type: NullLiteral, Value: nil}, nil
+	default:
+		return LiteralValue{}, fmt.Errorf("unsupported literal kind %d", lit.Kind)
+	}
+}
+
+// convertDurationLiteral converts a duration literal (string "1s" or int nanoseconds)
+func (r *argResolver) convertDurationLiteral(lit di.Literal) (LiteralValue, error) {
+	switch lit.Kind {
+	case di.LiteralString:
+		// Parse as duration string - will be handled by generator
+		return LiteralValue{Type: DurationLiteral, Value: lit.String()}, nil
+	case di.LiteralInt:
+		return LiteralValue{Type: DurationLiteral, Value: lit.Int()}, nil
+	default:
+		return LiteralValue{}, fmt.Errorf("cannot use %s as time.Duration: duration must be string or int", r.describeLiteral(lit))
+	}
+}
+
+// checkLiteralAssignable validates that the literal, emitted into the
+// generated source as an untyped Go constant (or nil), can be assigned to
+// targetType. It mirrors Go's untyped constant conversion rules: cross-kind
+// combinations the compiler accepts (int literals for float targets, integral
+// float literals for integer targets, literals for interface targets their
+// default type satisfies) stay valid, while kind mismatches, out-of-range
+// constants, and null for non-nilable targets are rejected.
+func (r *argResolver) checkLiteralAssignable(lit di.Literal, targetType types.Type) error {
+	if lit.Kind == di.LiteralNull {
+		switch under := targetType.Underlying().(type) {
+		case *types.Pointer, *types.Interface, *types.Slice, *types.Map, *types.Chan, *types.Signature:
+			return nil
+		case *types.Basic:
+			if under.Kind() == types.UnsafePointer {
+				return nil
+			}
+		}
+		return fmt.Errorf("cannot use %s as %s: target type is not nilable", r.describeLiteral(lit), targetType)
+	}
+
+	switch under := targetType.Underlying().(type) {
+	case *types.Basic:
+		return r.checkLiteralBasic(lit, under, targetType)
+	case *types.Interface:
+		var defaultType types.Type
+		switch lit.Kind {
+		case di.LiteralString:
+			defaultType = types.Typ[types.String]
+		case di.LiteralInt:
+			defaultType = types.Typ[types.Int]
+		case di.LiteralFloat:
+			defaultType = types.Typ[types.Float64]
+		case di.LiteralBool:
+			defaultType = types.Typ[types.Bool]
+		}
+		if defaultType != nil && types.AssignableTo(defaultType, targetType) {
+			return nil
+		}
+	}
+	return fmt.Errorf("cannot use %s as %s", r.describeLiteral(lit), targetType)
+}
+
+// checkLiteralBasic validates a non-null literal against a target whose
+// underlying type is a basic kind.
+func (r *argResolver) checkLiteralBasic(lit di.Literal, basic *types.Basic, targetType types.Type) error {
+	info := basic.Info()
+	switch lit.Kind {
+	case di.LiteralString:
+		if info&types.IsString != 0 {
+			return nil
+		}
+	case di.LiteralBool:
+		if info&types.IsBoolean != 0 {
+			return nil
+		}
+	case di.LiteralInt:
+		switch {
+		case info&types.IsInteger != 0:
+			return r.checkIntegerConstant(lit, lit.Int(), basic, targetType)
+		case info&(types.IsFloat|types.IsComplex) != 0:
+			// Every int64 value is representable as a float or complex constant.
+			return nil
+		}
+	case di.LiteralFloat:
+		v := lit.Float()
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return fmt.Errorf("cannot use %s as %s: NaN and infinities are not supported", r.describeLiteral(lit), targetType)
+		}
+		switch {
+		case info&types.IsInteger != 0:
+			if v != math.Trunc(v) {
+				return fmt.Errorf("%s truncated to %s", r.describeLiteral(lit), targetType)
+			}
+			if v < -9223372036854775808.0 || v >= 9223372036854775808.0 {
+				return fmt.Errorf("%s overflows %s", r.describeLiteral(lit), targetType)
+			}
+			return r.checkIntegerConstant(lit, int64(v), basic, targetType)
+		case info&(types.IsFloat|types.IsComplex) != 0:
+			if (basic.Kind() == types.Float32 || basic.Kind() == types.Complex64) && math.Abs(v) > math.MaxFloat32 {
+				return fmt.Errorf("%s overflows %s", r.describeLiteral(lit), targetType)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("cannot use %s as %s", r.describeLiteral(lit), targetType)
+}
+
+// checkIntegerConstant validates that an integral constant value fits the
+// integer target's range, matching the compile-time constant overflow checks
+// the generated code would otherwise hit.
+func (r *argResolver) checkIntegerConstant(lit di.Literal, v int64, basic *types.Basic, targetType types.Type) error {
+	var ok bool
+	switch basic.Kind() {
+	case types.Int:
+		ok = v >= math.MinInt && v <= math.MaxInt
+	case types.Int8:
+		ok = v >= math.MinInt8 && v <= math.MaxInt8
+	case types.Int16:
+		ok = v >= math.MinInt16 && v <= math.MaxInt16
+	case types.Int32:
+		ok = v >= math.MinInt32 && v <= math.MaxInt32
+	case types.Int64:
+		ok = true
+	case types.Uint, types.Uintptr:
+		ok = v >= 0 && uint64(v) <= math.MaxUint
+	case types.Uint8:
+		ok = v >= 0 && v <= math.MaxUint8
+	case types.Uint16:
+		ok = v >= 0 && v <= math.MaxUint16
+	case types.Uint32:
+		ok = v >= 0 && v <= math.MaxUint32
+	case types.Uint64:
+		ok = v >= 0
+	default:
+		return fmt.Errorf("cannot use %s as %s", r.describeLiteral(lit), targetType)
+	}
+	if !ok {
+		return fmt.Errorf("%s overflows %s", r.describeLiteral(lit), targetType)
+	}
+	return nil
+}
+
+// describeLiteral renders a literal for error messages.
+func (r *argResolver) describeLiteral(lit di.Literal) string {
+	switch lit.Kind {
+	case di.LiteralString:
+		return fmt.Sprintf("string literal %q", lit.String())
+	case di.LiteralInt:
+		return fmt.Sprintf("int literal %d", lit.Int())
+	case di.LiteralFloat:
+		return fmt.Sprintf("float literal %v", lit.Float())
+	case di.LiteralBool:
+		return fmt.Sprintf("bool literal %t", lit.Bool())
+	case di.LiteralNull:
+		return "null literal"
+	default:
+		return fmt.Sprintf("literal of kind %d", lit.Kind)
+	}
 }
 
 // resolveFieldAccessOnService resolves !field:@service.Field.Chain.
