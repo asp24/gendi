@@ -14,7 +14,7 @@ import (
 //	  stdlib.stdout:
 //	    constructor:
 //	      func: "github.com/gendi-org/gendi/stdlib.NewStdout"
-//	  	shared: false
+//	    shared: false
 func NewStdout() io.Writer {
 	return os.Stdout
 }
@@ -28,7 +28,7 @@ func NewStdout() io.Writer {
 //	  stdlib.stderr:
 //	    constructor:
 //	      func: "github.com/gendi-org/gendi/stdlib.NewStderr"
-//	  	shared: false
+//	    shared: false
 func NewStderr() io.Writer {
 	return os.Stderr
 }

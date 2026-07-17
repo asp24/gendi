@@ -11,16 +11,14 @@ import (
 // Example:
 //
 //	parameters:
-//	  http_timeout:
-//	    type: time.Duration
-//	    value: "30s"
+//	  http_timeout: "30s"
 //
 //	services:
 //	  http_client:
 //	    constructor:
 //	      func: "github.com/gendi-org/gendi/stdlib.NewHTTPClient"
 //	      args:
-//	        - "%http.timeout%"
+//	        - "%http_timeout%"
 //	    public: true
 func NewHTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{
@@ -33,6 +31,9 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 //
 // Example:
 //
+//	parameters:
+//	  http_timeout: "30s"
+//
 //	services:
 //	  http_transport:
 //	    constructor:
@@ -43,8 +44,8 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 //	    constructor:
 //	      func: "github.com/gendi-org/gendi/stdlib.NewHTTPClientWithTransport"
 //	      args:
-//	        - "%http.timeout%"
-//	        - "@http.transport"
+//	        - "%http_timeout%"
+//	        - "@http_transport"
 //	    public: true
 func NewHTTPClientWithTransport(timeout time.Duration, transport http.RoundTripper) *http.Client {
 	return &http.Client{
