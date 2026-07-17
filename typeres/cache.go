@@ -63,7 +63,6 @@ func (c *Cache) LoadWithCandidates(required, candidates []string) error {
 		return fmt.Errorf("load packages: %w", err)
 	}
 
-	seen := make(map[string]bool)
 	var errs []string
 	for _, pkg := range pkgs {
 		if len(pkg.Errors) > 0 {
@@ -75,7 +74,7 @@ func (c *Cache) LoadWithCandidates(required, candidates []string) error {
 			}
 			continue
 		}
-		c.cacheTree(seen, pkg)
+		c.cachePackage(pkg)
 	}
 	if len(errs) > 0 {
 		return errors.New(strings.Join(errs, "; "))
@@ -84,30 +83,16 @@ func (c *Cache) LoadWithCandidates(required, candidates []string) error {
 	return nil
 }
 
-// cacheTree caches a package and any imports populated by go/packages.
-func (c *Cache) cacheTree(seen map[string]bool, pkg *packages.Package) {
-	if pkg == nil {
-		return
-	}
-
+// cachePackage caches a loaded package's type information. Imports are not
+// walked: the load mode omits NeedImports, and every package the resolver
+// needs is requested explicitly by the caller.
+func (c *Cache) cachePackage(pkg *packages.Package) {
 	key := pkg.PkgPath
 	if key == "" {
 		key = pkg.ID
 	}
 
-	if key != "" {
-		if seen[key] {
-			return
-		}
-		seen[key] = true
-	}
-
-	if pkg.Types != nil && key != "" {
+	if key != "" && pkg.Types != nil {
 		c.packages[key] = pkg.Types
 	}
-
-	for _, imp := range pkg.Imports {
-		c.cacheTree(seen, imp)
-	}
 }
-
