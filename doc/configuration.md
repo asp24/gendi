@@ -7,7 +7,7 @@ Complete reference for gendi YAML configuration files.
 Add this line at the top of your YAML files for editor autocomplete and validation:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/asp24/gendi/master/gendi.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/gendi-org/gendi/master/gendi.schema.json
 ```
 
 Supported editors:
