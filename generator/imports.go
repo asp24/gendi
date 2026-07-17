@@ -9,6 +9,7 @@ import (
 
 type ImportManager struct {
 	aliases       map[string]string
+	reserved      map[string]string
 	used          map[string]bool
 	required      map[string]bool
 	outputPkgPath string
@@ -17,6 +18,7 @@ type ImportManager struct {
 func NewImportManager(outputPkgPath string, reservedAliases ...string) *ImportManager {
 	m := &ImportManager{
 		aliases:       map[string]string{},
+		reserved:      map[string]string{},
 		used:          map[string]bool{},
 		required:      map[string]bool{},
 		outputPkgPath: outputPkgPath,
@@ -41,11 +43,23 @@ func (m *ImportManager) ReserveAliases(aliases ...string) {
 	}
 }
 
+// ReserveImport pins the alias for a package path and marks it as used, so
+// hardcoded references in emitted code (e.g. sync.Mutex, fmt.Errorf) and
+// qualified references resolved through the type system share one import.
+func (m *ImportManager) ReserveImport(path, alias string) {
+	m.reserved[path] = alias
+	m.used[alias] = true
+}
+
 func (m *ImportManager) qualifier(pkg *types.Package) string {
 	if pkg.Path() == m.outputPkgPath {
 		return ""
 	}
 	if alias, ok := m.aliases[pkg.Path()]; ok {
+		return alias
+	}
+	if alias, ok := m.reserved[pkg.Path()]; ok {
+		m.aliases[pkg.Path()] = alias
 		return alias
 	}
 	base := pkg.Name()
@@ -103,17 +117,16 @@ func (m *ImportManager) funcNameWithTypeArgs(fn *types.Func, typeArgs []types.Ty
 	return name + "[" + strings.Join(typeArgStrs, ", ") + "]"
 }
 
-func (m *ImportManager) renderImports(extra []string) string {
+func (m *ImportManager) renderImports() string {
 	var imports []string
 	for path, alias := range m.aliases {
-		if alias == "" {
+		// Reserved imports bind to their package's own name, so the alias
+		// is redundant in source.
+		if alias == "" || m.reserved[path] == alias {
 			imports = append(imports, fmt.Sprintf("\t\"%s\"\n", path))
 			continue
 		}
 		imports = append(imports, fmt.Sprintf("\t%s \"%s\"\n", alias, path))
-	}
-	for _, path := range extra {
-		imports = append(imports, fmt.Sprintf("\t\"%s\"\n", path))
 	}
 	for path := range m.required {
 		if _, aliased := m.aliases[path]; !aliased {

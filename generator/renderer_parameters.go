@@ -46,7 +46,7 @@ func (r *ParametersRenderer) Render(params map[string]di.Parameter, containerNam
 		return nil
 	}
 
-	r.importManager.ReserveAliases("parameters")
+	r.importManager.ReserveImport(parametersPkgPath, "parameters")
 
 	fmt.Fprintf(w, "var %s = parameters.NewProviderMap(map[string]any{\n", defaultParametersName(containerName))
 	for _, name := range xmaps.OrderedKeys(params) {

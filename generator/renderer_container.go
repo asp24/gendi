@@ -10,6 +10,9 @@ import (
 	"github.com/gendi-org/gendi/ir"
 )
 
+// parametersPkgPath is the runtime package generated containers depend on.
+const parametersPkgPath = "github.com/gendi-org/gendi/parameters"
+
 // ContainerRenderer contains tools for rendering generated code.
 type ContainerRenderer struct {
 	importManager  *ImportManager
@@ -250,7 +253,13 @@ func (r *ContainerRenderer) getterBuildExpr(svc *serviceDef) string {
 }
 
 func (r *ContainerRenderer) Render(cfg *di.Config, ctx *GenContext, body *bytes.Buffer) error {
-	r.importManager.ReserveAliases("sync", "fmt", "parameters")
+	// The container struct and getters reference these packages by fixed
+	// names; fmt is required separately only when emitted code needs it.
+	r.importManager.ReserveImport("sync", "sync")
+	r.importManager.ReserveImport("fmt", "fmt")
+	r.importManager.ReserveImport(parametersPkgPath, "parameters")
+	r.importManager.Require("sync")
+	r.importManager.Require(parametersPkgPath)
 
 	if err := r.assignNames(ctx); err != nil {
 		return fmt.Errorf("assign names: %w", err)
