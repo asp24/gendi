@@ -47,7 +47,7 @@ func buildNeedsErrorHandling(svc *serviceDef) bool {
 type regularBuildRenderer struct{}
 
 func (r *regularBuildRenderer) buildSignature(rnd *ContainerRenderer, svc *serviceDef) string {
-	name := rnd.identGenerator.Build(svc.id)
+	name := svc.buildName
 	retType := rnd.importManager.typeString(svc.typeName)
 	signature := fmt.Sprintf("func (c *%s) %s() (%s, error)", rnd.containerName, name, retType)
 	return signature

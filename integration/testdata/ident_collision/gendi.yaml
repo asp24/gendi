@@ -1,0 +1,35 @@
+services:
+  # All three IDs camel-case to "NotifierEmail" (colliding build method
+  # names) and "notifier.email"/"notifier_email" sanitize to the same
+  # struct field name.
+  notifier.email:
+    constructor:
+      func: "test.NewDotNotifier"
+
+  notifierEmail:
+    constructor:
+      func: "test.NewCamelNotifier"
+
+  notifier_email:
+    constructor:
+      func: "test.NewSnakeNotifier"
+
+  app:
+    constructor:
+      func: "test.NewApp"
+      args:
+        - "@notifier.email"
+        - "@notifierEmail"
+        - "@notifier_email"
+    public: true
+
+  # Second consumer keeps the notifiers shared so their cache fields are
+  # rendered in the container struct.
+  app.audit:
+    constructor:
+      func: "test.NewApp"
+      args:
+        - "@notifier.email"
+        - "@notifierEmail"
+        - "@notifier_email"
+    public: true

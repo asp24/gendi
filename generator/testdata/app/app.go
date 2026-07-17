@@ -195,3 +195,11 @@ func NewTimed(ds ...time.Duration) *Timed {
 func NewPrefixedServer(prefix string, handlers ...Handler) *Server {
 	return &Server{Handlers: handlers}
 }
+
+type Multi struct {
+	Items []*A
+}
+
+func NewMulti(items ...*A) *Multi {
+	return &Multi{Items: items}
+}

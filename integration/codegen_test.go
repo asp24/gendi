@@ -1642,3 +1642,77 @@ func TestSpreadMixedWithPositionalVariadicFailsGeneration(t *testing.T) {
 		t.Fatalf("expected mixed positional/spread error, got %v", err)
 	}
 }
+
+func TestCollidingServiceIDsGetDistinctBuildAndFieldIdents(t *testing.T) {
+	// "notifier.email", "notifierEmail" and "notifier_email" all camel-case
+	// to "NotifierEmail", and "notifier.email"/"notifier_email" sanitize to
+	// the same struct field name. Without deduplication the generated code
+	// declares the same build method and struct field several times and does
+	// not compile.
+	multi := di.Constructor{
+		Func: "github.com/gendi-org/gendi/generator/testdata/app.NewMulti",
+		Args: []di.Argument{
+			{Kind: di.ArgServiceRef, Value: "notifier.email"},
+			{Kind: di.ArgServiceRef, Value: "notifierEmail"},
+			{Kind: di.ArgServiceRef, Value: "notifier_email"},
+		},
+	}
+	newA := di.Constructor{
+		Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
+	}
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"notifier.email": {Constructor: newA, Shared: true},
+			"notifierEmail":  {Constructor: newA, Shared: true},
+			"notifier_email": {Constructor: newA, Shared: true},
+			// Two consumers keep the notifiers shared so their cache fields
+			// are rendered in the container struct.
+			"root.one": {Constructor: multi, Public: true},
+			"root.two": {Constructor: multi, Public: true},
+		},
+	}
+
+	out := generate(t, cfg)
+
+	for _, build := range []string{"buildNotifierEmail", "buildNotifierEmail2", "buildNotifierEmail3"} {
+		decl := "func (c *Container) " + build + "()"
+		if got := strings.Count(out, decl); got != 1 {
+			t.Errorf("expected exactly one declaration of %s, got %d", build, got)
+		}
+		call := "c." + build + "()"
+		if got := strings.Count(out, call); got != 1 {
+			t.Errorf("expected exactly one call of %s, got %d", build, got)
+		}
+	}
+	for _, field := range []string{"svc_notifier_email", "svc_notifierEmail", "svc_notifier_email2"} {
+		if got := strings.Count(out, "\t"+field+" "); got != 1 {
+			t.Errorf("expected exactly one struct field %q, got %d", field, got)
+		}
+	}
+	if t.Failed() {
+		t.Fatalf("generated code:\n%s", out)
+	}
+}
+
+func TestDuplicatePublicGetterErrorNamesCollidingServices(t *testing.T) {
+	newA := di.Constructor{
+		Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
+	}
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"notifier.email": {Constructor: newA, Public: true},
+			"notifierEmail":  {Constructor: newA, Public: true},
+		},
+	}
+
+	err := generateErr(t, cfg)
+	if err == nil {
+		t.Fatal("expected duplicate public getter error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "GetNotifierEmail") ||
+		!strings.Contains(msg, `"notifier.email"`) ||
+		!strings.Contains(msg, `"notifierEmail"`) {
+		t.Fatalf("expected error to name the colliding services, got: %v", err)
+	}
+}
