@@ -6,7 +6,7 @@
 > new path. From your project's root directory, run:
 >
 > ```bash
-> find . -type f -not -path './.git/*' -not -name go.sum -exec perl -pi -e 's{github\.com/asp24/gendi}{github.com/gendi-org/gendi}g' {} + && go mod edit -droprequire=github.com/gendi-org/gendi && go get github.com/gendi-org/gendi@master && go mod tidy
+> find . -type f -not -path './.git/*' -not -name go.sum -exec perl -pi -e 's{((?:raw\.githubusercontent|github)\.com)/asp24/gendi}{$1/gendi-org/gendi}g' {} + && go mod edit -droprequire=github.com/gendi-org/gendi && go get github.com/gendi-org/gendi@master && go mod tidy
 > ```
 >
 > The old requirement must be dropped before fetching the new module, because its
@@ -62,7 +62,7 @@ This adds gendi to your `go.mod` and allows running it via `go tool gendi`.
 
 **gendi.yaml:**
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/asp24/gendi/master/gendi.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/gendi-org/gendi/master/gendi.schema.json
 
 parameters:
   db_dsn: "postgres://localhost/myapp"
