@@ -285,7 +285,7 @@ func (r *argResolver) checkLiteralBasic(lit di.Literal, basic *types.Basic, targ
 	case di.LiteralFloat:
 		v := lit.Float()
 		if math.IsNaN(v) || math.IsInf(v, 0) {
-			return fmt.Errorf("cannot use %s as %s: NaN and infinities are not supported", r.describeLiteral(lit), targetType)
+			return fmt.Errorf("cannot use %s as %s: NaN and infinities have no Go constant representation; use a !go: reference to a package-level variable instead", r.describeLiteral(lit), targetType)
 		}
 		switch {
 		case info&types.IsInteger != 0:

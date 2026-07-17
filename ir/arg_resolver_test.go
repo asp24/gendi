@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/token"
 	"go/types"
+	"math"
 	"strings"
 	"testing"
 
@@ -407,6 +408,18 @@ func TestResolveLiteral(t *testing.T) {
 			lit:       di.NewIntLiteral(5000),
 			paramType: types.Typ[types.Int8],
 			wantErr:   "overflows",
+		},
+		{
+			name:      "nan_to_float64",
+			lit:       di.NewFloatLiteral(math.NaN()),
+			paramType: types.Typ[types.Float64],
+			wantErr:   "use a !go: reference",
+		},
+		{
+			name:      "inf_to_float64",
+			lit:       di.NewFloatLiteral(math.Inf(1)),
+			paramType: types.Typ[types.Float64],
+			wantErr:   "use a !go: reference",
 		},
 		{
 			name:      "bool_to_int",
