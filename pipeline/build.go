@@ -16,7 +16,8 @@ type Output struct {
 
 // Build compiles a DI config through internal passes, type loading, and IR building.
 // The caller's config is not modified; passes operate on a clone.
-func Build(cfg *di.Config, moduleRoot string) (*Output, error) {
+// Options must be finalized before calling Build (via Options.Finalize()).
+func Build(cfg *di.Config, opts Options) (*Output, error) {
 	cfg, err := di.ApplyInternalPasses(cfg.Clone())
 	if err != nil {
 		return nil, err
@@ -26,7 +27,7 @@ func Build(cfg *di.Config, moduleRoot string) (*Output, error) {
 	refreshPackages(cfg)
 
 	paths, candidatePaths := collectPackagePaths(cfg)
-	typeResolver := typeres.NewResolver(moduleRoot)
+	typeResolver := typeres.NewResolver(opts.ModuleRoot, opts.BuildTags)
 	if err := typeResolver.LoadPackagesWithCandidates(paths, candidatePaths); err != nil {
 		return nil, err
 	}

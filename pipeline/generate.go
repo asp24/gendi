@@ -8,7 +8,7 @@ import (
 // Emit compiles a DI config and emits generated Go source code.
 // Options must be finalized before calling Emit (via Options.Finalize()).
 func Emit(cfg *di.Config, opts Options) ([]byte, error) {
-	compiled, err := Build(cfg, opts.ModuleRoot)
+	compiled, err := Build(cfg, opts)
 	if err != nil {
 		return nil, err
 	}

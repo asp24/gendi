@@ -1793,3 +1793,35 @@ func TestEmitTwiceOnSameConfig(t *testing.T) {
 		t.Fatalf("expected caller's config to stay unmodified")
 	}
 }
+
+func TestBuildTagsReachTypeResolver(t *testing.T) {
+	cfg := &di.Config{
+		Services: map[string]di.Service{
+			"svc": {
+				Constructor: di.Constructor{
+					// NewService lives in a file guarded by //go:build taggedsvc,
+					// so type resolution only succeeds when the build tags are
+					// passed through to the package loader.
+					Func: "github.com/gendi-org/gendi/generator/testdata/tagged.NewService",
+				},
+				Public: true,
+			},
+		},
+	}
+
+	opts := testEmitOptions(t)
+	opts.BuildTags = "taggedsvc"
+
+	code, err := pipeline.Emit(cfg, opts)
+	if err != nil {
+		t.Fatalf("emit failed: %v", err)
+	}
+
+	out := string(code)
+	if !strings.Contains(out, "//go:build taggedsvc\n") {
+		t.Fatalf("expected //go:build header in output:\n%s", out)
+	}
+	if strings.Contains(out, "// +build") {
+		t.Fatalf("unexpected legacy // +build line in output:\n%s", out)
+	}
+}
