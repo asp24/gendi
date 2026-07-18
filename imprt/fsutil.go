@@ -54,6 +54,39 @@ func pathToAbs(path string) string {
 	return path
 }
 
+// moduleRootOf returns the absolute root of the Go module containing dir, or
+// boundaryRoot when dir is not inside any module. It is the containment
+// boundary a path resolved relative to an importing file in dir may not escape.
+func moduleRootOf(dir, boundaryRoot string) string {
+	if root, _, found := gomod.FindModuleRoot(dir); found {
+		return pathToAbs(root)
+	}
+	return pathToAbs(boundaryRoot)
+}
+
+// within reports whether path is root itself or nested under it. Both are
+// compared lexically, so callers must pass absolute, cleaned paths.
+func within(root, path string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
+}
+
+// confine returns files unchanged when every entry is within root, otherwise an
+// error naming the first file that escapes. root is made absolute first so a
+// relative module dir still compares correctly against absolute resolved files.
+func confine(root, importPath string, files []string) ([]string, error) {
+	absRoot := pathToAbs(root)
+	for _, file := range files {
+		if !within(absRoot, file) {
+			return nil, fmt.Errorf("import %q resolves outside %q: %s", importPath, absRoot, file)
+		}
+	}
+	return files, nil
+}
+
 func findDefaultConfig(moduleDir string) (string, bool) {
 	path := filepath.Join(moduleDir, "gendi.yaml")
 	if fileExists(path) {

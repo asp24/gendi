@@ -10,7 +10,6 @@ import (
 	yamllib "github.com/goccy/go-yaml"
 
 	di "github.com/gendi-org/gendi"
-	"github.com/gendi-org/gendi/gomod"
 	"github.com/gendi-org/gendi/imprt"
 	"github.com/gendi-org/gendi/srcloc"
 )
@@ -24,9 +23,6 @@ type ConfigLoaderYaml struct {
 type loadState struct {
 	inProgress map[string]bool
 	cache      map[string]*di.Config
-	// resolver is the base resolver wrapped in a sandbox anchored at the root
-	// config's module, so every import and exclusion is confined to it.
-	resolver imprt.Resolver
 }
 
 // NewConfigLoaderYaml creates a new YAML config loader with dependencies.
@@ -37,24 +33,12 @@ func NewConfigLoaderYaml(resolver imprt.Resolver, parser *Parser) *ConfigLoaderY
 	}
 }
 
-// Load loads a YAML config file with imports resolved.
+// Load loads a YAML config file with imports resolved. Confinement to the Go
+// module of each importing file is enforced by the resolver chain itself.
 func (l *ConfigLoaderYaml) Load(path string) (*di.Config, error) {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return nil, err
-	}
-
-	// Confine resolution to the root config's Go module. Configs outside any
-	// module fall back to the root config's own directory as the boundary.
-	fallbackRoot := filepath.Dir(abs)
-	if root, _, found := gomod.FindModuleRoot(fallbackRoot); found {
-		fallbackRoot = root
-	}
-
 	state := &loadState{
 		inProgress: map[string]bool{},
 		cache:      map[string]*di.Config{},
-		resolver:   imprt.NewResolverSandbox(l.resolver, fallbackRoot),
 	}
 	return l.loadRecursive(path, state)
 }
@@ -87,12 +71,12 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 
 	baseDir := filepath.Dir(abs)
 	for _, imp := range raw.Imports {
-		impPaths, err := state.resolver.Resolve(baseDir, imp.Path)
+		impPaths, err := l.resolver.Resolve(baseDir, imp.Path)
 		if err != nil {
 			return nil, fmt.Errorf("resolve import %q: %w", imp.Path, err)
 		}
 
-		impPaths, err = l.filterExcludedFiles(impPaths, baseDir, imp.Exclude, state.resolver)
+		impPaths, err = l.filterExcludedFiles(impPaths, baseDir, imp.Exclude)
 		if err != nil {
 			return nil, fmt.Errorf("apply exclusions for import %q: %w", imp.Path, err)
 		}
@@ -187,19 +171,17 @@ func (l *ConfigLoaderYaml) toSrclocError(file string, err error) error {
 // filterExcludedFiles removes files matching any exclusion pattern.
 //
 // Exclusion patterns are addressed exactly like an import `path`: a relative
-// pattern is resolved against the importing file's directory, an absolute
-// pattern against the filesystem root, and a module pattern against the Go
-// module it names. This mirroring means an exclusion is simply "one of the
-// things the import could have matched, written the same way" — for an
-// absolute import you exclude with an absolute pattern, for a module import
-// with a module pattern. A pattern that points at a directory excludes its
-// whole subtree.
+// pattern is resolved against the importing file's directory and a module
+// pattern against the Go module it names (absolute paths are rejected, as for
+// imports). This mirroring means an exclusion is simply "one of the things the
+// import could have matched, written the same way" — for a module import you
+// exclude with a module pattern. A pattern that points at a directory excludes
+// its whole subtree.
 //
 // files - absolute paths returned by the resolver
 // baseDir - the importing file's directory (anchor for relative patterns)
 // excludePatterns - glob patterns, file paths, module paths, or directories
-// resolver - the same (sandboxed) resolver used for the import path
-func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, excludePatterns []string, resolver imprt.Resolver) ([]string, error) {
+func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, excludePatterns []string) ([]string, error) {
 	if len(excludePatterns) == 0 {
 		return files, nil
 	}
@@ -219,7 +201,7 @@ func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, e
 		// import `path`, and exclude every file it matches. A glob that
 		// matches nothing is a silent no-op (as for imports); a concrete
 		// pattern that resolves to nothing is a loud error.
-		matches, err := resolver.Resolve(baseDir, pattern)
+		matches, err := l.resolver.Resolve(baseDir, pattern)
 		if err != nil {
 			return nil, fmt.Errorf("exclusion %q: %w", pattern, err)
 		}

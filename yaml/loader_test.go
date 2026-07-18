@@ -50,7 +50,7 @@ func TestInvalidImports(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			configPath := filepath.Join(currentDir, "testdata", tt.name, "gendi.yaml")
 
-			_, err := LoadConfig(configPath)
+			_, err := LoadConfig(configPath, boundaryFor(t, configPath))
 
 			if err == nil {
 				t.Fatal("expected import error, got none")
@@ -108,7 +108,7 @@ imports:
   - path: %q
 `, filepath.Join(dir, "imports", "module.yaml"))))
 
-	_, err := LoadConfig(rootPath)
+	_, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
 	if err == nil {
 		t.Fatal("expected error for absolute import path")
 	}
@@ -129,7 +129,7 @@ imports:
   - path: example.com/app/imports/module.yaml
 `))
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -158,8 +158,35 @@ imports:
   - path: ../secret.yaml
 `))
 
-	if _, err := LoadConfig(rootPath); err == nil {
+	if _, err := LoadConfig(rootPath, boundaryFor(t, rootPath)); err == nil {
 		t.Fatal("expected error for import escaping the module root")
+	}
+}
+
+// A relative import whose first segment merely contains a dot (so it looks
+// module-shaped) but which uses ".." to climb out of the module root must be
+// rejected, exactly like a plain "../" escape.
+func TestLoadConfigRejectsDottedSegmentEscape(t *testing.T) {
+	outer := t.TempDir()
+	writeTestFile(t, filepath.Join(outer, "secret.yaml"), strings.TrimSpace(`
+parameters:
+  secret: "leaked"
+`))
+
+	moduleRoot := filepath.Join(outer, "module")
+	if err := os.MkdirAll(moduleRoot, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeTestFile(t, filepath.Join(moduleRoot, "go.mod"), "module example.com/app\n")
+
+	rootPath := filepath.Join(moduleRoot, "root.yaml")
+	writeTestFile(t, rootPath, strings.TrimSpace(`
+imports:
+  - path: assets.d/../../secret.yaml
+`))
+
+	if _, err := LoadConfig(rootPath, boundaryFor(t, rootPath)); err == nil {
+		t.Fatal("expected error for dotted-segment import escaping the module root")
 	}
 }
 
@@ -194,7 +221,7 @@ imports:
 `)
 	writeTestFile(t, rootPath, root)
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -244,7 +271,7 @@ imports:
 `)
 	writeTestFile(t, rootPath, root)
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -267,7 +294,7 @@ imports:
   - path: example.com/app/imports/*.yaml
 `))
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -289,7 +316,7 @@ imports:
   - path: example.com/app/imports/**/*.yaml
 `))
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -305,7 +332,8 @@ imports:
 }
 
 func TestLoadConfigServiceAlias(t *testing.T) {
-	cfg, err := LoadConfig(filepath.Join(getCurrentDir(), "testdata", "service_alias", "gendi.yaml"))
+	configPath := filepath.Join(getCurrentDir(), "testdata", "service_alias", "gendi.yaml")
+	cfg, err := LoadConfig(configPath, boundaryFor(t, configPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -338,7 +366,7 @@ services:
       args: ["@.inner"]
 `))
 
-	cfg, err := LoadConfig(path)
+	cfg, err := LoadConfig(path, boundaryFor(t, path))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -351,7 +379,8 @@ services:
 }
 
 func TestLoadConfigNullArgument(t *testing.T) {
-	cfg, err := LoadConfig(filepath.Join(getCurrentDir(), "testdata", "null_argument", "gendi.yaml"))
+	configPath := filepath.Join(getCurrentDir(), "testdata", "null_argument", "gendi.yaml")
+	cfg, err := LoadConfig(configPath, boundaryFor(t, configPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}

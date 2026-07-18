@@ -83,7 +83,7 @@ func TestErrorCases(t *testing.T) {
 			tmpDir := prepareErrorTestDir(t, srcDir)
 
 			configPath := filepath.Join(tmpDir, "gendi.yaml")
-			cfg, err := yaml.LoadConfig(configPath)
+			cfg, err := yaml.LoadConfig(configPath, tmpDir)
 
 			if tt.phase == "load" {
 				if err == nil {

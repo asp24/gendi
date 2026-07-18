@@ -39,5 +39,6 @@ func (r *ResolverModule) Resolve(baseDir, importPath string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []string{path}, nil
+	// A ".." in the remainder must not climb out of the resolved module.
+	return confine(moduleDir, importPath, []string{path})
 }

@@ -8,9 +8,33 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gendi-org/gendi/gomod"
 	"github.com/gendi-org/gendi/imprt"
 	"github.com/gendi-org/gendi/srcloc"
 )
+
+// boundaryFor derives the confinement boundary a LoadConfig caller must supply:
+// the module root of the config's directory, or that directory when it is not
+// inside any Go module.
+func boundaryFor(t *testing.T, path string) string {
+	t.Helper()
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		t.Fatalf("abs %s: %v", path, err)
+	}
+	dir := filepath.Dir(abs)
+	if moduleRoot, _, found := gomod.FindModuleRoot(dir); found {
+		return moduleRoot
+	}
+	return dir
+}
+
+// defaultLoader builds a loader with the production resolver chain, confined to
+// the module (or directory) of rootPath.
+func defaultLoader(t *testing.T, rootPath string) *ConfigLoaderYaml {
+	t.Helper()
+	return NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(boundaryFor(t, rootPath)), NewParser())
+}
 
 type stubResolver struct {
 	paths map[string][]string
@@ -116,7 +140,7 @@ imports:
       - ./services/test_*.yaml
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -162,7 +186,7 @@ imports:
       - ./services/internal/*.yaml
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -202,7 +226,7 @@ imports:
       - ./services/*.yaml
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -228,7 +252,7 @@ imports:
       - ./specific.yaml
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
@@ -259,7 +283,7 @@ imports:
       - "[invalid"
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	_, err := loader.Load(rootPath)
 	if err == nil {
 		t.Fatal("expected error for invalid exclusion pattern")
@@ -289,7 +313,7 @@ imports:
   - path: ./services/db.yaml
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -335,7 +359,7 @@ imports:
       - ./config/**/dev_*.yaml
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -377,7 +401,7 @@ imports:
       - %q
 `, testPath))
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	_, err := loader.Load(rootPath)
 	if err == nil {
 		t.Fatal("expected error for absolute exclusion pattern")
@@ -421,7 +445,7 @@ imports:
       - example.com/testmod/services/skip.yaml
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -460,7 +484,7 @@ imports:
       - %q
 `, internalDir))
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	_, err := loader.Load(rootPath)
 	if err == nil {
 		t.Fatal("expected error for absolute directory exclusion")
@@ -487,7 +511,7 @@ imports:
   - path: %q
 `, filepath.Join(extDir, "*.yaml")))
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	_, err := loader.Load(rootPath)
 	if err == nil {
 		t.Fatal("expected error for absolute glob import")
@@ -600,7 +624,7 @@ imports:
       - ./services/internal
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)

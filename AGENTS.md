@@ -216,8 +216,12 @@ directory as the boundary.
   module root, use the module's own import path
   (`path: example.com/app/services/x.yaml` from anywhere inside
   `example.com/app`).
-- **Escapes are a generation-time error.** A `../` chain that resolves outside
-  the module root is rejected, not silently loaded.
+- **Escapes are a generation-time error.** Any import or exclusion that
+  resolves outside the module is rejected, however it is spelled — a `../`
+  chain, or a dotted first segment that merely looks module-shaped
+  (`assets.d/../../x.yaml`). Each resolver enforces this against the module of
+  the importing file; a module-path import is likewise confined to the module
+  it resolves to.
 - **Cross-module references go through module-path imports.** Only
   `example.com/dep/...` imports may reach another module, and they are bounded
   by the `go.mod` graph. A dependency's own config is likewise confined to its

@@ -16,12 +16,15 @@ func NewPathResolverComposite(resolvers ...Resolver) *ResolverComposite {
 	}
 }
 
-// NewResolverCompositeDefault creates a composite with the standard resolver chain.
-func NewResolverCompositeDefault() *ResolverComposite {
+// NewResolverCompositeDefault creates a composite with the standard resolver
+// chain. boundaryRoot is the containment boundary for importing files that are
+// not inside any Go module; within a module, each resolver confines to that
+// module instead.
+func NewResolverCompositeDefault(boundaryRoot string) *ResolverComposite {
 	return NewPathResolverComposite(
-		&ResolverGlob{},   // Try glob patterns first
-		&ResolverLocal{},  // Then local paths
-		&ResolverModule{}, // Finally module imports
+		&ResolverGlob{boundaryRoot: boundaryRoot},  // Try glob patterns first
+		&ResolverLocal{boundaryRoot: boundaryRoot}, // Then local paths
+		&ResolverModule{},                          // Finally module imports
 	)
 }
 
@@ -41,6 +44,9 @@ func (c *ResolverComposite) CanResolve(importPath string) bool {
 func (c *ResolverComposite) Resolve(baseDir, importPath string) ([]string, error) {
 	if importPath == "" {
 		return nil, fmt.Errorf("import path is empty")
+	}
+	if filepath.IsAbs(importPath) {
+		return nil, fmt.Errorf("absolute paths are not allowed; use a path relative to the importing file or a Go module path")
 	}
 
 	for _, resolver := range c.resolvers {

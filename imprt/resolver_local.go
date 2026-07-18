@@ -8,6 +8,9 @@ import (
 
 // ResolverLocal handles local/relative file paths.
 type ResolverLocal struct {
+	// boundaryRoot bounds resolution when the importing file is not inside any
+	// Go module; within a module the boundary is that module's root.
+	boundaryRoot string
 }
 
 // CanResolve accepts any path shape: whether the file exists locally can only
@@ -34,5 +37,7 @@ func (r *ResolverLocal) Resolve(baseDir, importPath string) ([]string, error) {
 		return nil, err
 	}
 
-	return []string{path}, nil
+	// A relative import may not escape the module of the importing file (a
+	// cleaned "../" chain, or a dotted first segment that looks module-shaped).
+	return confine(moduleRootOf(baseDir, r.boundaryRoot), importPath, []string{path})
 }

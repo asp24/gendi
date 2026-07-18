@@ -52,7 +52,7 @@ func TestSyntaxError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			path := writeYAML(t, tt.yaml)
 
-			_, err := LoadConfig(path)
+			_, err := LoadConfig(path, boundaryFor(t, path))
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}
@@ -87,7 +87,7 @@ func TestSyntaxError_BadIndent_ExactLocation(t *testing.T) {
 	yaml := "services:\n foo: bar\n  baz: qux\n"
 	path := writeYAML(t, yaml)
 
-	_, err := LoadConfig(path)
+	_, err := LoadConfig(path, boundaryFor(t, path))
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -112,7 +112,7 @@ func TestSyntaxError_RenderingProducesSnippet(t *testing.T) {
 	yaml := "services:\n foo: bar\n  baz: qux\n"
 	path := writeYAML(t, yaml)
 
-	_, err := LoadConfig(path)
+	_, err := LoadConfig(path, boundaryFor(t, path))
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -129,7 +129,7 @@ func TestSyntaxError_EmptyFile_DoesNotPanic(t *testing.T) {
 	path := writeYAML(t, "")
 	// Empty file should either return nil config (if goccy treats it as
 	// nil doc) or a srcloc.Error without panic. The point is: no panic.
-	_, _ = LoadConfig(path)
+	_, _ = LoadConfig(path, boundaryFor(t, path))
 }
 
 // TestBlockScalar covers the cross-product {parameter value, constructor
@@ -187,7 +187,7 @@ func TestBlockScalar(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			path := writeYAML(t, tt.yaml)
-			cfg, err := LoadConfig(path)
+			cfg, err := LoadConfig(path, boundaryFor(t, path))
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -215,7 +215,7 @@ func TestE2E_LoadConfigPath_NoDoubleLocation(t *testing.T) {
 	absPath, _ := filepath.Abs(path)
 
 	loaderErr := func() error {
-		_, err := LoadConfig(path)
+		_, err := LoadConfig(path, boundaryFor(t, path))
 		return err
 	}()
 	if loaderErr == nil {

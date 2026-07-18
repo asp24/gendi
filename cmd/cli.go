@@ -37,7 +37,7 @@ func Generate(cfg Config, passes []di.Pass) error {
 		return fmt.Errorf("config finalize: %w", err)
 	}
 
-	diCfg, err := yaml.LoadConfig(cfg.ConfigPath)
+	diCfg, err := yaml.LoadConfig(cfg.ConfigPath, cfg.Options.ModuleRoot)
 	if err != nil {
 		return srcloc.AddContext(err, "load config")
 	}

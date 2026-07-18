@@ -10,6 +10,9 @@ import (
 
 // ResolverGlob handles glob patterns (*, ?, []).
 type ResolverGlob struct {
+	// boundaryRoot bounds relative globs when the importing file is not inside
+	// any Go module; within a module the boundary is that module's root.
+	boundaryRoot string
 }
 
 func (r *ResolverGlob) CanResolve(importPath string) bool {
@@ -21,7 +24,12 @@ func (r *ResolverGlob) Resolve(baseDir, importPath string) ([]string, error) {
 	isExplicitRelative := strings.HasPrefix(importPath, "./") || strings.HasPrefix(importPath, "../")
 	if isExplicitRelative || !gomod.LooksLikeModulePath(importPath) {
 		pattern := filepath.Join(baseDir, importPath)
-		return globFiles(pattern)
+		files, err := globFiles(pattern)
+		if err != nil {
+			return nil, err
+		}
+		// A relative glob may not reach outside the importing file's module.
+		return confine(moduleRootOf(baseDir, r.boundaryRoot), importPath, files)
 	}
 
 	// Module glob
@@ -42,5 +50,10 @@ func (r *ResolverGlob) resolveModuleGlob(baseDir, importPath string) ([]string, 
 	}
 	pattern := filepath.Join(moduleDir, filepath.FromSlash(remainder))
 
-	return globFiles(pattern)
+	files, err := globFiles(pattern)
+	if err != nil {
+		return nil, err
+	}
+	// A ".." in the remainder must not climb out of the resolved module.
+	return confine(moduleDir, importPath, files)
 }
