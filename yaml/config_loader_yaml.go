@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bmatcuk/doublestar/v4"
 	yamllib "github.com/goccy/go-yaml"
 
 	di "github.com/gendi-org/gendi"
@@ -169,9 +168,19 @@ func (l *ConfigLoaderYaml) toSrclocError(file string, err error) error {
 }
 
 // filterExcludedFiles removes files matching any exclusion pattern.
-// files - absolute paths returned by resolver
-// baseDir - directory for resolving relative exclusion patterns
-// excludePatterns - glob patterns, file paths, or directory paths to exclude
+//
+// Exclusion patterns are addressed exactly like an import `path`: a relative
+// pattern is resolved against the importing file's directory, an absolute
+// pattern against the filesystem root, and a module pattern against the Go
+// module it names. This mirroring means an exclusion is simply "one of the
+// things the import could have matched, written the same way" — for an
+// absolute import you exclude with an absolute pattern, for a module import
+// with a module pattern. A pattern that points at a directory excludes its
+// whole subtree.
+//
+// files - absolute paths returned by the resolver
+// baseDir - the importing file's directory (anchor for relative patterns)
+// excludePatterns - glob patterns, file paths, module paths, or directories
 func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, excludePatterns []string) ([]string, error) {
 	if len(excludePatterns) == 0 {
 		return files, nil
@@ -181,34 +190,23 @@ func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, e
 	var excludedDirs []string
 
 	for _, pattern := range excludePatterns {
-		// Resolve pattern relative to baseDir
-		absPattern := pattern
-		if !filepath.IsAbs(pattern) {
-			absPattern = filepath.Join(baseDir, pattern)
-		}
-
-		// If the pattern is a directory, exclude all files under it
-		if info, err := os.Stat(absPattern); err == nil && info.IsDir() {
-			excludedDirs = append(excludedDirs, absPattern+string(filepath.Separator))
+		// A pattern pointing at an existing directory excludes its subtree.
+		// Directories are not config files, so they never reach the resolver.
+		if dir, ok := l.excludedDirectory(baseDir, pattern); ok {
+			excludedDirs = append(excludedDirs, dir+string(filepath.Separator))
 			continue
 		}
 
-		// Match pattern using doublestar (same library as glob imports)
-		matches, err := doublestar.FilepathGlob(absPattern)
+		// Otherwise resolve the pattern through the same resolver as the
+		// import `path`, and exclude every file it matches. A glob that
+		// matches nothing is a silent no-op (as for imports); a concrete
+		// pattern that resolves to nothing is a loud error.
+		matches, err := l.resolver.Resolve(baseDir, pattern)
 		if err != nil {
-			return nil, fmt.Errorf("invalid exclusion pattern %q: %w", pattern, err)
+			return nil, fmt.Errorf("exclusion %q: %w", pattern, err)
 		}
-
 		for _, match := range matches {
-			abs, err := filepath.Abs(match)
-			if err != nil {
-				return nil, fmt.Errorf("exclusion pattern %q: resolve %q: %w", pattern, match, err)
-			}
-			if info, err := os.Stat(abs); err == nil && info.IsDir() {
-				excludedDirs = append(excludedDirs, abs+string(filepath.Separator))
-			} else {
-				excludedSet[abs] = true
-			}
+			excludedSet[match] = true
 		}
 	}
 
@@ -231,4 +229,24 @@ func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, e
 	}
 
 	return result, nil
+}
+
+// excludedDirectory reports whether pattern points at an existing directory,
+// resolved with the same addressing as an import path (absolute as-is, else
+// relative to the importing file's directory). Glob patterns and files never
+// stat as a directory and fall through to the resolver.
+func (l *ConfigLoaderYaml) excludedDirectory(baseDir, pattern string) (string, bool) {
+	candidate := pattern
+	if !filepath.IsAbs(candidate) {
+		candidate = filepath.Join(baseDir, pattern)
+	}
+	info, err := os.Stat(candidate)
+	if err != nil || !info.IsDir() {
+		return "", false
+	}
+	abs, err := filepath.Abs(candidate)
+	if err != nil {
+		return "", false
+	}
+	return abs, true
 }

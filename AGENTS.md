@@ -159,7 +159,7 @@ Configuration files can import others:
 
 #### Import Exclusions
 
-Exclude files from imports using glob patterns or directory paths:
+Exclude files from imports using glob patterns, file paths, or directory paths:
 
 ```yaml
 imports:
@@ -175,11 +175,36 @@ imports:
       - ./config/**/dev_*.yaml
 ```
 
+**An `exclude` pattern is addressed exactly like an import `path`** — it is
+"one of the things the import could have matched, written the same way":
+
+```yaml
+imports:
+  # local import → relative exclude (both anchored at the importing file's dir)
+  - path: ./services/*.yaml
+    exclude: [./services/skip.yaml]
+
+  # absolute import → absolute exclude (an absolute import is not silently
+  # re-anchored; the exclude stays absolute too)
+  - path: /abs/services/*.yaml
+    exclude: [/abs/services/skip.yaml]
+
+  # module import → module-form exclude
+  - path: example.com/mod/services/*.yaml
+    exclude: [example.com/mod/services/skip.yaml]
+```
+
 Features:
-- Exclusion entries can be glob patterns (`*`, `?`, `[]`, `**`) or directory paths
-- Directory paths exclude all files under that directory
-- Patterns resolved relative to importing file's directory
-- Works with any import type (local, absolute, module-based)
+- Exclusion entries can be glob patterns (`*`, `?`, `[]`, `**`), file paths,
+  module paths, or directory paths — resolved through the same resolver as
+  the import `path`
+- Relative patterns resolve against the importing file's directory, absolute
+  patterns against the filesystem root, module patterns against the named Go
+  module (mirroring how `path` is addressed)
+- A pattern pointing at a directory excludes all files under it (local or
+  absolute; for a module subtree use a `.../**/*.yaml` glob)
+- A glob that matches nothing is a silent no-op; a concrete file/module
+  pattern that resolves to nothing is a loud error (same as imports)
 - Exclusions take precedence over inclusions
 - Backward compatible - `exclude` field is optional
 

@@ -215,23 +215,19 @@ imports:
 func TestExcludeNonGlobImport(t *testing.T) {
 	dir := t.TempDir()
 
-	specificPath := writeFile(t, dir, "specific.yaml", `
+	writeFile(t, dir, "specific.yaml", `
 parameters:
   specific: "specific"
 `)
 
 	rootPath := writeFile(t, dir, "gendi.yaml", `
 imports:
-  - path: specific
+  - path: ./specific.yaml
     exclude:
       - ./specific.yaml
 `)
 
-	loader := NewConfigLoaderYaml(stubResolver{
-		paths: map[string][]string{
-			"specific": {specificPath},
-		},
-	}, NewParser())
+	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
 
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
@@ -389,6 +385,90 @@ imports:
 	}
 	if _, ok := cfg.Parameters["test"]; ok {
 		t.Error("expected test parameter to be excluded")
+	}
+}
+
+// A module import is excluded with a module-form pattern — the exclusion
+// mirrors the import path's addressing, so no importer-relative or resolved-
+// base guessing is involved.
+func TestExcludeModuleImport(t *testing.T) {
+	moduleRoot := t.TempDir()
+	writeFile(t, moduleRoot, "go.mod", "module example.com/testmod\n")
+
+	servicesDir := filepath.Join(moduleRoot, "services")
+	if err := os.MkdirAll(servicesDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeFile(t, servicesDir, "app.yaml", `
+parameters:
+  app: "app"
+`)
+	writeFile(t, servicesDir, "skip.yaml", `
+parameters:
+  skip_me: "skip"
+`)
+
+	// The importing file lives in a subdirectory of the module, so its
+	// directory differs from the module root the resolved files live under —
+	// mirroring makes the exclusion independent of that difference.
+	appDir := filepath.Join(moduleRoot, "app")
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	rootPath := writeFile(t, appDir, "gendi.yaml", `
+imports:
+  - path: example.com/testmod/services/*.yaml
+    exclude:
+      - example.com/testmod/services/skip.yaml
+`)
+
+	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	cfg, err := loader.Load(rootPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if _, ok := cfg.Parameters["app"]; !ok {
+		t.Error("expected app parameter to be loaded")
+	}
+	if _, ok := cfg.Parameters["skip_me"]; ok {
+		t.Error("expected skip_me parameter to be excluded")
+	}
+}
+
+// An absolute-glob import is excluded with an absolute pattern — for an
+// absolute import the exclusion stays absolute, it does not silently become
+// relative to some resolved base directory.
+func TestExcludeAbsoluteGlobImport(t *testing.T) {
+	extDir := t.TempDir()
+	writeFile(t, extDir, "keep.yaml", `
+parameters:
+  keep: "keep"
+`)
+	skipPath := writeFile(t, extDir, "skip.yaml", `
+parameters:
+  skip_me: "skip"
+`)
+
+	rootDir := t.TempDir()
+	rootPath := writeFile(t, rootDir, "gendi.yaml", fmt.Sprintf(`
+imports:
+  - path: %s
+    exclude:
+      - %s
+`, filepath.Join(extDir, "*.yaml"), skipPath))
+
+	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	cfg, err := loader.Load(rootPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if _, ok := cfg.Parameters["keep"]; !ok {
+		t.Error("expected keep parameter to be loaded")
+	}
+	if _, ok := cfg.Parameters["skip_me"]; ok {
+		t.Error("expected skip_me parameter to be excluded")
 	}
 }
 
