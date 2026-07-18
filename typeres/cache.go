@@ -13,13 +13,16 @@ import (
 type Cache struct {
 	packages   map[string]*types.Package
 	moduleRoot string
+	buildTags  string
 }
 
-// NewCache creates a new package cache.
-func NewCache(moduleRoot string) *Cache {
+// NewCache creates a new package cache. buildTags is passed to the package
+// loader as-is via -tags= when non-empty.
+func NewCache(moduleRoot, buildTags string) *Cache {
 	return &Cache{
 		packages:   make(map[string]*types.Package),
 		moduleRoot: moduleRoot,
+		buildTags:  buildTags,
 	}
 }
 
@@ -51,6 +54,9 @@ func (c *Cache) LoadWithCandidates(required, candidates []string) error {
 		Mode: packages.NeedName |
 			packages.NeedTypes,
 		Dir: c.moduleRoot,
+	}
+	if c.buildTags != "" {
+		cfg.BuildFlags = []string{"-tags=" + c.buildTags}
 	}
 
 	candidateSet := make(map[string]bool, len(candidates))

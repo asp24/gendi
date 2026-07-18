@@ -29,8 +29,7 @@ func (g *Generator) assembleOutput(options Options, importManager *ImportManager
 
 	// Build tags
 	if options.BuildTags != "" {
-		fmt.Fprintf(out, "//go:build %s\n", options.BuildTags)
-		fmt.Fprintf(out, "// +build %s\n\n", options.BuildTags)
+		fmt.Fprintf(out, "//go:build %s\n\n", options.BuildTags)
 	}
 
 	// Package and imports

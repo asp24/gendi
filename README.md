@@ -153,7 +153,7 @@ Flags:
   --out string         Output directory or file (required)
   --pkg string         Go package name (required)
   --container string   Container struct name (default: "Container")
-  --build-tags string  Build tags for generated file
+  --build-tags string  Build tags used for type resolution and emitted as the generated file's //go:build header
   --enable-pass string
                       Enable an optional compiler pass (repeatable)
   --verbose           Enable verbose logging

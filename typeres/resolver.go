@@ -13,10 +13,11 @@ type Resolver struct {
 	cache *Cache
 }
 
-// NewResolver creates a new Resolver with the given module root and output package path.
-func NewResolver(moduleRoot string) *Resolver {
+// NewResolver creates a new Resolver with the given module root and build tags.
+// buildTags is passed to the package loader as-is via -tags= when non-empty.
+func NewResolver(moduleRoot, buildTags string) *Resolver {
 	return &Resolver{
-		cache: NewCache(moduleRoot),
+		cache: NewCache(moduleRoot, buildTags),
 	}
 }
 
