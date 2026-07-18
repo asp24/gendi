@@ -20,7 +20,6 @@ func NewPathResolverComposite(resolvers ...Resolver) *ResolverComposite {
 func NewResolverCompositeDefault() *ResolverComposite {
 	return NewPathResolverComposite(
 		&ResolverGlob{},   // Try glob patterns first
-		&ResolverAbs{},    // Then absolute paths
 		&ResolverLocal{},  // Then local paths
 		&ResolverModule{}, // Finally module imports
 	)

@@ -17,11 +17,6 @@ func (r *ResolverGlob) CanResolve(importPath string) bool {
 }
 
 func (r *ResolverGlob) Resolve(baseDir, importPath string) ([]string, error) {
-	// Absolute glob
-	if filepath.IsAbs(importPath) {
-		return globFiles(importPath)
-	}
-
 	// Relative glob or non-module glob
 	isExplicitRelative := strings.HasPrefix(importPath, "./") || strings.HasPrefix(importPath, "../")
 	if isExplicitRelative || !gomod.LooksLikeModulePath(importPath) {

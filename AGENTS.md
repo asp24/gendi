@@ -184,11 +184,6 @@ imports:
   - path: ./services/*.yaml
     exclude: [./services/skip.yaml]
 
-  # absolute import → absolute exclude (an absolute import is not silently
-  # re-anchored; the exclude stays absolute too)
-  - path: /abs/services/*.yaml
-    exclude: [/abs/services/skip.yaml]
-
   # module import → module-form exclude
   - path: example.com/mod/services/*.yaml
     exclude: [example.com/mod/services/skip.yaml]
@@ -198,15 +193,38 @@ Features:
 - Exclusion entries can be glob patterns (`*`, `?`, `[]`, `**`), file paths,
   module paths, or directory paths — resolved through the same resolver as
   the import `path`
-- Relative patterns resolve against the importing file's directory, absolute
-  patterns against the filesystem root, module patterns against the named Go
-  module (mirroring how `path` is addressed)
-- A pattern pointing at a directory excludes all files under it (local or
-  absolute; for a module subtree use a `.../**/*.yaml` glob)
+- Relative patterns resolve against the importing file's directory, module
+  patterns against the named Go module (mirroring how `path` is addressed —
+  see Import Sandboxing below)
+- A pattern pointing at a directory excludes all files under it (local; for a
+  module subtree use a `.../**/*.yaml` glob)
 - A glob that matches nothing is a silent no-op; a concrete file/module
   pattern that resolves to nothing is a loud error (same as imports)
 - Exclusions take precedence over inclusions
 - Backward compatible - `exclude` field is optional
+
+#### Import Sandboxing (Module Root)
+
+Imports and exclusions are confined to the **Go module that contains the
+importing config file**. The module root is found by walking up to the nearest
+`go.mod`; a config outside any module falls back to the root config's own
+directory as the boundary.
+
+- **Absolute filesystem paths are not allowed** in imports or exclusions —
+  they are a generation-time error. Everything inside the module is addressed
+  relative to the importing file; for a location-independent anchor at the
+  module root, use the module's own import path
+  (`path: example.com/app/services/x.yaml` from anywhere inside
+  `example.com/app`).
+- **Escapes are a generation-time error.** A `../` chain that resolves outside
+  the module root is rejected, not silently loaded.
+- **Cross-module references go through module-path imports.** Only
+  `example.com/dep/...` imports may reach another module, and they are bounded
+  by the `go.mod` graph. A dependency's own config is likewise confined to its
+  own module — it cannot reach into the consumer's filesystem.
+
+This guarantees generation only ever reads files within the project module or
+its declared Go-module dependencies — never arbitrary filesystem paths.
 
 ### The `$this` Token
 

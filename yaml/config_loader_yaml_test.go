@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/gendi-org/gendi/imprt"
@@ -351,7 +352,9 @@ imports:
 	}
 }
 
-func TestExcludeAbsolutePath(t *testing.T) {
+// Exclusions are addressed like import paths, so absolute filesystem paths
+// are rejected in them too.
+func TestExcludeRejectsAbsolutePattern(t *testing.T) {
 	dir := t.TempDir()
 	servicesDir := filepath.Join(dir, "services")
 	if err := os.MkdirAll(servicesDir, 0o755); err != nil {
@@ -371,20 +374,16 @@ parameters:
 imports:
   - path: ./services/*.yaml
     exclude:
-      - %s
+      - %q
 `, testPath))
 
 	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
-	cfg, err := loader.Load(rootPath)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
+	_, err := loader.Load(rootPath)
+	if err == nil {
+		t.Fatal("expected error for absolute exclusion pattern")
 	}
-
-	if _, ok := cfg.Parameters["app"]; !ok {
-		t.Error("expected app parameter to be loaded")
-	}
-	if _, ok := cfg.Parameters["test"]; ok {
-		t.Error("expected test parameter to be excluded")
+	if !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("error should mention absolute paths, got: %v", err)
 	}
 }
 
@@ -436,39 +435,65 @@ imports:
 	}
 }
 
-// An absolute-glob import is excluded with an absolute pattern — for an
-// absolute import the exclusion stays absolute, it does not silently become
-// relative to some resolved base directory.
-func TestExcludeAbsoluteGlobImport(t *testing.T) {
-	extDir := t.TempDir()
-	writeFile(t, extDir, "keep.yaml", `
+// An absolute pattern pointing at an existing directory is rejected like any
+// other absolute exclusion — it does not silently exclude the subtree.
+func TestExcludeRejectsAbsoluteDirectory(t *testing.T) {
+	dir := t.TempDir()
+	internalDir := filepath.Join(dir, "services", "internal")
+	if err := os.MkdirAll(internalDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	writeFile(t, filepath.Join(dir, "services"), "app.yaml", `
 parameters:
-  keep: "keep"
+  app: "app"
 `)
-	skipPath := writeFile(t, extDir, "skip.yaml", `
+	writeFile(t, internalDir, "skip.yaml", `
 parameters:
   skip_me: "skip"
 `)
 
-	rootDir := t.TempDir()
-	rootPath := writeFile(t, rootDir, "gendi.yaml", fmt.Sprintf(`
+	rootPath := writeFile(t, dir, "gendi.yaml", fmt.Sprintf(`
 imports:
-  - path: %s
+  - path: ./services/**/*.yaml
     exclude:
-      - %s
-`, filepath.Join(extDir, "*.yaml"), skipPath))
+      - %q
+`, internalDir))
 
 	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
-	cfg, err := loader.Load(rootPath)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
+	_, err := loader.Load(rootPath)
+	if err == nil {
+		t.Fatal("expected error for absolute directory exclusion")
 	}
+	if !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("error should mention absolute paths, got: %v", err)
+	}
+}
 
-	if _, ok := cfg.Parameters["keep"]; !ok {
-		t.Error("expected keep parameter to be loaded")
+// Absolute glob imports are rejected like any other absolute import path.
+func TestLoadRejectsAbsoluteGlobImport(t *testing.T) {
+	rootDir := t.TempDir()
+	extDir := filepath.Join(rootDir, "ext")
+	if err := os.MkdirAll(extDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
 	}
-	if _, ok := cfg.Parameters["skip_me"]; ok {
-		t.Error("expected skip_me parameter to be excluded")
+	writeFile(t, extDir, "keep.yaml", `
+parameters:
+  keep: "keep"
+`)
+
+	rootPath := writeFile(t, rootDir, "gendi.yaml", fmt.Sprintf(`
+imports:
+  - path: %q
+`, filepath.Join(extDir, "*.yaml")))
+
+	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	_, err := loader.Load(rootPath)
+	if err == nil {
+		t.Fatal("expected error for absolute glob import")
+	}
+	if !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("error should mention absolute paths, got: %v", err)
 	}
 }
 

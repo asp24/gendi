@@ -10,6 +10,7 @@ import (
 	yamllib "github.com/goccy/go-yaml"
 
 	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/gomod"
 	"github.com/gendi-org/gendi/imprt"
 	"github.com/gendi-org/gendi/srcloc"
 )
@@ -23,6 +24,9 @@ type ConfigLoaderYaml struct {
 type loadState struct {
 	inProgress map[string]bool
 	cache      map[string]*di.Config
+	// resolver is the base resolver wrapped in a sandbox anchored at the root
+	// config's module, so every import and exclusion is confined to it.
+	resolver imprt.Resolver
 }
 
 // NewConfigLoaderYaml creates a new YAML config loader with dependencies.
@@ -35,9 +39,22 @@ func NewConfigLoaderYaml(resolver imprt.Resolver, parser *Parser) *ConfigLoaderY
 
 // Load loads a YAML config file with imports resolved.
 func (l *ConfigLoaderYaml) Load(path string) (*di.Config, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// Confine resolution to the root config's Go module. Configs outside any
+	// module fall back to the root config's own directory as the boundary.
+	fallbackRoot := filepath.Dir(abs)
+	if root, _, found := gomod.FindModuleRoot(fallbackRoot); found {
+		fallbackRoot = root
+	}
+
 	state := &loadState{
 		inProgress: map[string]bool{},
 		cache:      map[string]*di.Config{},
+		resolver:   imprt.NewResolverSandbox(l.resolver, fallbackRoot),
 	}
 	return l.loadRecursive(path, state)
 }
@@ -70,12 +87,12 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 
 	baseDir := filepath.Dir(abs)
 	for _, imp := range raw.Imports {
-		impPaths, err := l.resolver.Resolve(baseDir, imp.Path)
+		impPaths, err := state.resolver.Resolve(baseDir, imp.Path)
 		if err != nil {
 			return nil, fmt.Errorf("resolve import %q: %w", imp.Path, err)
 		}
 
-		impPaths, err = l.filterExcludedFiles(impPaths, baseDir, imp.Exclude)
+		impPaths, err = l.filterExcludedFiles(impPaths, baseDir, imp.Exclude, state.resolver)
 		if err != nil {
 			return nil, fmt.Errorf("apply exclusions for import %q: %w", imp.Path, err)
 		}
@@ -181,7 +198,8 @@ func (l *ConfigLoaderYaml) toSrclocError(file string, err error) error {
 // files - absolute paths returned by the resolver
 // baseDir - the importing file's directory (anchor for relative patterns)
 // excludePatterns - glob patterns, file paths, module paths, or directories
-func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, excludePatterns []string) ([]string, error) {
+// resolver - the same (sandboxed) resolver used for the import path
+func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, excludePatterns []string, resolver imprt.Resolver) ([]string, error) {
 	if len(excludePatterns) == 0 {
 		return files, nil
 	}
@@ -201,7 +219,7 @@ func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, e
 		// import `path`, and exclude every file it matches. A glob that
 		// matches nothing is a silent no-op (as for imports); a concrete
 		// pattern that resolves to nothing is a loud error.
-		matches, err := l.resolver.Resolve(baseDir, pattern)
+		matches, err := resolver.Resolve(baseDir, pattern)
 		if err != nil {
 			return nil, fmt.Errorf("exclusion %q: %w", pattern, err)
 		}
@@ -232,14 +250,14 @@ func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, e
 }
 
 // excludedDirectory reports whether pattern points at an existing directory,
-// resolved with the same addressing as an import path (absolute as-is, else
-// relative to the importing file's directory). Glob patterns and files never
-// stat as a directory and fall through to the resolver.
+// resolved relative to the importing file's directory (the same addressing as
+// an import path). Absolute patterns, glob patterns, and files never match
+// and fall through to the (sandboxed) resolver, which rejects absolute paths.
 func (l *ConfigLoaderYaml) excludedDirectory(baseDir, pattern string) (string, bool) {
-	candidate := pattern
-	if !filepath.IsAbs(candidate) {
-		candidate = filepath.Join(baseDir, pattern)
+	if filepath.IsAbs(pattern) {
+		return "", false
 	}
+	candidate := filepath.Join(baseDir, pattern)
 	info, err := os.Stat(candidate)
 	if err != nil || !info.IsDir() {
 		return "", false

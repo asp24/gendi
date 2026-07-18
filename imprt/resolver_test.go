@@ -30,7 +30,7 @@ func TestImportResolverResolveErrors(t *testing.T) {
 	}
 }
 
-func TestImportResolverResolveLocalAndAbsolute(t *testing.T) {
+func TestImportResolverResolveLocal(t *testing.T) {
 	t.Parallel()
 
 	resolver := NewResolverCompositeDefault()
@@ -44,17 +44,6 @@ func TestImportResolverResolveLocalAndAbsolute(t *testing.T) {
 		t.Fatalf("resolve relative failed: %v", err)
 	}
 	expected := []string{mustAbs(t, relativePath)}
-	if !reflect.DeepEqual(result, expected) {
-		t.Fatalf("expected %v, got %v", expected, result)
-	}
-
-	absolutePath := filepath.Join(tempDir, "absolute.yaml")
-	writeFile(t, absolutePath, "content")
-	result, err = resolver.Resolve(tempDir, absolutePath)
-	if err != nil {
-		t.Fatalf("resolve absolute failed: %v", err)
-	}
-	expected = []string{mustAbs(t, absolutePath)}
 	if !reflect.DeepEqual(result, expected) {
 		t.Fatalf("expected %v, got %v", expected, result)
 	}
