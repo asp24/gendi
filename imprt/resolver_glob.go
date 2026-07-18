@@ -42,11 +42,7 @@ func (r *ResolverGlob) resolveModuleGlob(baseDir, importPath string) ([]string, 
 		return nil, err
 	}
 	if remainder == "" {
-		path, ok := findDefaultConfig(moduleDir)
-		if !ok {
-			return nil, fmt.Errorf("module %s has no gendi.yaml", modulePath)
-		}
-		return []string{path}, nil
+		return nil, fmt.Errorf("module import %q must reference a file or glob under %s", importPath, modulePath)
 	}
 	pattern := filepath.Join(moduleDir, filepath.FromSlash(remainder))
 

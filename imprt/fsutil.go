@@ -87,19 +87,6 @@ func confine(root, importPath string, files []string) ([]string, error) {
 	return files, nil
 }
 
-func findDefaultConfig(moduleDir string) (string, bool) {
-	path := filepath.Join(moduleDir, "gendi.yaml")
-	if fileExists(path) {
-		return pathToAbs(path), true
-	}
-
-	path = filepath.Join(moduleDir, "gendi.yml")
-	if fileExists(path) {
-		return pathToAbs(path), true
-	}
-	return "", false
-}
-
 func globFiles(pattern string) ([]string, error) {
 	// An empty match set is a valid no-op, but a glob rooted at a
 	// non-existent directory is almost certainly a typo.

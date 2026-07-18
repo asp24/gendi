@@ -72,21 +72,17 @@ func TestImportResolverResolveGlob(t *testing.T) {
 	}
 }
 
-func TestImportResolverResolveModuleDefaultConfig(t *testing.T) {
+// A bare module import (no file) is rejected: an import must name its file
+// explicitly rather than falling back to a guessed gendi.yaml.
+func TestImportResolverRejectsBareModuleImport(t *testing.T) {
 	t.Parallel()
 
 	resolver := NewResolverCompositeDefault("")
 	moduleRoot, baseDir, modulePath := createModule(t)
-	defaultConfig := filepath.Join(moduleRoot, "gendi.yaml")
-	writeFile(t, defaultConfig, "name: module")
+	writeFile(t, filepath.Join(moduleRoot, "gendi.yaml"), "name: module")
 
-	result, err := resolver.Resolve(baseDir, modulePath)
-	if err != nil {
-		t.Fatalf("resolve module default failed: %v", err)
-	}
-	expected := []string{mustAbs(t, defaultConfig)}
-	if !reflect.DeepEqual(result, expected) {
-		t.Fatalf("expected %v, got %v", expected, result)
+	if _, err := resolver.Resolve(baseDir, modulePath); err == nil {
+		t.Fatal("expected error for bare module import without an explicit file")
 	}
 }
 

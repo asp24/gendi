@@ -22,11 +22,7 @@ func (r *ResolverModule) Resolve(baseDir, importPath string) ([]string, error) {
 	}
 
 	if remainder == "" {
-		// Looking for default config in module root
-		if path, ok := findDefaultConfig(moduleDir); ok {
-			return []string{path}, nil
-		}
-		return nil, fmt.Errorf("module %s has no gendi.yaml", modulePath)
+		return nil, fmt.Errorf("module import %q must reference a file, e.g. %s/gendi.yaml", importPath, modulePath)
 	}
 
 	// Looking for specific file in module
