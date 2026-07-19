@@ -488,16 +488,28 @@ Configuration files can import and override other configurations.
 
 ```yaml
 imports:
-  - ./base.yaml              # Relative path
-  - ./services/*.yaml        # Glob pattern
-  - ./**/gendi.yaml          # Recursive glob
-  - github.com/pkg/stdlib    # Module import
+  - ./base.yaml                     # Relative path
+  - ./services/*.yaml               # Glob pattern
+  - ./**/gendi.yaml                 # Recursive glob
+  - github.com/pkg/stdlib/gendi.yaml # Module import (must name a file)
 ```
 
 ### Import Resolution
 
+- An import is classified by its form: a multi-segment path whose first
+  segment contains a dot (`example.com/...`) names a Go module; everything
+  else — including single-segment names like `base.yaml` — is a local path.
+  For a local directory whose name contains a dot, use the `./` spelling
+  (`./assets.d/*.yaml`)
+- Absolute filesystem paths are not allowed
 - Relative paths resolved from importing file's directory
-- Glob patterns expanded using doublestar matching
+- Glob patterns expanded using doublestar matching; a glob that matches
+  nothing is a silent no-op
+- Every resolved file is confined to the module of the importing file (or the
+  named module): after exclusions are applied, files are resolved through
+  symlinks and checked against the boundary — a file whose real path is
+  outside is a generation-time error (exclude unwanted symlinked matches to
+  keep a broad glob loadable)
 - Imports are merged depth-first in declaration order: each imported file's
   imports are merged before that file, and the importing file is merged after
   all of its imports
@@ -528,10 +540,17 @@ imports:
 ```
 
 **Exclusion Features:**
+- Exclusions are masks over the files the import found — they never touch
+  the filesystem themselves
 - Supports full glob syntax (`*`, `?`, `[]`, `**`)
-- Patterns resolved relative to importing file's directory
-- Works with any import type (local, absolute, module-based)
-- Exclusions take precedence over inclusions
+- Addressed like the import and must use the same form: a local import takes
+  local masks, a module import takes masks inside the same module
+  (`example.com/mod/services/skip.yaml`)
+- A mask matching a directory on a file's path excludes the whole subtree
+- A mask that matches nothing is a silent no-op; only a malformed pattern is
+  an error
+- Applied before the sandbox check, so unwanted symlinked matches can be
+  excluded explicitly
 
 ### Import Merging
 
@@ -550,7 +569,9 @@ imports:
   - github.com/gendi-org/gendi/stdlib/gendi.yaml
 ```
 
-Resolves to module's root directory and loads `gendi.yaml`.
+The module is located through the `go.mod` graph (including `replace`
+directives) and the named file is loaded from it. A module import must name a
+file or glob explicitly — a bare module path is an error.
 
 ### Best Practices
 

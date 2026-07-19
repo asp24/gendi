@@ -23,12 +23,23 @@ imports:
 
 Rules:
 - Imports are processed in declaration order
-- Relative paths are resolved relative to the importing file
+- An import is classified by its form: multi-segment paths whose first
+  segment contains a dot are module imports; everything else (single-segment
+  names and explicit `./`/`../` prefixes included) is a local path resolved
+  relative to the importing file
+- Absolute filesystem paths are not allowed
+- Module imports must name a file or glob inside the module
+  (`github.com/acme/billing/gendi.yaml`, not `github.com/acme/billing`)
 - Recursive imports are allowed; cyclic imports are forbidden
 - Later definitions override earlier ones
 - Imports can be a string path or a mapping with `path`
-- Module imports resolve to `gendi.yaml`/`gendi.yml` at module root when no file is provided
-- Glob patterns are supported; matches are expanded in lexicographic order
+- Glob patterns are supported; matches are expanded in lexicographic order;
+  a glob that matches nothing is a silent no-op
+- Every resolved file is confined to the module of the importing file (or the
+  module the import names). Exclusion masks are applied first, then the final
+  list is resolved through symlinks and checked against the boundary — any
+  file whose real path is outside is a generation-time error. Symlinks whose
+  targets stay inside the module work normally
 
 Import exclusions:
 ```yaml
@@ -38,6 +49,12 @@ imports:
       - ./services/test_*.yaml
       - ./services/internal/*.yaml
 ```
+
+Exclusions are masks over the files the import found — they never touch the
+filesystem. They are addressed like the import and must use the same form: a
+local import takes local masks, a module import takes masks inside the same
+module. A mask matching a directory on a file's path excludes the subtree; a
+mask matching nothing is a silent no-op.
 
 ## The `$this` Package Token
 
