@@ -698,6 +698,24 @@ func TestResolveImportReturnsRealPaths(t *testing.T) {
 	}
 }
 
+// Module resolution is a pure function of the importing file's module context
+// and its go.mod graph — never of the process working directory. A module
+// absent from the graph must not resolve just because the process happens to
+// run inside a checkout of it.
+func TestResolveImportModuleIgnoresWorkingDirectory(t *testing.T) {
+	moduleRoot, baseDir, _ := createModule(t)
+	resolver := newTestResolver(t, moduleRoot)
+
+	otherCheckout := t.TempDir()
+	writeFile(t, filepath.Join(otherCheckout, "go.mod"), "module example.com/other\n")
+	writeFile(t, filepath.Join(otherCheckout, "x.yaml"), "secret: leaked")
+	t.Chdir(otherCheckout)
+
+	if _, err := resolver.ResolveImport(baseDir, "example.com/other/x.yaml", nil); err == nil {
+		t.Fatal("expected error: example.com/other is not in the importing module's go.mod graph")
+	}
+}
+
 // When the importing config lives outside any Go module, the explicitly
 // supplied boundary is the module context: pointing it at a module root makes
 // that module's imports resolve; anything less is a loud error asking for a

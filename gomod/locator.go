@@ -20,35 +20,15 @@ func NewLocator(baseDir string) *Locator {
 	return &Locator{BaseDir: baseDir}
 }
 
-// FindModuleDir returns the directory for the given module path.
-// It first checks if the module is the local module (in BaseDir or cwd),
-// then falls back to using "go list" to find the module.
+// FindModuleDir returns the directory for the given module path. It first
+// checks whether modulePath is the module containing BaseDir, then falls back
+// to "go list" from BaseDir — resolution is a pure function of BaseDir and
+// its go.mod graph, never of the process working directory.
 func (l *Locator) FindModuleDir(modulePath string) (string, error) {
-	if dir, ok := l.findLocalModuleDir(modulePath); ok {
+	if dir, modPath, ok := FindModuleRoot(l.BaseDir); ok && modPath == modulePath {
 		return dir, nil
 	}
-	if cwd, err := os.Getwd(); err == nil {
-		if dir, ok := findLocalModuleDirFrom(cwd, modulePath); ok {
-			return dir, nil
-		}
-	}
 	return l.findModuleDirViaGoList(modulePath)
-}
-
-// findLocalModuleDir checks if modulePath matches the local module.
-func (l *Locator) findLocalModuleDir(modulePath string) (string, bool) {
-	return findLocalModuleDirFrom(l.BaseDir, modulePath)
-}
-
-func findLocalModuleDirFrom(startDir, modulePath string) (string, bool) {
-	dir, modPath, ok := FindModuleRoot(startDir)
-	if !ok {
-		return "", false
-	}
-	if modPath != modulePath {
-		return "", false
-	}
-	return dir, true
 }
 
 // findModuleDirViaGoList uses "go list" to find the module directory.
