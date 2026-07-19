@@ -1,22 +1,47 @@
 package imprt
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
-func TestGlobFilesMissingBaseDirErrors(t *testing.T) {
+// A glob that matches nothing is a silent no-op — whether its base directory
+// exists or not. Only a malformed pattern is an error.
+func TestGlobMatches(t *testing.T) {
 	dir := t.TempDir()
 
-	// Empty match inside an existing directory is a valid no-op.
-	files, err := globFiles(dir + "/*.yaml")
+	files, dirs, err := globMatches(dir + "/*.yaml")
 	if err != nil {
 		t.Fatalf("unexpected error for empty match: %v", err)
 	}
-	if len(files) != 0 {
-		t.Fatalf("expected no files, got %v", files)
+	if len(files) != 0 || len(dirs) != 0 {
+		t.Fatalf("expected no matches, got files=%v dirs=%v", files, dirs)
 	}
 
-	// A glob rooted at a non-existent directory is a typo, not a no-op.
-	_, err = globFiles(dir + "/no_such_dir/*.yaml")
-	if err == nil {
-		t.Fatal("expected error for glob with missing base directory")
+	files, dirs, err = globMatches(dir + "/no_such_dir/*.yaml")
+	if err != nil {
+		t.Fatalf("unexpected error for missing base directory: %v", err)
+	}
+	if len(files) != 0 || len(dirs) != 0 {
+		t.Fatalf("expected no matches, got files=%v dirs=%v", files, dirs)
+	}
+
+	if _, _, err = globMatches(dir + "/[invalid"); err == nil {
+		t.Fatal("expected error for malformed pattern")
+	}
+
+	writeFile(t, filepath.Join(dir, "sub", "a.yaml"), "a")
+	writeFile(t, filepath.Join(dir, "b.yaml"), "b")
+	files, dirs, err = globMatches(dir + "/*")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	wantFiles := []string{mustAbs(t, filepath.Join(dir, "b.yaml"))}
+	wantDirs := []string{mustAbs(t, filepath.Join(dir, "sub"))}
+	if len(files) != 1 || files[0] != wantFiles[0] {
+		t.Fatalf("expected files %v, got %v", wantFiles, files)
+	}
+	if len(dirs) != 1 || dirs[0] != wantDirs[0] {
+		t.Fatalf("expected dirs %v, got %v", wantDirs, dirs)
 	}
 }

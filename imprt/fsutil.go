@@ -20,13 +20,26 @@ func fileExists(path string) bool {
 	return !info.IsDir()
 }
 
-// findModule locates a Go module by iterating through import path segments.
-// Returns (moduleDir, modulePath, remainder, error) where:
+// findModule locates a Go module by iterating through import path segments,
+// resolving within the module context of the importing file: the module
+// containing baseDir, or — when baseDir is outside any module — the module at
+// the resolver's boundary. Without either, module imports are impossible and
+// the error asks for an explicit project root. Successful lookups are
+// memoized in moduleDirs per (context, modulePath). Returns (moduleDir,
+// modulePath, remainder, error) where:
 //   - moduleDir: absolute path to the module directory
 //   - modulePath: the import path of the found module
 //   - remainder: the path segment after the module path
-func findModule(baseDir, importPath string) (string, string, string, error) {
-	locator := gomod.NewLocator(baseDir)
+func (r *Resolver) findModule(baseDir, importPath string) (string, string, string, error) {
+	contextDir := pathToAbs(baseDir)
+	if _, _, found := gomod.FindModuleRoot(contextDir); !found {
+		if _, _, found := gomod.FindModuleRoot(r.boundary); !found {
+			return "", "", "", fmt.Errorf("module import %q requires a Go module: no go.mod found above %s or the boundary %s — point the boundary at the project's module root", importPath, baseDir, r.boundary)
+		}
+		contextDir = r.boundary
+	}
+
+	locator := gomod.NewLocator(contextDir)
 	parts := strings.Split(importPath, "/")
 	for i := len(parts); i >= 1; i-- {
 		candidate := strings.Join(parts[:i], "/")
@@ -34,9 +47,15 @@ func findModule(baseDir, importPath string) (string, string, string, error) {
 		if strings.ContainsAny(candidate, "*?[") {
 			continue
 		}
-		moduleDir, err := locator.FindModuleDir(candidate)
-		if err != nil {
-			continue
+		key := contextDir + "\x00" + candidate
+		moduleDir, cached := r.moduleDirs[key]
+		if !cached {
+			var err error
+			moduleDir, err = locator.FindModuleDir(candidate)
+			if err != nil {
+				continue
+			}
+			r.moduleDirs[key] = moduleDir
 		}
 		remainder := strings.Join(parts[i:], "/")
 		return moduleDir, candidate, remainder, nil
@@ -54,43 +73,43 @@ func pathToAbs(path string) string {
 	return path
 }
 
-func findDefaultConfig(moduleDir string) (string, bool) {
-	path := filepath.Join(moduleDir, "gendi.yaml")
-	if fileExists(path) {
-		return pathToAbs(path), true
+// moduleRootOf returns the absolute root of the Go module containing dir, or
+// boundary when dir is not inside any module. It is the containment boundary
+// a path resolved relative to an importing file in dir may not escape.
+func moduleRootOf(dir, boundary string) string {
+	if root, _, found := gomod.FindModuleRoot(dir); found {
+		return pathToAbs(root)
 	}
-
-	path = filepath.Join(moduleDir, "gendi.yml")
-	if fileExists(path) {
-		return pathToAbs(path), true
-	}
-	return "", false
+	return pathToAbs(boundary)
 }
 
-func globFiles(pattern string) ([]string, error) {
-	// An empty match set is a valid no-op, but a glob rooted at a
-	// non-existent directory is almost certainly a typo.
-	base, _ := doublestar.SplitPattern(filepath.ToSlash(pattern))
-	if info, err := os.Stat(filepath.FromSlash(base)); err != nil || !info.IsDir() {
-		return nil, fmt.Errorf("import glob %q: directory %q does not exist", pattern, base)
-	}
-
+// globMatches expands pattern and splits its matches into files and
+// directories, absolute and sorted. A pattern that matches nothing —
+// including one whose base directory does not exist — yields empty results
+// without error; only a malformed pattern is an error.
+func globMatches(pattern string) (files, dirs []string, err error) {
 	matches, err := doublestar.FilepathGlob(pattern)
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("glob %q: %w", pattern, err)
 	}
-	files := make([]string, 0, len(matches))
 	for _, match := range matches {
-		if fileExists(match) {
-			abs, err := filepath.Abs(match)
-			if err != nil {
-				return nil, err
-			}
+		info, err := os.Stat(match)
+		if err != nil {
+			// A match that cannot be stat'ed — typically a dangling
+			// symlink — is skipped rather than failing the whole load.
+			continue
+		}
+		abs, err := filepath.Abs(match)
+		if err != nil {
+			return nil, nil, err
+		}
+		if info.IsDir() {
+			dirs = append(dirs, abs)
+		} else {
 			files = append(files, abs)
 		}
 	}
-	if len(files) != 0 {
-		sort.Strings(files)
-	}
-	return files, nil
+	sort.Strings(files)
+	sort.Strings(dirs)
+	return files, dirs, nil
 }

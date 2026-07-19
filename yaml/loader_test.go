@@ -50,7 +50,7 @@ func TestInvalidImports(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			configPath := filepath.Join(currentDir, "testdata", tt.name, "gendi.yaml")
 
-			_, err := LoadConfig(configPath)
+			_, err := LoadConfig(configPath, boundaryFor(t, configPath))
 
 			if err == nil {
 				t.Fatal("expected import error, got none")
@@ -64,23 +64,129 @@ func TestInvalidImports(t *testing.T) {
 	}
 }
 
-func TestLoadConfigAbsoluteImport(t *testing.T) {
-	importPath := filepath.Join(getCurrentDir(), "testdata", "imports", "module.yaml")
+// writeModuleImportsFixture populates root with a go.mod (module
+// example.com/app) and an imports/ tree used by the own-module import tests:
+// files inside the module are reachable through the module's own import path,
+// "example.com/app/imports/...".
+func writeModuleImportsFixture(t *testing.T, root string) {
+	t.Helper()
+	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.com/app\n")
+	nested := filepath.Join(root, "imports", "nested")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeTestFile(t, filepath.Join(root, "imports", "module.yaml"), strings.TrimSpace(`
+services:
+  module.service:
+    constructor:
+      func: "example.NewModuleService"
+`))
+	writeTestFile(t, filepath.Join(root, "imports", "module_extra.yaml"), strings.TrimSpace(`
+services:
+  module.extra:
+    constructor:
+      func: "example.NewModuleExtra"
+`))
+	writeTestFile(t, filepath.Join(nested, "module_nested.yaml"), strings.TrimSpace(`
+services:
+  module.nested:
+    constructor:
+      func: "example.NewModuleNested"
+`))
+}
 
+// Absolute filesystem paths are not allowed in imports — even ones pointing
+// inside the module. Files in the module are addressed relatively or through
+// the module's own import path.
+func TestLoadConfigRejectsAbsoluteImport(t *testing.T) {
 	dir := t.TempDir()
+	writeModuleImportsFixture(t, dir)
+
 	rootPath := filepath.Join(dir, "root.yaml")
-	root := strings.TrimSpace(fmt.Sprintf(`
+	writeTestFile(t, rootPath, strings.TrimSpace(fmt.Sprintf(`
 imports:
   - path: %q
-`, importPath))
-	writeTestFile(t, rootPath, root)
+`, filepath.Join(dir, "imports", "module.yaml"))))
 
-	cfg, err := LoadConfig(rootPath)
+	_, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	if err == nil {
+		t.Fatal("expected error for absolute import path")
+	}
+	if !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("error should mention absolute paths, got: %v", err)
+	}
+}
+
+// A config file inside the module is importable through the module's own
+// import path, giving a location-independent anchor at the module root.
+func TestLoadConfigOwnModuleImport(t *testing.T) {
+	dir := t.TempDir()
+	writeModuleImportsFixture(t, dir)
+
+	rootPath := filepath.Join(dir, "root.yaml")
+	writeTestFile(t, rootPath, strings.TrimSpace(`
+imports:
+  - path: example.com/app/imports/module.yaml
+`))
+
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
 	if _, ok := cfg.Services["module.service"]; !ok {
-		t.Fatalf("expected service from absolute import to load")
+		t.Fatalf("expected service from own-module import to load")
+	}
+}
+
+// An import that escapes the module root via ".." is rejected.
+func TestLoadConfigRejectsEscapingImport(t *testing.T) {
+	outer := t.TempDir()
+	writeTestFile(t, filepath.Join(outer, "secret.yaml"), strings.TrimSpace(`
+parameters:
+  secret: "leaked"
+`))
+
+	moduleRoot := filepath.Join(outer, "module")
+	if err := os.MkdirAll(moduleRoot, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeTestFile(t, filepath.Join(moduleRoot, "go.mod"), "module example.com/app\n")
+
+	rootPath := filepath.Join(moduleRoot, "root.yaml")
+	writeTestFile(t, rootPath, strings.TrimSpace(`
+imports:
+  - path: ../secret.yaml
+`))
+
+	if _, err := LoadConfig(rootPath, boundaryFor(t, rootPath)); err == nil {
+		t.Fatal("expected error for import escaping the module root")
+	}
+}
+
+// A relative import whose first segment merely contains a dot (so it looks
+// module-shaped) but which uses ".." to climb out of the module root must be
+// rejected, exactly like a plain "../" escape.
+func TestLoadConfigRejectsDottedSegmentEscape(t *testing.T) {
+	outer := t.TempDir()
+	writeTestFile(t, filepath.Join(outer, "secret.yaml"), strings.TrimSpace(`
+parameters:
+  secret: "leaked"
+`))
+
+	moduleRoot := filepath.Join(outer, "module")
+	if err := os.MkdirAll(moduleRoot, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeTestFile(t, filepath.Join(moduleRoot, "go.mod"), "module example.com/app\n")
+
+	rootPath := filepath.Join(moduleRoot, "root.yaml")
+	writeTestFile(t, rootPath, strings.TrimSpace(`
+imports:
+  - path: assets.d/../../secret.yaml
+`))
+
+	if _, err := LoadConfig(rootPath, boundaryFor(t, rootPath)); err == nil {
+		t.Fatal("expected error for dotted-segment import escaping the module root")
 	}
 }
 
@@ -115,7 +221,7 @@ imports:
 `)
 	writeTestFile(t, rootPath, root)
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -165,7 +271,7 @@ imports:
 `)
 	writeTestFile(t, rootPath, root)
 
-	cfg, err := LoadConfig(rootPath)
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -178,57 +284,56 @@ imports:
 	}
 }
 
-func TestLoadConfigAbsoluteImportGlob(t *testing.T) {
-	importPath := filepath.Join(getCurrentDir(), "testdata", "imports", "*.yaml")
-
+func TestLoadConfigOwnModuleImportGlob(t *testing.T) {
 	dir := t.TempDir()
-	rootPath := filepath.Join(dir, "root.yaml")
-	root := strings.TrimSpace(fmt.Sprintf(`
-imports:
-  - path: %q
-`, importPath))
-	writeTestFile(t, rootPath, root)
+	writeModuleImportsFixture(t, dir)
 
-	cfg, err := LoadConfig(rootPath)
+	rootPath := filepath.Join(dir, "root.yaml")
+	writeTestFile(t, rootPath, strings.TrimSpace(`
+imports:
+  - path: example.com/app/imports/*.yaml
+`))
+
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
 	if _, ok := cfg.Services["module.service"]; !ok {
-		t.Fatalf("expected service from absolute glob import to load")
+		t.Fatalf("expected service from own-module glob import to load")
 	}
 	if _, ok := cfg.Services["module.extra"]; !ok {
-		t.Fatalf("expected extra service from absolute glob import to load")
+		t.Fatalf("expected extra service from own-module glob import to load")
 	}
 }
 
-func TestLoadConfigAbsoluteImportGlobRecursive(t *testing.T) {
-	importPath := filepath.Join(getCurrentDir(), "testdata", "imports", "**", "*.yaml")
-
+func TestLoadConfigOwnModuleImportGlobRecursive(t *testing.T) {
 	dir := t.TempDir()
-	rootPath := filepath.Join(dir, "root.yaml")
-	root := strings.TrimSpace(fmt.Sprintf(`
-imports:
-  - path: %q
-`, importPath))
-	writeTestFile(t, rootPath, root)
+	writeModuleImportsFixture(t, dir)
 
-	cfg, err := LoadConfig(rootPath)
+	rootPath := filepath.Join(dir, "root.yaml")
+	writeTestFile(t, rootPath, strings.TrimSpace(`
+imports:
+  - path: example.com/app/imports/**/*.yaml
+`))
+
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
 	if _, ok := cfg.Services["module.service"]; !ok {
-		t.Fatalf("expected service from absolute recursive glob import to load")
+		t.Fatalf("expected service from own-module recursive glob import to load")
 	}
 	if _, ok := cfg.Services["module.extra"]; !ok {
-		t.Fatalf("expected extra service from absolute recursive glob import to load")
+		t.Fatalf("expected extra service from own-module recursive glob import to load")
 	}
 	if _, ok := cfg.Services["module.nested"]; !ok {
-		t.Fatalf("expected nested service from absolute recursive glob import to load")
+		t.Fatalf("expected nested service from own-module recursive glob import to load")
 	}
 }
 
 func TestLoadConfigServiceAlias(t *testing.T) {
-	cfg, err := LoadConfig(filepath.Join(getCurrentDir(), "testdata", "service_alias", "gendi.yaml"))
+	configPath := filepath.Join(getCurrentDir(), "testdata", "service_alias", "gendi.yaml")
+	cfg, err := LoadConfig(configPath, boundaryFor(t, configPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -261,7 +366,7 @@ services:
       args: ["@.inner"]
 `))
 
-	cfg, err := LoadConfig(path)
+	cfg, err := LoadConfig(path, boundaryFor(t, path))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -274,7 +379,8 @@ services:
 }
 
 func TestLoadConfigNullArgument(t *testing.T) {
-	cfg, err := LoadConfig(filepath.Join(getCurrentDir(), "testdata", "null_argument", "gendi.yaml"))
+	configPath := filepath.Join(getCurrentDir(), "testdata", "null_argument", "gendi.yaml")
+	cfg, err := LoadConfig(configPath, boundaryFor(t, configPath))
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}

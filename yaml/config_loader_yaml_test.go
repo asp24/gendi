@@ -5,19 +5,40 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/gendi-org/gendi/imprt"
 	"github.com/gendi-org/gendi/srcloc"
 )
 
+// boundaryFor derives the load boundary a LoadConfig caller must supply for a
+// root config, exactly as production callers do.
+func boundaryFor(t *testing.T, path string) string {
+	t.Helper()
+	boundary, err := imprt.DefaultBoundary(path)
+	if err != nil {
+		t.Fatalf("boundary for %s: %v", path, err)
+	}
+	return boundary
+}
+
+// defaultLoader builds a loader with the production resolver, confined to the
+// module (or directory) of rootPath.
+func defaultLoader(t *testing.T, rootPath string) *ConfigLoaderYaml {
+	t.Helper()
+	resolver, err := imprt.NewResolver(boundaryFor(t, rootPath))
+	if err != nil {
+		t.Fatalf("new resolver: %v", err)
+	}
+	return NewConfigLoaderYaml(resolver, NewParser())
+}
+
 type stubResolver struct {
 	paths map[string][]string
 }
 
-func (r stubResolver) CanResolve(string) bool { return true }
-
-func (r stubResolver) Resolve(_, importPath string) ([]string, error) {
+func (r stubResolver) ResolveImport(_, importPath string, _ []string) ([]string, error) {
 	if paths, ok := r.paths[importPath]; ok {
 		return paths, nil
 	}
@@ -115,7 +136,7 @@ imports:
       - ./services/test_*.yaml
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -161,7 +182,7 @@ imports:
       - ./services/internal/*.yaml
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -201,7 +222,7 @@ imports:
       - ./services/*.yaml
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -215,23 +236,19 @@ imports:
 func TestExcludeNonGlobImport(t *testing.T) {
 	dir := t.TempDir()
 
-	specificPath := writeFile(t, dir, "specific.yaml", `
+	writeFile(t, dir, "specific.yaml", `
 parameters:
   specific: "specific"
 `)
 
 	rootPath := writeFile(t, dir, "gendi.yaml", `
 imports:
-  - path: specific
+  - path: ./specific.yaml
     exclude:
       - ./specific.yaml
 `)
 
-	loader := NewConfigLoaderYaml(stubResolver{
-		paths: map[string][]string{
-			"specific": {specificPath},
-		},
-	}, NewParser())
+	loader := defaultLoader(t, rootPath)
 
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
@@ -262,7 +279,7 @@ imports:
       - "[invalid"
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	_, err := loader.Load(rootPath)
 	if err == nil {
 		t.Fatal("expected error for invalid exclusion pattern")
@@ -292,7 +309,7 @@ imports:
   - path: ./services/db.yaml
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -338,7 +355,7 @@ imports:
       - ./config/**/dev_*.yaml
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -355,7 +372,9 @@ imports:
 	}
 }
 
-func TestExcludeAbsolutePath(t *testing.T) {
+// Exclusions are addressed like import paths, so absolute filesystem paths
+// are rejected in them too.
+func TestExcludeRejectsAbsolutePattern(t *testing.T) {
 	dir := t.TempDir()
 	servicesDir := filepath.Join(dir, "services")
 	if err := os.MkdirAll(servicesDir, 0o755); err != nil {
@@ -375,10 +394,54 @@ parameters:
 imports:
   - path: ./services/*.yaml
     exclude:
-      - %s
+      - %q
 `, testPath))
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
+	_, err := loader.Load(rootPath)
+	if err == nil {
+		t.Fatal("expected error for absolute exclusion pattern")
+	}
+	if !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("error should mention absolute paths, got: %v", err)
+	}
+}
+
+// A module import is excluded with a module-form pattern — the exclusion
+// mirrors the import path's addressing, so no importer-relative or resolved-
+// base guessing is involved.
+func TestExcludeModuleImport(t *testing.T) {
+	moduleRoot := t.TempDir()
+	writeFile(t, moduleRoot, "go.mod", "module example.com/testmod\n")
+
+	servicesDir := filepath.Join(moduleRoot, "services")
+	if err := os.MkdirAll(servicesDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeFile(t, servicesDir, "app.yaml", `
+parameters:
+  app: "app"
+`)
+	writeFile(t, servicesDir, "skip.yaml", `
+parameters:
+  skip_me: "skip"
+`)
+
+	// The importing file lives in a subdirectory of the module, so its
+	// directory differs from the module root the resolved files live under —
+	// mirroring makes the exclusion independent of that difference.
+	appDir := filepath.Join(moduleRoot, "app")
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	rootPath := writeFile(t, appDir, "gendi.yaml", `
+imports:
+  - path: example.com/testmod/services/*.yaml
+    exclude:
+      - example.com/testmod/services/skip.yaml
+`)
+
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -387,8 +450,70 @@ imports:
 	if _, ok := cfg.Parameters["app"]; !ok {
 		t.Error("expected app parameter to be loaded")
 	}
-	if _, ok := cfg.Parameters["test"]; ok {
-		t.Error("expected test parameter to be excluded")
+	if _, ok := cfg.Parameters["skip_me"]; ok {
+		t.Error("expected skip_me parameter to be excluded")
+	}
+}
+
+// An absolute pattern pointing at an existing directory is rejected like any
+// other absolute exclusion — it does not silently exclude the subtree.
+func TestExcludeRejectsAbsoluteDirectory(t *testing.T) {
+	dir := t.TempDir()
+	internalDir := filepath.Join(dir, "services", "internal")
+	if err := os.MkdirAll(internalDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	writeFile(t, filepath.Join(dir, "services"), "app.yaml", `
+parameters:
+  app: "app"
+`)
+	writeFile(t, internalDir, "skip.yaml", `
+parameters:
+  skip_me: "skip"
+`)
+
+	rootPath := writeFile(t, dir, "gendi.yaml", fmt.Sprintf(`
+imports:
+  - path: ./services/**/*.yaml
+    exclude:
+      - %q
+`, internalDir))
+
+	loader := defaultLoader(t, rootPath)
+	_, err := loader.Load(rootPath)
+	if err == nil {
+		t.Fatal("expected error for absolute directory exclusion")
+	}
+	if !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("error should mention absolute paths, got: %v", err)
+	}
+}
+
+// Absolute glob imports are rejected like any other absolute import path.
+func TestLoadRejectsAbsoluteGlobImport(t *testing.T) {
+	rootDir := t.TempDir()
+	extDir := filepath.Join(rootDir, "ext")
+	if err := os.MkdirAll(extDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeFile(t, extDir, "keep.yaml", `
+parameters:
+  keep: "keep"
+`)
+
+	rootPath := writeFile(t, rootDir, "gendi.yaml", fmt.Sprintf(`
+imports:
+  - path: %q
+`, filepath.Join(extDir, "*.yaml")))
+
+	loader := defaultLoader(t, rootPath)
+	_, err := loader.Load(rootPath)
+	if err == nil {
+		t.Fatal("expected error for absolute glob import")
+	}
+	if !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("error should mention absolute paths, got: %v", err)
 	}
 }
 
@@ -495,7 +620,7 @@ imports:
       - ./services/internal
 `)
 
-	loader := NewConfigLoaderYaml(imprt.NewResolverCompositeDefault(), NewParser())
+	loader := defaultLoader(t, rootPath)
 	cfg, err := loader.Load(rootPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -509,5 +634,170 @@ imports:
 	}
 	if _, ok := cfg.Parameters["debug"]; ok {
 		t.Error("expected debug parameter to be excluded")
+	}
+}
+
+// A glob exclusion that matches a directory excludes that directory's whole
+// subtree (master behavior, regressed by the resolver-chain rerouting).
+func TestExcludeGlobMatchingDirectory(t *testing.T) {
+	dir := t.TempDir()
+	internalDir := filepath.Join(dir, "services", "internal")
+	if err := os.MkdirAll(internalDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	writeFile(t, filepath.Join(dir, "services"), "app.yaml", `
+parameters:
+  app: "app"
+`)
+	writeFile(t, internalDir, "skip.yaml", `
+parameters:
+  skip_me: "skip"
+`)
+
+	rootPath := writeFile(t, dir, "gendi.yaml", `
+imports:
+  - path: ./services/**/*.yaml
+    exclude:
+      - ./services/int*
+`)
+
+	loader := defaultLoader(t, rootPath)
+	cfg, err := loader.Load(rootPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, ok := cfg.Parameters["app"]; !ok {
+		t.Error("expected app parameter to be loaded")
+	}
+	if _, ok := cfg.Parameters["skip_me"]; ok {
+		t.Error("expected files under the glob-matched directory to be excluded")
+	}
+}
+
+// An exclusion is a mask over what the import found: a mask pointing outside
+// the import (an existing sibling directory, an ancestor) matches none of the
+// found files and is a silent no-op — never an error, never a way to blank
+// the import.
+func TestExcludeOutsideMaskIsNoOp(t *testing.T) {
+	outer := t.TempDir()
+	shared := filepath.Join(outer, "shared")
+	if err := os.MkdirAll(shared, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	moduleRoot := filepath.Join(outer, "module")
+	servicesDir := filepath.Join(moduleRoot, "services")
+	if err := os.MkdirAll(servicesDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeFile(t, moduleRoot, "go.mod", "module example.com/app\n")
+	writeFile(t, servicesDir, "app.yaml", `
+parameters:
+  app: "app"
+`)
+
+	rootPath := writeFile(t, moduleRoot, "gendi.yaml", `
+imports:
+  - path: ./services/*.yaml
+    exclude:
+      - ../shared
+      - ../..
+      - ./services/missing.yaml
+`)
+
+	loader := defaultLoader(t, rootPath)
+	cfg, err := loader.Load(rootPath)
+	if err != nil {
+		t.Fatalf("non-matching masks must be no-ops: %v", err)
+	}
+	if _, ok := cfg.Parameters["app"]; !ok {
+		t.Error("expected app parameter to be loaded")
+	}
+}
+
+// An exclusion glob whose base directory does not exist is a silent no-op,
+// like any other glob that matches nothing.
+func TestExcludeGlobMissingBaseDirIsSilent(t *testing.T) {
+	dir := t.TempDir()
+	servicesDir := filepath.Join(dir, "services")
+	if err := os.MkdirAll(servicesDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeFile(t, servicesDir, "app.yaml", `
+parameters:
+  app: "app"
+`)
+
+	rootPath := writeFile(t, dir, "gendi.yaml", `
+imports:
+  - path: ./services/*.yaml
+    exclude:
+      - ./optional/dev_*.yaml
+`)
+
+	loader := defaultLoader(t, rootPath)
+	cfg, err := loader.Load(rootPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, ok := cfg.Parameters["app"]; !ok {
+		t.Error("expected app parameter to be loaded")
+	}
+}
+
+// An exclusion must be addressed the same way as its import: a local exclude
+// on a module import (or a module exclude on a local import) is an error.
+func TestExcludeFormMustMatchImportForm(t *testing.T) {
+	moduleRoot := t.TempDir()
+	writeFile(t, moduleRoot, "go.mod", "module example.com/testmod\n")
+	servicesDir := filepath.Join(moduleRoot, "services")
+	if err := os.MkdirAll(servicesDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeFile(t, servicesDir, "app.yaml", `
+parameters:
+  app: "app"
+`)
+	writeFile(t, servicesDir, "skip.yaml", `
+parameters:
+  skip_me: "skip"
+`)
+
+	// Module import + local exclude.
+	rootPath := writeFile(t, moduleRoot, "gendi.yaml", `
+imports:
+  - path: example.com/testmod/services/*.yaml
+    exclude:
+      - ./services/skip.yaml
+`)
+	loader := defaultLoader(t, rootPath)
+	if _, err := loader.Load(rootPath); err == nil || !strings.Contains(err.Error(), "does not match the addressing") {
+		t.Fatalf("expected form-mismatch error for local exclude on module import, got %v", err)
+	}
+
+	// Local import + module exclude.
+	rootPath = writeFile(t, moduleRoot, "gendi.yaml", `
+imports:
+  - path: ./services/*.yaml
+    exclude:
+      - example.com/testmod/services/skip.yaml
+`)
+	loader = defaultLoader(t, rootPath)
+	if _, err := loader.Load(rootPath); err == nil || !strings.Contains(err.Error(), "does not match the addressing") {
+		t.Fatalf("expected form-mismatch error for module exclude on local import, got %v", err)
+	}
+}
+
+// An empty boundary is rejected loudly instead of silently degrading to the
+// process working directory.
+func TestLoadConfigRejectsEmptyBoundary(t *testing.T) {
+	dir := t.TempDir()
+	rootPath := writeFile(t, dir, "gendi.yaml", `
+parameters:
+  app: "app"
+`)
+
+	if _, err := LoadConfig(rootPath, ""); err == nil || !strings.Contains(err.Error(), "boundary") {
+		t.Fatalf("expected empty-boundary error, got %v", err)
 	}
 }

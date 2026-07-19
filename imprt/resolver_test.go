@@ -8,69 +8,104 @@ import (
 	"testing"
 )
 
-func TestImportResolverResolveErrors(t *testing.T) {
+func TestClassify(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewResolverCompositeDefault()
-	tempDir := t.TempDir()
+	tests := []struct {
+		name    string
+		pattern string
+		want    kind
+		wantErr bool
+	}{
+		{name: "explicit relative", pattern: "./services/app.yaml", want: kindLocal},
+		{name: "explicit parent", pattern: "../services/app.yaml", want: kindLocal},
+		{name: "plain relative", pattern: "services/app.yaml", want: kindLocal},
+		{name: "plain relative glob", pattern: "services/*.yaml", want: kindLocal},
+		{name: "explicit relative dotted segment", pattern: "./assets.d/app.yaml", want: kindLocal},
+		{name: "dotted first segment", pattern: "assets.d/app.yaml", want: kindModule},
+		{name: "single-segment dotted file", pattern: "base.yaml", want: kindLocal},
+		{name: "single-segment glob", pattern: "test_*.yaml", want: kindLocal},
+		{name: "dot", pattern: ".", want: kindLocal},
+		{name: "dot-dot", pattern: "..", want: kindLocal},
+		{name: "module path", pattern: "example.com/mod/app.yaml", want: kindModule},
+		{name: "module glob", pattern: "example.com/mod/*.yaml", want: kindModule},
+		{name: "empty", pattern: "", wantErr: true},
+		{name: "absolute", pattern: string(filepath.Separator) + "etc/app.yaml", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := classify(tt.pattern)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for %q, got kind %v", tt.pattern, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("classify(%q): %v", tt.pattern, err)
+			}
+			if got != tt.want {
+				t.Fatalf("classify(%q) = %v, want %v", tt.pattern, got, tt.want)
+			}
+		})
+	}
+}
 
-	_, err := resolver.Resolve(tempDir, "")
+func TestNewResolverRejectsEmptyBoundary(t *testing.T) {
+	t.Parallel()
+
+	if _, err := NewResolver(""); err == nil {
+		t.Fatal("expected error for empty boundary")
+	}
+}
+
+func TestResolveImportErrors(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	resolver := newTestResolver(t, tempDir)
+
+	_, err := resolver.ResolveImport(tempDir, "", nil)
 	if err == nil || !strings.Contains(err.Error(), "import path is empty") {
-		t.Fatalf("expected empty import path error, got %v", err)
+		t.Fatalf("expected empty path error, got %v", err)
 	}
 
-	_, err = resolver.Resolve(tempDir, "./missing.yaml")
-	if err == nil || !strings.Contains(err.Error(), "import not found at") {
-		t.Fatalf("expected explicit relative missing error, got %v", err)
-	}
-
-	_, err = resolver.Resolve(tempDir, "missing")
-	if err == nil || !strings.Contains(err.Error(), "import not found at") {
-		t.Fatalf("expected non-module missing error, got %v", err)
+	_, err = resolver.ResolveImport(tempDir, "./missing.yaml", nil)
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("expected not found error, got %v", err)
 	}
 }
 
-func TestImportResolverResolveLocalAndAbsolute(t *testing.T) {
+func TestResolveImportLocalFile(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewResolverCompositeDefault()
 	tempDir := t.TempDir()
+	resolver := newTestResolver(t, tempDir)
 
-	relativePath := filepath.Join(tempDir, "config.yaml")
-	writeFile(t, relativePath, "content")
+	path := filepath.Join(tempDir, "config.yaml")
+	writeFile(t, path, "content")
 
-	result, err := resolver.Resolve(tempDir, "config.yaml")
+	result, err := resolver.ResolveImport(tempDir, "./config.yaml", nil)
 	if err != nil {
-		t.Fatalf("resolve relative failed: %v", err)
+		t.Fatalf("resolve local failed: %v", err)
 	}
-	expected := []string{mustAbs(t, relativePath)}
-	if !reflect.DeepEqual(result, expected) {
-		t.Fatalf("expected %v, got %v", expected, result)
-	}
-
-	absolutePath := filepath.Join(tempDir, "absolute.yaml")
-	writeFile(t, absolutePath, "content")
-	result, err = resolver.Resolve(tempDir, absolutePath)
-	if err != nil {
-		t.Fatalf("resolve absolute failed: %v", err)
-	}
-	expected = []string{mustAbs(t, absolutePath)}
+	expected := []string{mustAbs(t, path)}
 	if !reflect.DeepEqual(result, expected) {
 		t.Fatalf("expected %v, got %v", expected, result)
 	}
 }
 
-func TestImportResolverResolveGlob(t *testing.T) {
+func TestResolveImportLocalGlob(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewResolverCompositeDefault()
 	tempDir := t.TempDir()
+	resolver := newTestResolver(t, tempDir)
 
 	writeFile(t, filepath.Join(tempDir, "a.yaml"), "a")
 	writeFile(t, filepath.Join(tempDir, "b.yaml"), "b")
-	writeFile(t, filepath.Join(tempDir, "c.txt"), "c")
 
-	result, err := resolver.Resolve(tempDir, "./*.yaml")
+	result, err := resolver.ResolveImport(tempDir, "./*.yaml", nil)
 	if err != nil {
 		t.Fatalf("resolve glob failed: %v", err)
 	}
@@ -83,33 +118,46 @@ func TestImportResolverResolveGlob(t *testing.T) {
 	}
 }
 
-func TestImportResolverResolveModuleDefaultConfig(t *testing.T) {
+// A glob that matches nothing — including one whose base directory does not
+// exist — is a silent no-op, not an error.
+func TestResolveImportGlobNoMatchIsSilent(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewResolverCompositeDefault()
-	moduleRoot, baseDir, modulePath := createModule(t)
-	defaultConfig := filepath.Join(moduleRoot, "gendi.yaml")
-	writeFile(t, defaultConfig, "name: module")
+	tempDir := t.TempDir()
+	resolver := newTestResolver(t, tempDir)
 
-	result, err := resolver.Resolve(baseDir, modulePath)
+	result, err := resolver.ResolveImport(tempDir, "./missing-dir/*.yaml", nil)
 	if err != nil {
-		t.Fatalf("resolve module default failed: %v", err)
+		t.Fatalf("no-match glob must be silent, got %v", err)
 	}
-	expected := []string{mustAbs(t, defaultConfig)}
-	if !reflect.DeepEqual(result, expected) {
-		t.Fatalf("expected %v, got %v", expected, result)
+	if len(result) != 0 {
+		t.Fatalf("expected no files, got %v", result)
 	}
 }
 
-func TestImportResolverResolveModuleFile(t *testing.T) {
+// A bare module import (no file) is rejected: an import must name its file
+// explicitly rather than falling back to a guessed gendi.yaml.
+func TestResolveImportRejectsBareModuleImport(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewResolverCompositeDefault()
+	moduleRoot, baseDir, modulePath := createModule(t)
+	writeFile(t, filepath.Join(moduleRoot, "gendi.yaml"), "name: module")
+	resolver := newTestResolver(t, moduleRoot)
+
+	if _, err := resolver.ResolveImport(baseDir, modulePath, nil); err == nil {
+		t.Fatal("expected error for bare module import without an explicit file")
+	}
+}
+
+func TestResolveImportModuleFile(t *testing.T) {
+	t.Parallel()
+
 	moduleRoot, baseDir, modulePath := createModule(t)
 	configPath := filepath.Join(moduleRoot, "configs", "app.yaml")
 	writeFile(t, configPath, "name: app")
+	resolver := newTestResolver(t, moduleRoot)
 
-	result, err := resolver.Resolve(baseDir, modulePath+"/configs/app.yaml")
+	result, err := resolver.ResolveImport(baseDir, modulePath+"/configs/app.yaml", nil)
 	if err != nil {
 		t.Fatalf("resolve module file failed: %v", err)
 	}
@@ -119,28 +167,27 @@ func TestImportResolverResolveModuleFile(t *testing.T) {
 	}
 }
 
-func TestImportResolverResolveModuleFileMissing(t *testing.T) {
+func TestResolveImportModuleFileMissing(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewResolverCompositeDefault()
-	_, baseDir, modulePath := createModule(t)
+	moduleRoot, baseDir, modulePath := createModule(t)
+	resolver := newTestResolver(t, moduleRoot)
 
-	_, err := resolver.Resolve(baseDir, modulePath+"/configs/missing.yaml")
+	_, err := resolver.ResolveImport(baseDir, modulePath+"/configs/missing.yaml", nil)
 	if err == nil || !strings.Contains(err.Error(), "does not contain") {
 		t.Fatalf("expected missing module file error, got %v", err)
 	}
 }
 
-func TestImportResolverResolveModuleGlob(t *testing.T) {
+func TestResolveImportModuleGlob(t *testing.T) {
 	t.Parallel()
 
-	resolver := NewResolverCompositeDefault()
 	moduleRoot, baseDir, modulePath := createModule(t)
 	writeFile(t, filepath.Join(moduleRoot, "configs", "a.yaml"), "a")
 	writeFile(t, filepath.Join(moduleRoot, "configs", "b.yaml"), "b")
-	writeFile(t, filepath.Join(moduleRoot, "configs", "c.txt"), "c")
+	resolver := newTestResolver(t, moduleRoot)
 
-	result, err := resolver.Resolve(baseDir, modulePath+"/configs/*.yaml")
+	result, err := resolver.ResolveImport(baseDir, modulePath+"/configs/*.yaml", nil)
 	if err != nil {
 		t.Fatalf("resolve module glob failed: %v", err)
 	}
@@ -151,6 +198,431 @@ func TestImportResolverResolveModuleGlob(t *testing.T) {
 	if !reflect.DeepEqual(result, expected) {
 		t.Fatalf("expected %v, got %v", expected, result)
 	}
+}
+
+func TestResolveImportRejectsAbsolutePath(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	resolver := newTestResolver(t, tempDir)
+
+	_, err := resolver.ResolveImport(tempDir, filepath.Join(t.TempDir(), "x.yaml"), nil)
+	if err == nil || !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("expected absolute-path rejection, got %v", err)
+	}
+}
+
+// A multi-segment path whose first segment contains a dot is classified as a
+// module path, deterministically — even when a matching local directory
+// exists. The error hints at the ./ spelling for local directories.
+func TestResolveImportDottedSegmentIsModule(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/app\n")
+	writeFile(t, filepath.Join(root, "assets.d", "app.yaml"), "x: 1")
+	resolver := newTestResolver(t, root)
+
+	_, err := resolver.ResolveImport(root, "assets.d/app.yaml", nil)
+	if err == nil || !strings.Contains(err.Error(), "./assets.d/app.yaml") {
+		t.Fatalf("expected module-not-found error hinting the ./ spelling, got %v", err)
+	}
+
+	// The explicit relative spelling resolves the same layout.
+	result, err := resolver.ResolveImport(root, "./assets.d/app.yaml", nil)
+	if err != nil {
+		t.Fatalf("explicit relative spelling failed: %v", err)
+	}
+	expected := []string{mustAbs(t, filepath.Join(root, "assets.d", "app.yaml"))}
+	if !reflect.DeepEqual(result, expected) {
+		t.Fatalf("expected %v, got %v", expected, result)
+	}
+}
+
+// A single-segment pattern can never be a valid module import (a module
+// import must name a file inside the module), so a bare dotted filename like
+// base.yaml resolves locally — the master spelling keeps working.
+func TestResolveImportSingleSegmentDottedFile(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	resolver := newTestResolver(t, tempDir)
+	path := filepath.Join(tempDir, "base.yaml")
+	writeFile(t, path, "x: 1")
+
+	result, err := resolver.ResolveImport(tempDir, "base.yaml", nil)
+	if err != nil {
+		t.Fatalf("bare dotted filename should resolve locally: %v", err)
+	}
+	if !reflect.DeepEqual(result, []string{mustAbs(t, path)}) {
+		t.Fatalf("got %v, want %v", result, []string{mustAbs(t, path)})
+	}
+}
+
+// A relative import escaping the module of the importing file is rejected.
+func TestResolveImportRejectsRelativeEscape(t *testing.T) {
+	t.Parallel()
+
+	outer := t.TempDir()
+	writeFile(t, filepath.Join(outer, "secret.yaml"), "secret: leaked")
+	root := filepath.Join(outer, "module")
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/app\n")
+	resolver := newTestResolver(t, root)
+
+	if _, err := resolver.ResolveImport(root, "../secret.yaml", nil); err == nil {
+		t.Fatal("expected error for import escaping the module root")
+	}
+	if _, err := resolver.ResolveImport(root, "./../secret.yaml", nil); err == nil {
+		t.Fatal("expected error for cleaned ../ chain escaping the module root")
+	}
+	if _, err := resolver.ResolveImport(root, "../*.yaml", nil); err == nil {
+		t.Fatal("expected error for glob pattern escaping the module root")
+	}
+}
+
+// A module-path import whose remainder uses "../" to climb out of the resolved
+// module must be rejected, even though the path is genuinely module-shaped.
+func TestResolveImportRejectsModuleRemainderEscape(t *testing.T) {
+	t.Parallel()
+
+	moduleRoot, baseDir, modulePath := createModule(t)
+	writeFile(t, filepath.Join(filepath.Dir(moduleRoot), "secret.yaml"), "secret: leaked")
+	resolver := newTestResolver(t, moduleRoot)
+
+	if _, err := resolver.ResolveImport(baseDir, modulePath+"/../secret.yaml", nil); err == nil {
+		t.Fatal("expected error for module remainder escaping the module")
+	}
+}
+
+// A file resolves siblings within its OWN module, even when that module differs
+// from the fallback boundary — proving the boundary is the importing file's
+// module, so a dependency's config can reference its own siblings.
+func TestResolveImportConfinesToImportingModuleNotFallback(t *testing.T) {
+	t.Parallel()
+
+	fallback := t.TempDir() // stands in for the main/root module
+	dep := t.TempDir()      // a separate module tree
+	writeFile(t, filepath.Join(dep, "go.mod"), "module example.com/dep\n")
+	sibling := filepath.Join(dep, "sibling.yaml")
+	writeFile(t, sibling, "x: 1")
+
+	resolver := newTestResolver(t, fallback)
+	got, err := resolver.ResolveImport(dep, "./sibling.yaml", nil)
+	if err != nil {
+		t.Fatalf("dep sibling should resolve within its own module: %v", err)
+	}
+	if !reflect.DeepEqual(got, []string{mustAbs(t, sibling)}) {
+		t.Fatalf("got %v, want %v", got, []string{mustAbs(t, sibling)})
+	}
+}
+
+// Exclusions are masks over the files the import found: a file mask drops
+// matching files, and a mask matching a directory on a file's path — literally
+// or via a glob — drops the whole subtree.
+func TestResolveImportExcludeMasks(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	resolver := newTestResolver(t, tempDir)
+	app := filepath.Join(tempDir, "services", "app.yaml")
+	writeFile(t, app, "x: 1")
+	writeFile(t, filepath.Join(tempDir, "services", "test_helper.yaml"), "x: 1")
+	writeFile(t, filepath.Join(tempDir, "services", "internal", "skip.yaml"), "x: 1")
+	writeFile(t, filepath.Join(tempDir, "services", "intro.yaml"), "x: 1")
+
+	// File mask.
+	got, err := resolver.ResolveImport(tempDir, "./services/**/*.yaml", []string{"./services/test_*.yaml"})
+	if err != nil {
+		t.Fatalf("resolve with file mask: %v", err)
+	}
+	want := []string{
+		mustAbs(t, app),
+		mustAbs(t, filepath.Join(tempDir, "services", "internal", "skip.yaml")),
+		mustAbs(t, filepath.Join(tempDir, "services", "intro.yaml")),
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("file mask: got %v, want %v", got, want)
+	}
+
+	// Literal directory mask excludes the subtree.
+	got, err = resolver.ResolveImport(tempDir, "./services/**/*.yaml", []string{"./services/internal", "./services/test_*.yaml"})
+	if err != nil {
+		t.Fatalf("resolve with dir mask: %v", err)
+	}
+	want = []string{mustAbs(t, app), mustAbs(t, filepath.Join(tempDir, "services", "intro.yaml"))}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("dir mask: got %v, want %v", got, want)
+	}
+
+	// A glob mask matching a directory excludes its subtree, and matching
+	// files still works: int* removes both internal/ and intro.yaml.
+	got, err = resolver.ResolveImport(tempDir, "./services/**/*.yaml", []string{"./services/int*", "./services/test_*.yaml"})
+	if err != nil {
+		t.Fatalf("resolve with dir glob mask: %v", err)
+	}
+	want = []string{mustAbs(t, app)}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("dir glob mask: got %v, want %v", got, want)
+	}
+
+	// A literal import is subject to masks too.
+	got, err = resolver.ResolveImport(tempDir, "./services/app.yaml", []string{"./services/app.yaml"})
+	if err != nil {
+		t.Fatalf("resolve literal with mask: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("expected literal import fully excluded, got %v", got)
+	}
+}
+
+// An exclusion mask is a filter over what the import found: a mask that
+// matches nothing — a missing file, a nonexistent directory, or a path
+// outside the import entirely — is a silent no-op, never an error.
+func TestResolveImportExcludeNoMatchIsNoOp(t *testing.T) {
+	t.Parallel()
+
+	outer := t.TempDir()
+	root := filepath.Join(outer, "module")
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/app\n")
+	app := filepath.Join(root, "app.yaml")
+	writeFile(t, app, "x: 1")
+	resolver := newTestResolver(t, root)
+
+	excludes := []string{"./missing.yaml", "./optional/dev_*.yaml", "../shared", "../.."}
+	got, err := resolver.ResolveImport(root, "./*.yaml", excludes)
+	if err != nil {
+		t.Fatalf("non-matching masks must be no-ops: %v", err)
+	}
+	if !reflect.DeepEqual(got, []string{mustAbs(t, app)}) {
+		t.Fatalf("got %v, want %v", got, []string{mustAbs(t, app)})
+	}
+}
+
+// An exclusion must be addressed the same way as its import.
+func TestResolveImportExcludeFormMustMatch(t *testing.T) {
+	t.Parallel()
+
+	moduleRoot, baseDir, modulePath := createModule(t)
+	writeFile(t, filepath.Join(moduleRoot, "configs", "app.yaml"), "x: 1")
+	resolver := newTestResolver(t, moduleRoot)
+
+	_, err := resolver.ResolveImport(baseDir, modulePath+"/configs/*.yaml", []string{"./configs/app.yaml"})
+	if err == nil || !strings.Contains(err.Error(), "does not match the addressing") {
+		t.Fatalf("expected form-mismatch error for local exclude on module import, got %v", err)
+	}
+
+	_, err = resolver.ResolveImport(moduleRoot, "./configs/*.yaml", []string{modulePath + "/configs/app.yaml"})
+	if err == nil || !strings.Contains(err.Error(), "does not match the addressing") {
+		t.Fatalf("expected form-mismatch error for module exclude on local import, got %v", err)
+	}
+}
+
+// A module import takes module-form masks addressing the SAME module; the
+// mask filters by the path inside that module.
+func TestResolveImportModuleExcludes(t *testing.T) {
+	t.Parallel()
+
+	moduleRoot, baseDir, modulePath := createModule(t)
+	app := filepath.Join(moduleRoot, "configs", "app.yaml")
+	writeFile(t, app, "x: 1")
+	writeFile(t, filepath.Join(moduleRoot, "configs", "skip.yaml"), "x: 1")
+	resolver := newTestResolver(t, moduleRoot)
+
+	got, err := resolver.ResolveImport(baseDir, modulePath+"/configs/*.yaml", []string{modulePath + "/configs/skip.yaml"})
+	if err != nil {
+		t.Fatalf("module exclude failed: %v", err)
+	}
+	if !reflect.DeepEqual(got, []string{mustAbs(t, app)}) {
+		t.Fatalf("got %v, want %v", got, []string{mustAbs(t, app)})
+	}
+
+	// A module-form mask naming a different module cannot match anything the
+	// import found — reject it loudly instead of silently ignoring it.
+	_, err = resolver.ResolveImport(baseDir, modulePath+"/configs/*.yaml", []string{"example.com/other/configs/skip.yaml"})
+	if err == nil || !strings.Contains(err.Error(), "inside module") {
+		t.Fatalf("expected error for exclude addressing another module, got %v", err)
+	}
+}
+
+// A malformed exclusion mask is a loud error even when it would match nothing.
+func TestResolveImportExcludeMalformedMask(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	resolver := newTestResolver(t, tempDir)
+	writeFile(t, filepath.Join(tempDir, "app.yaml"), "x: 1")
+
+	if _, err := resolver.ResolveImport(tempDir, "./*.yaml", []string{"[invalid"}); err == nil {
+		t.Fatal("expected error for malformed exclusion mask")
+	}
+}
+
+// A symlink whose real target is inside the module works like a regular file;
+// any file whose real path lands outside its boundary is an error — for
+// literals and globs alike. The escape hatch is explicit: exclude the
+// escaping path, and it never reaches the sandbox check.
+func TestResolveImportSymlinkEscape(t *testing.T) {
+	t.Parallel()
+
+	outer := t.TempDir()
+	writeFile(t, filepath.Join(outer, "secrets", "creds.yaml"), "secret: leaked")
+	root := filepath.Join(outer, "module")
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/app\n")
+	if err := os.Symlink(filepath.Join(outer, "secrets"), filepath.Join(root, "link")); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	resolver := newTestResolver(t, root)
+
+	if _, err := resolver.ResolveImport(root, "./link/creds.yaml", nil); err == nil {
+		t.Fatal("expected error for literal import through a symlink escaping the module")
+	}
+	if _, err := resolver.ResolveImport(root, "./link/*.yaml", nil); err == nil {
+		t.Fatal("expected error for glob through a symlink escaping the module")
+	}
+
+	// Excluding the escaping path removes it before the sandbox check.
+	got, err := resolver.ResolveImport(root, "./link/*.yaml", []string{"./link"})
+	if err != nil {
+		t.Fatalf("excluded symlink must not trip the sandbox: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("expected no files, got %v", got)
+	}
+}
+
+// A broad recursive glob sweeping an out-pointing symlinked directory is an
+// error by default — and loads cleanly once the symlink is excluded.
+func TestResolveImportGlobSymlinkEscapeExcludable(t *testing.T) {
+	t.Parallel()
+
+	outer := t.TempDir()
+	writeFile(t, filepath.Join(outer, "shared", "extra.yaml"), "x: 1")
+	root := filepath.Join(outer, "module")
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/app\n")
+	app := filepath.Join(root, "services", "app.yaml")
+	writeFile(t, app, "x: 1")
+	if err := os.Symlink(filepath.Join(outer, "shared"), filepath.Join(root, "services", "fixtures")); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	resolver := newTestResolver(t, root)
+
+	if _, err := resolver.ResolveImport(root, "./services/**/*.yaml", nil); err == nil {
+		t.Fatal("expected error for glob sweeping a symlink escaping the module")
+	}
+
+	got, err := resolver.ResolveImport(root, "./services/**/*.yaml", []string{"./services/fixtures"})
+	if err != nil {
+		t.Fatalf("excluding the symlinked dir must fix the import: %v", err)
+	}
+	if !reflect.DeepEqual(got, []string{mustAbs(t, app)}) {
+		t.Fatalf("got %v, want only %v", got, app)
+	}
+}
+
+// A module reached through a symlinked path keeps working: boundary and files
+// are both resolved to real paths before comparison.
+func TestResolveImportThroughSymlinkedRoot(t *testing.T) {
+	t.Parallel()
+
+	outer := t.TempDir()
+	real := filepath.Join(outer, "real")
+	writeFile(t, filepath.Join(real, "go.mod"), "module example.com/app\n")
+	config := filepath.Join(real, "config.yaml")
+	writeFile(t, config, "x: 1")
+	linked := filepath.Join(outer, "linked")
+	if err := os.Symlink(real, linked); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	resolver := newTestResolver(t, linked)
+
+	got, err := resolver.ResolveImport(linked, "./config.yaml", nil)
+	if err != nil {
+		t.Fatalf("symlinked module root should keep working: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected one file, got %v", got)
+	}
+}
+
+// A glob match that cannot be stat'ed — typically a dangling symlink left by
+// an editor or deploy tool — is skipped, not a load-aborting error.
+func TestResolveImportSkipsDanglingSymlink(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	resolver := newTestResolver(t, tempDir)
+	good := filepath.Join(tempDir, "good.yaml")
+	writeFile(t, good, "x: 1")
+	if err := os.Symlink(filepath.Join(tempDir, "gone.yaml"), filepath.Join(tempDir, "link.yaml")); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	result, err := resolver.ResolveImport(tempDir, "./*.yaml", nil)
+	if err != nil {
+		t.Fatalf("dangling symlink must be skipped, got error: %v", err)
+	}
+	if !reflect.DeepEqual(result, []string{mustAbs(t, good)}) {
+		t.Fatalf("got %v, want %v", result, []string{mustAbs(t, good)})
+	}
+}
+
+// Module resolution is memoized per (baseDir, modulePath): resolving several
+// imports of the same module must not re-run `go list` per import.
+func TestResolverMemoizesModuleResolution(t *testing.T) {
+	t.Parallel()
+
+	moduleRoot, baseDir, modulePath := createModule(t)
+	writeFile(t, filepath.Join(moduleRoot, "configs", "app.yaml"), "name: app")
+	resolver := newTestResolver(t, moduleRoot)
+
+	if _, err := resolver.ResolveImport(baseDir, modulePath+"/configs/app.yaml", nil); err != nil {
+		t.Fatalf("resolve module file failed: %v", err)
+	}
+	if len(resolver.moduleDirs) == 0 {
+		t.Fatal("expected module resolution to be memoized")
+	}
+	if _, err := resolver.ResolveImport(baseDir, modulePath+"/configs/*.yaml", nil); err != nil {
+		t.Fatalf("second resolve failed: %v", err)
+	}
+}
+
+func TestDefaultBoundary(t *testing.T) {
+	t.Parallel()
+
+	moduleRoot := t.TempDir()
+	writeFile(t, filepath.Join(moduleRoot, "go.mod"), "module example.com/app\n")
+	configPath := filepath.Join(moduleRoot, "app", "gendi.yaml")
+	writeFile(t, configPath, "x: 1")
+
+	got, err := DefaultBoundary(configPath)
+	if err != nil {
+		t.Fatalf("DefaultBoundary: %v", err)
+	}
+	if got != mustAbs(t, moduleRoot) {
+		t.Fatalf("expected module root %s, got %s", moduleRoot, got)
+	}
+
+	outside := t.TempDir()
+	outsideConfig := filepath.Join(outside, "gendi.yaml")
+	writeFile(t, outsideConfig, "x: 1")
+
+	got, err = DefaultBoundary(outsideConfig)
+	if err != nil {
+		t.Fatalf("DefaultBoundary: %v", err)
+	}
+	if got != mustAbs(t, outside) {
+		t.Fatalf("expected config dir %s, got %s", outside, got)
+	}
+}
+
+func newTestResolver(t *testing.T, boundary string) *Resolver {
+	t.Helper()
+
+	resolver, err := NewResolver(boundary)
+	if err != nil {
+		t.Fatalf("NewResolver(%q): %v", boundary, err)
+	}
+	return resolver
 }
 
 func createModule(t *testing.T) (moduleRoot string, baseDir string, modulePath string) {
@@ -188,4 +660,71 @@ func mustAbs(t *testing.T, path string) string {
 		t.Fatalf("failed to abs path %s: %v", path, err)
 	}
 	return abs
+}
+
+// ResolveImport returns real absolute paths: an in-module symlink spelling is
+// resolved to its target, and two spellings of the same file collapse into
+// one entry — downstream identity (caching, cycle detection) is canonical.
+func TestResolveImportReturnsRealPaths(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/app\n")
+	app := filepath.Join(root, "services", "real", "app.yaml")
+	writeFile(t, app, "x: 1")
+	if err := os.Symlink(filepath.Join(root, "services", "real"), filepath.Join(root, "services", "link")); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	resolver := newTestResolver(t, root)
+	realApp, err := filepath.EvalSymlinks(app)
+	if err != nil {
+		t.Fatalf("eval: %v", err)
+	}
+
+	got, err := resolver.ResolveImport(root, "./services/link/app.yaml", nil)
+	if err != nil {
+		t.Fatalf("resolve through in-module symlink: %v", err)
+	}
+	if !reflect.DeepEqual(got, []string{realApp}) {
+		t.Fatalf("got %v, want real path %v", got, []string{realApp})
+	}
+
+	got, err = resolver.ResolveImport(root, "./services/**/*.yaml", nil)
+	if err != nil {
+		t.Fatalf("resolve glob: %v", err)
+	}
+	if !reflect.DeepEqual(got, []string{realApp}) {
+		t.Fatalf("aliased spellings must collapse: got %v, want %v", got, []string{realApp})
+	}
+}
+
+// When the importing config lives outside any Go module, the explicitly
+// supplied boundary is the module context: pointing it at a module root makes
+// that module's imports resolve; anything less is a loud error asking for a
+// project root.
+func TestResolveImportModuleContextFromBoundary(t *testing.T) {
+	t.Parallel()
+
+	projectRoot := t.TempDir()
+	writeFile(t, filepath.Join(projectRoot, "go.mod"), "module example.com/app\n")
+	config := filepath.Join(projectRoot, "configs", "app.yaml")
+	writeFile(t, config, "x: 1")
+
+	outside := t.TempDir() // config dir outside any module
+	resolver := newTestResolver(t, projectRoot)
+
+	got, err := resolver.ResolveImport(outside, "example.com/app/configs/app.yaml", nil)
+	if err != nil {
+		t.Fatalf("boundary at a module root must provide the module context: %v", err)
+	}
+	if !reflect.DeepEqual(got, []string{mustAbs(t, config)}) {
+		t.Fatalf("got %v, want %v", got, []string{mustAbs(t, config)})
+	}
+
+	// Neither baseDir nor boundary is inside a module → explicit error.
+	noModule := newTestResolver(t, t.TempDir())
+	_, err = noModule.ResolveImport(outside, "example.com/app/configs/app.yaml", nil)
+	if err == nil || !strings.Contains(err.Error(), "requires a Go module") {
+		t.Fatalf("expected 'requires a Go module' error, got %v", err)
+	}
 }

@@ -5,19 +5,24 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
-	"github.com/bmatcuk/doublestar/v4"
 	yamllib "github.com/goccy/go-yaml"
 
 	di "github.com/gendi-org/gendi"
-	"github.com/gendi-org/gendi/imprt"
 	"github.com/gendi-org/gendi/srcloc"
 )
 
+// ImportResolver resolves one import entry — path plus its exclusion masks —
+// to config files, confining every result to its sandbox (see imprt.Resolver).
+type ImportResolver interface {
+	// ResolveImport resolves an import path to config files, dropping the
+	// files matched by the exclusion masks before the sandbox check.
+	ResolveImport(baseDir, path string, excludes []string) ([]string, error)
+}
+
 // ConfigLoaderYaml loads YAML configuration files with import resolution.
 type ConfigLoaderYaml struct {
-	resolver imprt.Resolver
+	resolver ImportResolver
 	parser   *Parser
 }
 
@@ -27,14 +32,15 @@ type loadState struct {
 }
 
 // NewConfigLoaderYaml creates a new YAML config loader with dependencies.
-func NewConfigLoaderYaml(resolver imprt.Resolver, parser *Parser) *ConfigLoaderYaml {
+func NewConfigLoaderYaml(resolver ImportResolver, parser *Parser) *ConfigLoaderYaml {
 	return &ConfigLoaderYaml{
 		resolver: resolver,
 		parser:   parser,
 	}
 }
 
-// Load loads a YAML config file with imports resolved.
+// Load loads a YAML config file with imports resolved. Confinement to the Go
+// module of each importing file is enforced by the resolver chain itself.
 func (l *ConfigLoaderYaml) Load(path string) (*di.Config, error) {
 	state := &loadState{
 		inProgress: map[string]bool{},
@@ -71,14 +77,9 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 
 	baseDir := filepath.Dir(abs)
 	for _, imp := range raw.Imports {
-		impPaths, err := l.resolver.Resolve(baseDir, imp.Path)
+		impPaths, err := l.resolver.ResolveImport(baseDir, imp.Path, imp.Exclude)
 		if err != nil {
 			return nil, fmt.Errorf("resolve import %q: %w", imp.Path, err)
-		}
-
-		impPaths, err = l.filterExcludedFiles(impPaths, baseDir, imp.Exclude)
-		if err != nil {
-			return nil, fmt.Errorf("apply exclusions for import %q: %w", imp.Path, err)
 		}
 
 		for _, impPath := range impPaths {
@@ -166,69 +167,4 @@ func (l *ConfigLoaderYaml) toSrclocError(file string, err error) error {
 	}
 
 	return srcloc.AddContext(err, "parse %s", file)
-}
-
-// filterExcludedFiles removes files matching any exclusion pattern.
-// files - absolute paths returned by resolver
-// baseDir - directory for resolving relative exclusion patterns
-// excludePatterns - glob patterns, file paths, or directory paths to exclude
-func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, excludePatterns []string) ([]string, error) {
-	if len(excludePatterns) == 0 {
-		return files, nil
-	}
-
-	excludedSet := make(map[string]bool)
-	var excludedDirs []string
-
-	for _, pattern := range excludePatterns {
-		// Resolve pattern relative to baseDir
-		absPattern := pattern
-		if !filepath.IsAbs(pattern) {
-			absPattern = filepath.Join(baseDir, pattern)
-		}
-
-		// If the pattern is a directory, exclude all files under it
-		if info, err := os.Stat(absPattern); err == nil && info.IsDir() {
-			excludedDirs = append(excludedDirs, absPattern+string(filepath.Separator))
-			continue
-		}
-
-		// Match pattern using doublestar (same library as glob imports)
-		matches, err := doublestar.FilepathGlob(absPattern)
-		if err != nil {
-			return nil, fmt.Errorf("invalid exclusion pattern %q: %w", pattern, err)
-		}
-
-		for _, match := range matches {
-			abs, err := filepath.Abs(match)
-			if err != nil {
-				return nil, fmt.Errorf("exclusion pattern %q: resolve %q: %w", pattern, match, err)
-			}
-			if info, err := os.Stat(abs); err == nil && info.IsDir() {
-				excludedDirs = append(excludedDirs, abs+string(filepath.Separator))
-			} else {
-				excludedSet[abs] = true
-			}
-		}
-	}
-
-	// Filter files not in exclusion set and not under excluded directories
-	result := make([]string, 0, len(files))
-	for _, file := range files {
-		if excludedSet[file] {
-			continue
-		}
-		excluded := false
-		for _, dir := range excludedDirs {
-			if strings.HasPrefix(file, dir) {
-				excluded = true
-				break
-			}
-		}
-		if !excluded {
-			result = append(result, file)
-		}
-	}
-
-	return result, nil
 }
