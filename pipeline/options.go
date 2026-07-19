@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/gendi-org/gendi/gomod"
 	"github.com/gendi-org/gendi/typeres"
 )
 
@@ -65,14 +66,21 @@ func (o *Options) Finalize() error {
 		o.Container = "Container"
 	}
 
-	// 3. Resolve module info if needed
+	// 3. Resolve module info from the output location if needed: the
+	// generated file's package identity is defined by the module that will
+	// contain it, never by the process working directory.
 	if o.ModulePath == "" || o.ModuleRoot == "" {
-		modInfo, err := ResolveModuleInfo()
+		absOut, err := filepath.Abs(o.Out)
 		if err != nil {
 			return fmt.Errorf("resolve module info: %w", err)
 		}
-		o.ModulePath = modInfo.Path
-		o.ModuleRoot = modInfo.Root
+		outDir := filepath.Dir(absOut)
+		root, modPath, found := gomod.FindModuleRoot(outDir)
+		if !found {
+			return fmt.Errorf("resolve module info: go.mod not found above output directory %s", outDir)
+		}
+		o.ModulePath = modPath
+		o.ModuleRoot = root
 	}
 
 	// 4. Compute output path if needed
