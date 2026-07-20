@@ -73,6 +73,10 @@ type moduleLookup struct {
 // NewResolver creates a Resolver whose out-of-module confinement boundary is
 // boundary. An empty boundary is an error: it would silently degrade to the
 // process working directory.
+//
+// A Resolver memoizes module lookups without locking and is not safe for
+// concurrent use: to resolve imports in parallel, give each goroutine its
+// own Resolver.
 func NewResolver(boundary string) (*Resolver, error) {
 	if boundary == "" {
 		return nil, fmt.Errorf("boundary must not be empty")

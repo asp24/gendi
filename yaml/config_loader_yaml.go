@@ -31,7 +31,9 @@ type loadState struct {
 	cache      map[string]*di.Config
 }
 
-// NewConfigLoaderYaml creates a new YAML config loader with dependencies.
+// NewConfigLoaderYaml creates a new YAML config loader with dependencies. A
+// loader is not safe for concurrent use — the underlying resolver memoizes
+// module lookups without locking; use one loader per goroutine.
 func NewConfigLoaderYaml(resolver ImportResolver, parser *Parser) *ConfigLoaderYaml {
 	return &ConfigLoaderYaml{
 		resolver: resolver,
