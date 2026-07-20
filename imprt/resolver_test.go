@@ -604,6 +604,18 @@ func TestResolverMemoizesModuleResolution(t *testing.T) {
 	if len(resolver.moduleDirs) == 0 {
 		t.Fatal("expected module resolution to be memoized")
 	}
+	// The longest-first candidate walk tries example.com/testmod/configs/...
+	// before finding the module: those failures must be memoized too, or
+	// every import entry sharing the prefix re-runs the failing `go list`.
+	negatives := 0
+	for _, lookup := range resolver.moduleDirs {
+		if !lookup.ok {
+			negatives++
+		}
+	}
+	if negatives == 0 {
+		t.Fatal("expected failed candidate lookups to be memoized")
+	}
 	if _, err := resolver.ResolveImport(baseDir, modulePath+"/configs/*.yaml", nil); err != nil {
 		t.Fatalf("second resolve failed: %v", err)
 	}

@@ -25,9 +25,9 @@ func fileExists(path string) bool {
 // resolving within the module context of the importing file: the module
 // containing baseDir, or — when baseDir is outside any module — the module at
 // the resolver's boundary. Without either, module imports are impossible and
-// the error asks for an explicit project root. Successful lookups are
-// memoized in moduleDirs per (context, modulePath). Returns (moduleDir,
-// modulePath, remainder, error) where:
+// the error asks for an explicit project root. Lookups are memoized in
+// moduleDirs per (context, modulePath), failures included. Returns
+// (moduleDir, modulePath, remainder, error) where:
 //   - moduleDir: absolute path to the module directory
 //   - modulePath: the import path of the found module
 //   - remainder: the path segment after the module path
@@ -49,17 +49,17 @@ func (r *Resolver) findModule(baseDir, importPath string) (string, string, strin
 			continue
 		}
 		key := contextDir + "\x00" + candidate
-		moduleDir, cached := r.moduleDirs[key]
+		lookup, cached := r.moduleDirs[key]
 		if !cached {
-			var err error
-			moduleDir, err = locator.FindModuleDir(candidate)
-			if err != nil {
-				continue
-			}
-			r.moduleDirs[key] = moduleDir
+			dir, err := locator.FindModuleDir(candidate)
+			lookup = moduleLookup{dir: dir, ok: err == nil}
+			r.moduleDirs[key] = lookup
+		}
+		if !lookup.ok {
+			continue
 		}
 		remainder := strings.Join(parts[i:], "/")
-		return moduleDir, candidate, remainder, nil
+		return lookup.dir, candidate, remainder, nil
 	}
 
 	return "", "", "", fmt.Errorf("module %s not found", importPath)

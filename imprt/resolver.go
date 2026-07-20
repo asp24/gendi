@@ -54,11 +54,20 @@ type Resolver struct {
 	// the importing file is not inside any Go module; within a module, that
 	// module's root is the boundary instead.
 	boundary string
-	// moduleDirs memoizes module resolution per (module context, modulePath):
-	// each cold lookup can cost a `go list` subprocess. Results depend only
-	// on the context directory's go.mod graph, never on the process working
+	// moduleDirs memoizes module resolution per (module context, modulePath),
+	// failures included: each cold lookup can cost a `go list` subprocess,
+	// and an unresolvable candidate prefix would otherwise re-run it for
+	// every import entry sharing that prefix. Results depend only on the
+	// context directory's go.mod graph, never on the process working
 	// directory. Loading is single-threaded, so no locking is needed.
-	moduleDirs map[string]string
+	moduleDirs map[string]moduleLookup
+}
+
+// moduleLookup is a memoized module resolution: the module directory when
+// resolution succeeded, or ok=false when the candidate is not a module.
+type moduleLookup struct {
+	dir string
+	ok  bool
 }
 
 // NewResolver creates a Resolver whose out-of-module confinement boundary is
@@ -72,7 +81,7 @@ func NewResolver(boundary string) (*Resolver, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Resolver{boundary: abs, moduleDirs: map[string]string{}}, nil
+	return &Resolver{boundary: abs, moduleDirs: map[string]moduleLookup{}}, nil
 }
 
 // DefaultBoundary derives the load boundary for a root config file: the root
