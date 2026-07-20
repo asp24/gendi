@@ -10,38 +10,54 @@ import (
 func TestGlobMatches(t *testing.T) {
 	dir := t.TempDir()
 
-	files, dirs, err := globMatches(dir + "/*.yaml")
+	files, err := globMatches(dir, "*.yaml")
 	if err != nil {
 		t.Fatalf("unexpected error for empty match: %v", err)
 	}
-	if len(files) != 0 || len(dirs) != 0 {
-		t.Fatalf("expected no matches, got files=%v dirs=%v", files, dirs)
+	if len(files) != 0 {
+		t.Fatalf("expected no matches, got %v", files)
 	}
 
-	files, dirs, err = globMatches(dir + "/no_such_dir/*.yaml")
+	files, err = globMatches(dir, "no_such_dir/*.yaml")
 	if err != nil {
 		t.Fatalf("unexpected error for missing base directory: %v", err)
 	}
-	if len(files) != 0 || len(dirs) != 0 {
-		t.Fatalf("expected no matches, got files=%v dirs=%v", files, dirs)
+	if len(files) != 0 {
+		t.Fatalf("expected no matches, got %v", files)
 	}
 
-	if _, _, err = globMatches(dir + "/[invalid"); err == nil {
+	if _, err = globMatches(dir, "[invalid"); err == nil {
 		t.Fatal("expected error for malformed pattern")
 	}
 
 	writeFile(t, filepath.Join(dir, "sub", "a.yaml"), "a")
 	writeFile(t, filepath.Join(dir, "b.yaml"), "b")
-	files, dirs, err = globMatches(dir + "/*")
+	files, err = globMatches(dir, "*")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	wantFiles := []string{mustAbs(t, filepath.Join(dir, "b.yaml"))}
-	wantDirs := []string{mustAbs(t, filepath.Join(dir, "sub"))}
-	if len(files) != 1 || files[0] != wantFiles[0] {
-		t.Fatalf("expected files %v, got %v", wantFiles, files)
+	want := []string{mustAbs(t, filepath.Join(dir, "b.yaml"))}
+	if len(files) != 1 || files[0] != want[0] {
+		t.Fatalf("expected files %v, got %v", want, files)
 	}
-	if len(dirs) != 1 || dirs[0] != wantDirs[0] {
-		t.Fatalf("expected dirs %v, got %v", wantDirs, dirs)
+}
+
+// Glob metacharacters in the anchor directory are literal path bytes, not
+// pattern syntax.
+func TestGlobMatchesMetacharInRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "work[2024]", "app")
+	writeFile(t, filepath.Join(root, "services", "a.yaml"), "a")
+	writeFile(t, filepath.Join(root, "services", "b.yaml"), "b")
+
+	files, err := globMatches(root, "services/*.yaml")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{
+		mustAbs(t, filepath.Join(root, "services", "a.yaml")),
+		mustAbs(t, filepath.Join(root, "services", "b.yaml")),
+	}
+	if len(files) != 2 || files[0] != want[0] || files[1] != want[1] {
+		t.Fatalf("expected files %v, got %v", want, files)
 	}
 }

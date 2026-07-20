@@ -118,6 +118,29 @@ func TestResolveImportLocalGlob(t *testing.T) {
 	}
 }
 
+// Glob metacharacters in the checkout path (the anchor directory) are literal
+// path bytes, never pattern syntax.
+func TestResolveImportGlobMetacharAnchor(t *testing.T) {
+	t.Parallel()
+
+	tempDir := filepath.Join(t.TempDir(), "work[2024]", "app")
+	writeFile(t, filepath.Join(tempDir, "services", "a.yaml"), "a")
+	writeFile(t, filepath.Join(tempDir, "services", "b.yaml"), "b")
+	resolver := newTestResolver(t, tempDir)
+
+	result, err := resolver.ResolveImport(tempDir, "./services/*.yaml", nil)
+	if err != nil {
+		t.Fatalf("resolve glob failed: %v", err)
+	}
+	expected := []string{
+		mustAbs(t, filepath.Join(tempDir, "services", "a.yaml")),
+		mustAbs(t, filepath.Join(tempDir, "services", "b.yaml")),
+	}
+	if !reflect.DeepEqual(result, expected) {
+		t.Fatalf("expected %v, got %v", expected, result)
+	}
+}
+
 // A glob that matches nothing — including one whose base directory does not
 // exist — is a silent no-op, not an error.
 func TestResolveImportGlobNoMatchIsSilent(t *testing.T) {

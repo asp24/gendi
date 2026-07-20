@@ -3,6 +3,7 @@ package imprt
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -83,33 +84,32 @@ func moduleRootOf(dir, boundary string) string {
 	return pathToAbs(boundary)
 }
 
-// globMatches expands pattern and splits its matches into files and
-// directories, absolute and sorted. A pattern that matches nothing —
-// including one whose base directory does not exist — yields empty results
-// without error; only a malformed pattern is an error.
-func globMatches(pattern string) (files, dirs []string, err error) {
-	matches, err := doublestar.FilepathGlob(pattern)
+// globMatches expands the slash-separated glob pattern relative to root and
+// returns the matched files as absolute sorted paths. Glob syntax is
+// interpreted only in pattern — a metacharacter in root is a literal path
+// byte. A pattern that matches nothing — including one whose base directory
+// does not exist — yields no results without error; only a malformed pattern
+// is an error.
+func globMatches(root, pattern string) ([]string, error) {
+	base, glob := doublestar.SplitPattern(path.Clean(pattern))
+	dir := filepath.Join(root, filepath.FromSlash(base))
+	matches, err := doublestar.Glob(os.DirFS(dir), glob)
 	if err != nil {
-		return nil, nil, fmt.Errorf("glob %q: %w", pattern, err)
+		return nil, fmt.Errorf("glob %q: %w", pattern, err)
 	}
+	var files []string
 	for _, match := range matches {
-		info, err := os.Stat(match)
+		full := filepath.Join(dir, match)
+		info, err := os.Stat(full)
 		if err != nil {
 			// A match that cannot be stat'ed — typically a dangling
 			// symlink — is skipped rather than failing the whole load.
 			continue
 		}
-		abs, err := filepath.Abs(match)
-		if err != nil {
-			return nil, nil, err
-		}
-		if info.IsDir() {
-			dirs = append(dirs, abs)
-		} else {
-			files = append(files, abs)
+		if !info.IsDir() {
+			files = append(files, full)
 		}
 	}
 	sort.Strings(files)
-	sort.Strings(dirs)
-	return files, dirs, nil
+	return files, nil
 }

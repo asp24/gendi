@@ -125,7 +125,7 @@ func (r *Resolver) address(baseDir, pattern string) (target, error) {
 		kind:       kindModule,
 		anchorDir:  pathToAbs(moduleDir),
 		boundary:   pathToAbs(moduleDir),
-		pattern:    filepath.FromSlash(remainder),
+		pattern:    remainder,
 		modulePath: modulePath,
 	}, nil
 }
@@ -148,7 +148,7 @@ func (r *Resolver) ResolveImport(baseDir, importPath string, excludes []string) 
 
 	var files []string
 	if isGlobPattern(t.pattern) {
-		files, _, err = globMatches(filepath.Join(t.anchorDir, t.pattern))
+		files, err = globMatches(t.anchorDir, t.pattern)
 		if err != nil {
 			return nil, err
 		}
