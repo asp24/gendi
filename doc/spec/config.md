@@ -26,9 +26,9 @@ Rules:
 - An import is classified by its form: multi-segment paths whose first
   segment contains a dot are module imports; everything else (single-segment
   names and explicit `./`/`../` prefixes included) is a local path resolved
-  relative to the importing file. A module import whose spelling also exists
-  relative to the importing file is ambiguous — a generation-time error;
-  use `./` for the local path
+  relative to the importing file. A module-shaped spelling always selects the
+  module when it exists, regardless of a same-spelled local path; use `./` to
+  select the local path
 - Absolute filesystem paths are not allowed
 - Module imports must name a file or glob inside the module
   (`github.com/acme/billing/gendi.yaml`, not `github.com/acme/billing`)

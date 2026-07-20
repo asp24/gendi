@@ -388,6 +388,46 @@ func TestLoadConfigRejectsImportedSymlinkOutsideBoundary(t *testing.T) {
 	}
 }
 
+func TestLoadConfigModuleImportIgnoresEscapingLocalShadow(t *testing.T) {
+	outer := t.TempDir()
+	external := filepath.Join(outer, "external.yaml")
+	writeTestFile(t, external, "parameters: {secret: leaked}")
+
+	moduleRoot := filepath.Join(outer, "module")
+	baseDir := filepath.Join(moduleRoot, "app")
+	if err := os.MkdirAll(baseDir, 0o755); err != nil {
+		t.Fatalf("mkdir module: %v", err)
+	}
+	writeTestFile(t, filepath.Join(moduleRoot, "go.mod"), "module example.com/app\n")
+	moduleConfig := filepath.Join(moduleRoot, "configs", "module.yaml")
+	if err := os.MkdirAll(filepath.Dir(moduleConfig), 0o755); err != nil {
+		t.Fatalf("mkdir configs: %v", err)
+	}
+	writeTestFile(t, moduleConfig, "parameters: {source: module}")
+
+	importPath := "example.com/app/configs/module.yaml"
+	localShadow := filepath.Join(baseDir, filepath.FromSlash(importPath))
+	if err := os.MkdirAll(filepath.Dir(localShadow), 0o755); err != nil {
+		t.Fatalf("mkdir local shadow: %v", err)
+	}
+	if err := os.Symlink(external, localShadow); err != nil {
+		t.Fatalf("symlink local shadow: %v", err)
+	}
+	rootPath := filepath.Join(baseDir, "gendi.yaml")
+	writeTestFile(t, rootPath, "imports: ["+importPath+"]")
+
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	if err != nil {
+		t.Fatalf("load module import: %v", err)
+	}
+	if got := cfg.Parameters["source"].Value.String(); got != "module" {
+		t.Fatalf("source = %q, want module", got)
+	}
+	if _, ok := cfg.Parameters["secret"]; ok {
+		t.Fatal("local shadow must not be loaded")
+	}
+}
+
 func TestLoadConfigExcludesImportedSymlinkBeforeConfinement(t *testing.T) {
 	outer := t.TempDir()
 	externalDir := filepath.Join(outer, "external")

@@ -757,33 +757,36 @@ func TestResolveImportKeepsSpelledPaths(t *testing.T) {
 	}
 }
 
-// A module-shaped import whose spelling also exists relative to the importing
-// file is ambiguous: loading either side would silently shadow the other, so
-// it is a loud error. The ./ spelling stays the unambiguous way to the local
-// path.
-func TestResolveImportModuleLocalCollision(t *testing.T) {
+// Classification is determined by spelling alone: when a module-shaped import
+// also exists locally, the bare spelling selects the module and ./ selects the
+// local file.
+func TestResolveImportModuleSpellingWinsOverLocalMatch(t *testing.T) {
 	t.Parallel()
 
 	moduleRoot, baseDir, modulePath := createModule(t)
-	writeFile(t, filepath.Join(moduleRoot, "configs", "app.yaml"), "from: module")
+	moduleConfig := filepath.Join(moduleRoot, "configs", "app.yaml")
+	writeFile(t, moduleConfig, "from: module")
 	localMirror := filepath.Join(baseDir, modulePath, "configs", "app.yaml")
 	writeFile(t, localMirror, "from: local")
 	resolver := newTestResolver(t, moduleRoot)
 
-	_, err := resolver.ResolveImport(baseDir, modulePath+"/configs/app.yaml", nil)
-	if err == nil {
-		t.Fatal("expected ambiguity error for module import shadowed by a local path")
+	got, err := resolver.ResolveImport(baseDir, modulePath+"/configs/app.yaml", nil)
+	if err != nil {
+		t.Fatalf("module import: %v", err)
 	}
-	if !strings.Contains(err.Error(), "ambiguous") || !strings.Contains(err.Error(), "./"+modulePath) {
-		t.Fatalf("error must explain the ambiguity and the ./ spelling, got: %v", err)
-	}
-
-	_, err = resolver.ResolveImport(baseDir, modulePath+"/configs/*.yaml", nil)
-	if err == nil || !strings.Contains(err.Error(), "ambiguous") {
-		t.Fatalf("expected ambiguity error for glob collision, got: %v", err)
+	if !reflect.DeepEqual(candidatePaths(got), []string{mustAbs(t, moduleConfig)}) {
+		t.Fatalf("bare spelling got %v, want module file %s", got, moduleConfig)
 	}
 
-	got, err := resolver.ResolveImport(baseDir, "./"+modulePath+"/configs/app.yaml", nil)
+	got, err = resolver.ResolveImport(baseDir, modulePath+"/configs/*.yaml", nil)
+	if err != nil {
+		t.Fatalf("module glob: %v", err)
+	}
+	if !reflect.DeepEqual(candidatePaths(got), []string{mustAbs(t, moduleConfig)}) {
+		t.Fatalf("bare glob got %v, want module file %s", got, moduleConfig)
+	}
+
+	got, err = resolver.ResolveImport(baseDir, "./"+modulePath+"/configs/app.yaml", nil)
 	if err != nil {
 		t.Fatalf("./ spelling must load the local file: %v", err)
 	}

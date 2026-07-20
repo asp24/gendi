@@ -234,11 +234,9 @@ to the root config's own directory as the boundary.
   local — a module import must name a file inside the module, so it always
   contains a slash. A local directory whose name contains a dot must use the
   `./` spelling (`./assets.d/*.yaml`) — the bare spelling is resolved as a
-  module and fails loudly with a hint. When a bare spelling resolves as a
-  module AND the same spelling exists relative to the importing file, the
-  import is ambiguous and is a generation-time error: use the `./` spelling
-  for the local path, or remove the local one to import from the module —
-  neither side is ever picked silently.
+  module and fails loudly with a hint if that module does not exist. When the
+  module exists, the bare spelling always selects it, regardless of any
+  same-spelled local path; use `./` to select the local path explicitly.
 - **A file outside its boundary is a generation-time error.** After
   exclusion masks are applied, each remaining candidate is resolved through
   symlinks immediately before loading (`EvalSymlinks` on both the boundary
