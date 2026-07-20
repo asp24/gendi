@@ -25,6 +25,12 @@ func writeTestFile(t *testing.T, path, content string) {
 	}
 }
 
+func loadConfigWithDefaultBoundary(t *testing.T, path string) (*di.Config, error) {
+	t.Helper()
+	boundary := boundaryFor(t, path)
+	return LoadConfig(path, boundary, boundary)
+}
+
 func TestInvalidImports(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -50,7 +56,7 @@ func TestInvalidImports(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			configPath := filepath.Join(currentDir, "testdata", tt.name, "gendi.yaml")
 
-			_, err := LoadConfig(configPath, boundaryFor(t, configPath))
+			_, err := loadConfigWithDefaultBoundary(t, configPath)
 
 			if err == nil {
 				t.Fatal("expected import error, got none")
@@ -96,7 +102,7 @@ imports:
   - ./env/gendi.yaml
 `))
 
-	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -130,7 +136,7 @@ services:
 	rootPath := filepath.Join(root, "gendi.yaml")
 	writeTestFile(t, rootPath, "imports: [./env/**/gendi.yaml]")
 
-	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
 	if err != nil {
 		t.Fatalf("load aliases: %v", err)
 	}
@@ -171,7 +177,7 @@ func TestLoadConfigRejectsRootSymlinkOutsideBoundaryBeforeRead(t *testing.T) {
 	}
 	defer func() { defaultOsReadFile = origRead }()
 
-	_, err = LoadConfig(rootPath, boundary)
+	_, err = LoadConfig(rootPath, boundary, boundary)
 	if err == nil || !strings.Contains(err.Error(), "outside boundary") {
 		t.Fatalf("expected root confinement error, got %v", err)
 	}
@@ -202,7 +208,7 @@ services:
 		t.Fatalf("symlink: %v", err)
 	}
 
-	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
 	if err != nil {
 		t.Fatalf("load root symlink: %v", err)
 	}
@@ -232,7 +238,7 @@ imports:
 		t.Fatalf("symlink: %v", err)
 	}
 
-	_, err := LoadConfig(linkPath, boundaryFor(t, linkPath))
+	_, err := loadConfigWithDefaultBoundary(t, linkPath)
 	if err == nil {
 		t.Fatal("expected cyclic import error")
 	}
@@ -285,7 +291,7 @@ imports:
   - path: %q
 `, filepath.Join(dir, "imports", "module.yaml"))))
 
-	_, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	_, err := loadConfigWithDefaultBoundary(t, rootPath)
 	if err == nil {
 		t.Fatal("expected error for absolute import path")
 	}
@@ -306,7 +312,7 @@ imports:
   - path: example.com/app/imports/module.yaml
 `))
 
-	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -335,7 +341,7 @@ imports:
   - path: ../secret.yaml
 `))
 
-	if _, err := LoadConfig(rootPath, boundaryFor(t, rootPath)); err == nil {
+	if _, err := loadConfigWithDefaultBoundary(t, rootPath); err == nil {
 		t.Fatal("expected error for import escaping the module root")
 	}
 }
@@ -362,7 +368,7 @@ imports:
   - path: assets.d/../../secret.yaml
 `))
 
-	if _, err := LoadConfig(rootPath, boundaryFor(t, rootPath)); err == nil {
+	if _, err := loadConfigWithDefaultBoundary(t, rootPath); err == nil {
 		t.Fatal("expected error for dotted-segment import escaping the module root")
 	}
 }
@@ -383,8 +389,30 @@ func TestLoadConfigRejectsImportedSymlinkOutsideBoundary(t *testing.T) {
 	rootPath := filepath.Join(moduleRoot, "root.yaml")
 	writeTestFile(t, rootPath, "imports: [./link.yaml]")
 
-	if _, err := LoadConfig(rootPath, boundaryFor(t, rootPath)); err == nil || !strings.Contains(err.Error(), "outside boundary") {
+	if _, err := loadConfigWithDefaultBoundary(t, rootPath); err == nil || !strings.Contains(err.Error(), "outside boundary") {
 		t.Fatalf("expected imported config confinement error, got %v", err)
+	}
+}
+
+func TestLoadConfigOutsideModuleUsesSeparateModuleContext(t *testing.T) {
+	projectRoot := t.TempDir()
+	writeTestFile(t, filepath.Join(projectRoot, "go.mod"), "module example.com/app\n")
+	writeTestFile(t, filepath.Join(projectRoot, "services.yaml"), "parameters: {source: module}")
+
+	configRoot := t.TempDir()
+	rootPath := filepath.Join(configRoot, "gendi.yaml")
+	writeTestFile(t, rootPath, "imports: [example.com/app/services.yaml]")
+
+	boundary, err := DefaultBoundary(rootPath)
+	if err != nil {
+		t.Fatalf("default boundary: %v", err)
+	}
+	cfg, err := LoadConfig(rootPath, boundary, projectRoot)
+	if err != nil {
+		t.Fatalf("load external config with module context: %v", err)
+	}
+	if got := cfg.Parameters["source"].Value.String(); got != "module" {
+		t.Fatalf("source = %q, want module", got)
 	}
 }
 
@@ -416,7 +444,7 @@ func TestLoadConfigModuleImportIgnoresEscapingLocalShadow(t *testing.T) {
 	rootPath := filepath.Join(baseDir, "gendi.yaml")
 	writeTestFile(t, rootPath, "imports: ["+importPath+"]")
 
-	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
 	if err != nil {
 		t.Fatalf("load module import: %v", err)
 	}
@@ -452,7 +480,7 @@ go 1.24
 
 	localRoot := filepath.Join(root, "local.yaml")
 	writeTestFile(t, localRoot, "imports: [./tools/gendi.yaml]")
-	if _, err := LoadConfig(localRoot, boundaryFor(t, localRoot)); err == nil ||
+	if _, err := loadConfigWithDefaultBoundary(t, localRoot); err == nil ||
 		!strings.Contains(err.Error(), "crosses Go module boundary") ||
 		!strings.Contains(err.Error(), "module-path import") {
 		t.Fatalf("expected local nested-module import to fail, got %v", err)
@@ -460,7 +488,7 @@ go 1.24
 
 	moduleRoot := filepath.Join(root, "module.yaml")
 	writeTestFile(t, moduleRoot, "imports: [example.com/tools/gendi.yaml]")
-	cfg, err := LoadConfig(moduleRoot, boundaryFor(t, moduleRoot))
+	cfg, err := loadConfigWithDefaultBoundary(t, moduleRoot)
 	if err != nil {
 		t.Fatalf("module-path import: %v", err)
 	}
@@ -494,7 +522,7 @@ imports:
     exclude: [./services/fixtures]
 `))
 
-	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
 	if err != nil {
 		t.Fatalf("load with excluded symlink: %v", err)
 	}
@@ -537,7 +565,7 @@ imports:
 `)
 	writeTestFile(t, rootPath, root)
 
-	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -587,7 +615,7 @@ imports:
 `)
 	writeTestFile(t, rootPath, root)
 
-	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -610,7 +638,7 @@ imports:
   - path: example.com/app/imports/*.yaml
 `))
 
-	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -632,7 +660,7 @@ imports:
   - path: example.com/app/imports/**/*.yaml
 `))
 
-	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -649,7 +677,7 @@ imports:
 
 func TestLoadConfigServiceAlias(t *testing.T) {
 	configPath := filepath.Join(getCurrentDir(), "testdata", "service_alias", "gendi.yaml")
-	cfg, err := LoadConfig(configPath, boundaryFor(t, configPath))
+	cfg, err := loadConfigWithDefaultBoundary(t, configPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -682,7 +710,7 @@ services:
       args: ["@.inner"]
 `))
 
-	cfg, err := LoadConfig(path, boundaryFor(t, path))
+	cfg, err := loadConfigWithDefaultBoundary(t, path)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -696,7 +724,7 @@ services:
 
 func TestLoadConfigNullArgument(t *testing.T) {
 	configPath := filepath.Join(getCurrentDir(), "testdata", "null_argument", "gendi.yaml")
-	cfg, err := LoadConfig(configPath, boundaryFor(t, configPath))
+	cfg, err := loadConfigWithDefaultBoundary(t, configPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}

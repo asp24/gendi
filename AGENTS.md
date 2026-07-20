@@ -62,8 +62,10 @@ go test -v -run TestName ./path/to/package
 The generator follows a multi-stage pipeline:
 
 1. **YAML Loading** (`yaml/` package)
-   - Loads root YAML config with `yaml.LoadConfig(path, boundary)` — derive
-     the boundary with `yaml.DefaultBoundary(path)`
+   - Loads root YAML config with
+     `yaml.LoadConfig(path, boundary, moduleContext)` — derive the boundary
+     with `yaml.DefaultBoundary(path)` and use the finalized pipeline
+     `Options.ModuleRoot` as the module context
    - Resolves imports in two phases: classify (local vs module) and resolve
      (glob or literal), then confines every candidate immediately before load
    - Merges imported configs (later imports override earlier ones)
@@ -259,10 +261,10 @@ to the root config's own directory as the boundary.
   it cannot reach into the consumer's filesystem.
 - **Module resolution is CWD-independent.** A module is looked up in the
   module context of the importing file (the module containing it, else the
-  module at the boundary) via its go.mod graph — including `replace`
-  directives, which is the supported way to use a local checkout. A config
-  outside any module can use module imports only when the boundary points at
-  a module root; otherwise it is a generation-time error.
+  explicitly supplied module context) via its go.mod graph — including
+  `replace` directives, which is the supported way to use a local checkout.
+  A config outside any module can use module imports only when moduleContext
+  points inside a Go module; its confinement boundary remains independent.
 
 This guarantees generation only ever reads files within the project module or
 its declared Go-module dependencies — never arbitrary filesystem paths.
@@ -342,19 +344,19 @@ See `examples/custom-pass` for complete example.
 
 ### Reading Configuration
 ```go
-boundary, err := yaml.DefaultBoundary("gendi.yaml")
-cfg, err := yaml.LoadConfig("gendi.yaml", boundary)
-cfg, err = di.ApplyPasses(cfg, passes)
-```
-
-### Generating Container
-```go
 opts := pipeline.Options{
     Out:     "./internal/di",
     Package: "di",
 }
 opts.Finalize()
 
+boundary, err := yaml.DefaultBoundary("gendi.yaml")
+cfg, err := yaml.LoadConfig("gendi.yaml", boundary, opts.ModuleRoot)
+cfg, err = di.ApplyPasses(cfg, passes)
+```
+
+### Generating Container
+```go
 code, err := pipeline.Emit(cfg, opts)
 ```
 

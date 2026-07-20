@@ -32,6 +32,10 @@ Rules:
 - Absolute filesystem paths are not allowed
 - Module imports must name a file or glob inside the module
   (`github.com/acme/billing/gendi.yaml`, not `github.com/acme/billing`)
+- Module imports resolve through the `go.mod` graph of the importing config's
+  module. For a root config outside every Go module, the CLI uses the module
+  containing the generated output as a separate lookup context; the root
+  config remains confined to its own directory
 - Recursive imports are allowed; cyclic imports are forbidden
 - Later definitions override earlier ones
 - Imports can be a string path or a mapping with `path`

@@ -55,7 +55,7 @@ func TestClassify(t *testing.T) {
 func TestNewResolverRejectsEmptyBoundary(t *testing.T) {
 	t.Parallel()
 
-	if _, err := NewResolver(""); err == nil {
+	if _, err := NewResolver("", ""); err == nil {
 		t.Fatal("expected error for empty boundary")
 	}
 }
@@ -695,7 +695,7 @@ func TestResolverMemoizesModuleResolution(t *testing.T) {
 func newTestResolver(t *testing.T, boundary string) *Resolver {
 	t.Helper()
 
-	resolver, err := NewResolver(boundary)
+	resolver, err := NewResolver(boundary, boundary)
 	if err != nil {
 		t.Fatalf("NewResolver(%q): %v", boundary, err)
 	}
@@ -868,11 +868,9 @@ func TestResolveImportModuleIgnoresWorkingDirectory(t *testing.T) {
 	}
 }
 
-// When the importing config lives outside any Go module, the explicitly
-// supplied boundary is the module context: pointing it at a module root makes
-// that module's imports resolve; anything less is a loud error asking for a
-// project root.
-func TestResolveImportModuleContextFromBoundary(t *testing.T) {
+// When the importing config lives outside any Go module, its confinement
+// boundary stays independent from the explicitly supplied module context.
+func TestResolveImportUsesSeparateModuleContext(t *testing.T) {
 	t.Parallel()
 
 	projectRoot := t.TempDir()
@@ -881,18 +879,24 @@ func TestResolveImportModuleContextFromBoundary(t *testing.T) {
 	writeFile(t, config, "x: 1")
 
 	outside := t.TempDir() // config dir outside any module
-	resolver := newTestResolver(t, projectRoot)
+	resolver, err := NewResolver(outside, projectRoot)
+	if err != nil {
+		t.Fatalf("NewResolver: %v", err)
+	}
 
 	got, err := resolver.ResolveImport(outside, "example.com/app/configs/app.yaml", nil)
 	if err != nil {
-		t.Fatalf("boundary at a module root must provide the module context: %v", err)
+		t.Fatalf("separate module context must resolve the import: %v", err)
 	}
 	if !reflect.DeepEqual(candidatePaths(got), []string{mustAbs(t, config)}) {
 		t.Fatalf("got %v, want %v", got, []string{mustAbs(t, config)})
 	}
 
-	// Neither baseDir nor boundary is inside a module → explicit error.
-	noModule := newTestResolver(t, t.TempDir())
+	// No module above baseDir and no fallback context → explicit error.
+	noModule, err := NewResolver(outside, "")
+	if err != nil {
+		t.Fatalf("NewResolver without module context: %v", err)
+	}
 	_, err = noModule.ResolveImport(outside, "example.com/app/configs/app.yaml", nil)
 	if err == nil || !strings.Contains(err.Error(), "requires a Go module") {
 		t.Fatalf("expected 'requires a Go module' error, got %v", err)

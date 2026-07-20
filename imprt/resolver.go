@@ -49,6 +49,12 @@ type Resolver struct {
 	// the importing file is not inside any Go module; within a module, that
 	// module's root is the boundary instead.
 	boundary string
+	// moduleContext is the directory whose go.mod graph is used to resolve
+	// module imports when the importing file lives outside any Go module.
+	// It is deliberately independent from boundary: an external config must
+	// remain confined to its own filesystem root while resolving modules in
+	// the project that consumes it.
+	moduleContext string
 	// moduleDirs memoizes module resolution per (module context, modulePath),
 	// failures included: each cold lookup can cost a `go list` subprocess,
 	// and an unresolvable candidate prefix would otherwise re-run it for
@@ -66,13 +72,15 @@ type moduleLookup struct {
 }
 
 // NewResolver creates a Resolver whose out-of-module confinement boundary is
-// boundary. An empty boundary is an error: it would silently degrade to the
-// process working directory.
+// boundary. moduleContext supplies the go.mod graph used for module imports
+// from configs outside any Go module; it may be empty when those configs use
+// local imports only. An empty boundary is an error: it would silently degrade
+// to the process working directory.
 //
 // A Resolver memoizes module lookups without locking and is not safe for
 // concurrent use: to resolve imports in parallel, give each goroutine its
 // own Resolver.
-func NewResolver(boundary string) (*Resolver, error) {
+func NewResolver(boundary, moduleContext string) (*Resolver, error) {
 	if boundary == "" {
 		return nil, fmt.Errorf("boundary must not be empty")
 	}
@@ -80,14 +88,24 @@ func NewResolver(boundary string) (*Resolver, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Resolver{boundary: abs, moduleDirs: map[string]moduleLookup{}}, nil
+	if moduleContext != "" {
+		moduleContext, err = filepath.Abs(moduleContext)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &Resolver{
+		boundary:      abs,
+		moduleContext: moduleContext,
+		moduleDirs:    map[string]moduleLookup{},
+	}, nil
 }
 
 // findModule locates a Go module by iterating through import path segments,
 // resolving within the module context of the importing file: the module
 // containing baseDir, or — when baseDir is outside any module — the module at
-// the resolver's boundary. Without either, module imports are impossible and
-// the error asks for an explicit project root. Lookups are memoized in
+// the resolver's module context. Without either, module imports are impossible
+// and the error asks for an explicit project root. Lookups are memoized in
 // moduleDirs per (context, modulePath), failures included. Returns
 // (moduleDir, modulePath, remainder, error) where:
 //   - moduleDir: absolute path to the module directory
@@ -96,10 +114,13 @@ func NewResolver(boundary string) (*Resolver, error) {
 func (r *Resolver) findModule(baseDir, importPath string) (string, string, string, error) {
 	contextDir := baseDir
 	if _, _, found := gomod.FindModuleRoot(contextDir); !found {
-		if _, _, found := gomod.FindModuleRoot(r.boundary); !found {
-			return "", "", "", fmt.Errorf("module import %q requires a Go module: no go.mod found above %s or the boundary %s — point the boundary at the project's module root", importPath, baseDir, r.boundary)
+		if r.moduleContext == "" {
+			return "", "", "", fmt.Errorf("module import %q requires a Go module: no go.mod found above %s and no module context was provided", importPath, baseDir)
 		}
-		contextDir = r.boundary
+		if _, _, found := gomod.FindModuleRoot(r.moduleContext); !found {
+			return "", "", "", fmt.Errorf("module import %q requires a Go module: no go.mod found above %s or the module context %s", importPath, baseDir, r.moduleContext)
+		}
+		contextDir = r.moduleContext
 	}
 
 	locator := gomod.NewLocator(contextDir)

@@ -41,7 +41,7 @@ func Generate(cfg Config, passes []di.Pass) error {
 	if err != nil {
 		return fmt.Errorf("derive load boundary: %w", err)
 	}
-	diCfg, err := yaml.LoadConfig(cfg.ConfigPath, boundary)
+	diCfg, err := yaml.LoadConfig(cfg.ConfigPath, boundary, cfg.Options.ModuleRoot)
 	if err != nil {
 		return srcloc.AddContext(err, "load config")
 	}

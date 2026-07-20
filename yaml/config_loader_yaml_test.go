@@ -27,7 +27,8 @@ func boundaryFor(t *testing.T, path string) string {
 // module (or directory) of rootPath.
 func defaultLoader(t *testing.T, rootPath string) *ConfigLoaderYaml {
 	t.Helper()
-	resolver, err := imprt.NewResolver(boundaryFor(t, rootPath))
+	boundary := boundaryFor(t, rootPath)
+	resolver, err := imprt.NewResolver(boundary, boundary)
 	if err != nil {
 		t.Fatalf("new resolver: %v", err)
 	}
@@ -804,7 +805,7 @@ parameters:
   app: "app"
 `)
 
-	if _, err := LoadConfig(rootPath, ""); err == nil || !strings.Contains(err.Error(), "boundary") {
+	if _, err := LoadConfig(rootPath, "", ""); err == nil || !strings.Contains(err.Error(), "boundary") {
 		t.Fatalf("expected empty-boundary error, got %v", err)
 	}
 }
