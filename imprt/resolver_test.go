@@ -718,6 +718,41 @@ func TestResolveImportKeepsSpelledPaths(t *testing.T) {
 	}
 }
 
+// A module-shaped import whose spelling also exists relative to the importing
+// file is ambiguous: loading either side would silently shadow the other, so
+// it is a loud error. The ./ spelling stays the unambiguous way to the local
+// path.
+func TestResolveImportModuleLocalCollision(t *testing.T) {
+	t.Parallel()
+
+	moduleRoot, baseDir, modulePath := createModule(t)
+	writeFile(t, filepath.Join(moduleRoot, "configs", "app.yaml"), "from: module")
+	localMirror := filepath.Join(baseDir, modulePath, "configs", "app.yaml")
+	writeFile(t, localMirror, "from: local")
+	resolver := newTestResolver(t, moduleRoot)
+
+	_, err := resolver.ResolveImport(baseDir, modulePath+"/configs/app.yaml", nil)
+	if err == nil {
+		t.Fatal("expected ambiguity error for module import shadowed by a local path")
+	}
+	if !strings.Contains(err.Error(), "ambiguous") || !strings.Contains(err.Error(), "./"+modulePath) {
+		t.Fatalf("error must explain the ambiguity and the ./ spelling, got: %v", err)
+	}
+
+	_, err = resolver.ResolveImport(baseDir, modulePath+"/configs/*.yaml", nil)
+	if err == nil || !strings.Contains(err.Error(), "ambiguous") {
+		t.Fatalf("expected ambiguity error for glob collision, got: %v", err)
+	}
+
+	got, err := resolver.ResolveImport(baseDir, "./"+modulePath+"/configs/app.yaml", nil)
+	if err != nil {
+		t.Fatalf("./ spelling must load the local file: %v", err)
+	}
+	if !reflect.DeepEqual(got, []string{mustAbs(t, localMirror)}) {
+		t.Fatalf("got %v, want %v", got, []string{localMirror})
+	}
+}
+
 // A relative baseDir confines exactly like its absolute spelling: the
 // boundary is the module root of the importing directory, not the resolver's
 // wider fallback. No t.Parallel — t.Chdir forbids it.

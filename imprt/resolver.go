@@ -121,6 +121,21 @@ func (r *Resolver) address(baseDir, pattern string) (target, error) {
 	if remainder == "" {
 		return target{}, fmt.Errorf("module import %q must reference a file, e.g. %s/gendi.yaml", pattern, modulePath)
 	}
+	// A module-shaped spelling that also matches something relative to the
+	// importing file is ambiguous: picking either side would silently shadow
+	// the other. The probe is best-effort — the authoritative errors come
+	// from the resolution itself.
+	local := false
+	if isGlobPattern(pattern) {
+		if files, err := globMatches(baseDir, pattern); err == nil && len(files) > 0 {
+			local = true
+		}
+	} else {
+		local = fileExists(filepath.Join(baseDir, pattern))
+	}
+	if local {
+		return target{}, fmt.Errorf("import %q is ambiguous: it resolves in module %s but the same spelling exists locally — use %q for the local path, or remove the local one to import from the module", pattern, modulePath, "./"+pattern)
+	}
 	return target{
 		kind:       kindModule,
 		anchorDir:  pathToAbs(moduleDir),

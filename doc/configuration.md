@@ -500,7 +500,10 @@ imports:
   segment contains a dot (`example.com/...`) names a Go module; everything
   else — including single-segment names like `base.yaml` — is a local path.
   For a local directory whose name contains a dot, use the `./` spelling
-  (`./assets.d/*.yaml`)
+  (`./assets.d/*.yaml`). A bare spelling that resolves as a module while the
+  same spelling also exists relative to the importing file is ambiguous and
+  is a generation-time error — use `./` for the local path, or remove the
+  local one to import from the module
 - Absolute filesystem paths are not allowed
 - Relative paths resolved from importing file's directory
 - Glob patterns expanded using doublestar matching; a glob that matches
