@@ -508,13 +508,15 @@ imports:
 - Relative paths resolved from importing file's directory
 - Glob patterns expanded using doublestar matching; a glob that matches
   nothing is a silent no-op
-- Every resolved file is confined to the module of the importing file (or the
-  named module): after exclusions are applied, files are resolved through
-  symlinks and checked against the boundary — a file whose real path is
-  outside is a generation-time error (exclude unwanted symlinked matches to
-  keep a broad glob loadable). Symlink resolution serves only the boundary
-  check and file identity: a config imported through a symlink anchors its
-  own relative imports and `$this` at the symlink's directory
+- Every config, including the root, is confined immediately before loading.
+  Imported candidates use the module of the importing file (or the named
+  module) as their boundary: after exclusions are applied, each candidate is
+  resolved through symlinks and checked against the boundary — a file whose
+  real path is outside is a generation-time error (exclude unwanted
+  symlinked matches to keep a broad glob loadable). Symlink resolution serves
+  only the boundary check and file identity: a config imported through a
+  symlink anchors its own relative imports and `$this` at the symlink's
+  directory
 - Imports are merged depth-first in declaration order: each imported file's
   imports are merged before that file, and the importing file is merged after
   all of its imports

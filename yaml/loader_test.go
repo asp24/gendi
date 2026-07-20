@@ -105,6 +105,76 @@ imports:
 	}
 }
 
+func TestLoadConfigRejectsRootSymlinkOutsideBoundaryBeforeRead(t *testing.T) {
+	outer := t.TempDir()
+	external := filepath.Join(outer, "external.yaml")
+	writeTestFile(t, external, "parameters: {secret: leaked}")
+
+	moduleRoot := filepath.Join(outer, "module")
+	if err := os.MkdirAll(moduleRoot, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeTestFile(t, filepath.Join(moduleRoot, "go.mod"), "module example.com/app\n")
+	rootPath := filepath.Join(moduleRoot, "gendi.yaml")
+	if err := os.Symlink(external, rootPath); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	boundary, err := DefaultBoundary(rootPath)
+	if err != nil {
+		t.Fatalf("default boundary: %v", err)
+	}
+
+	readCount := 0
+	origRead := defaultOsReadFile
+	defaultOsReadFile = func(path string) ([]byte, error) {
+		readCount++
+		return os.ReadFile(path)
+	}
+	defer func() { defaultOsReadFile = origRead }()
+
+	_, err = LoadConfig(rootPath, boundary)
+	if err == nil || !strings.Contains(err.Error(), "outside boundary") {
+		t.Fatalf("expected root confinement error, got %v", err)
+	}
+	if readCount != 0 {
+		t.Fatalf("root config must be confined before reading, got %d reads", readCount)
+	}
+}
+
+func TestLoadConfigRootSymlinkAnchorsAtSpelledDir(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.com/app\n")
+	for _, dir := range []string{"env", "templates"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+	}
+	writeTestFile(t, filepath.Join(root, "templates", "root.yaml"), strings.TrimSpace(`
+imports:
+  - ./common.yaml
+services:
+  local:
+    type: $this.Service
+`))
+	writeTestFile(t, filepath.Join(root, "templates", "common.yaml"), "parameters: {which: templates}")
+	writeTestFile(t, filepath.Join(root, "env", "common.yaml"), "parameters: {which: env}")
+	rootPath := filepath.Join(root, "env", "gendi.yaml")
+	if err := os.Symlink(filepath.Join("..", "templates", "root.yaml"), rootPath); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	if err != nil {
+		t.Fatalf("load root symlink: %v", err)
+	}
+	if got := cfg.Parameters["which"].Value.String(); got != "env" {
+		t.Fatalf("relative import anchored at %q, want env context", got)
+	}
+	if got := cfg.Services["local"].Type; got != "example.com/app/env.Service" {
+		t.Fatalf("$this resolved to %q, want addressed env package", got)
+	}
+}
+
 // Cache and cycle detection key by real identity: a cycle reaching the root
 // config through a different spelling (here, the root loaded via a symlink)
 // is still detected instead of parsing the root twice.
@@ -255,6 +325,64 @@ imports:
 
 	if _, err := LoadConfig(rootPath, boundaryFor(t, rootPath)); err == nil {
 		t.Fatal("expected error for dotted-segment import escaping the module root")
+	}
+}
+
+func TestLoadConfigRejectsImportedSymlinkOutsideBoundary(t *testing.T) {
+	outer := t.TempDir()
+	external := filepath.Join(outer, "external.yaml")
+	writeTestFile(t, external, "parameters: {secret: leaked}")
+
+	moduleRoot := filepath.Join(outer, "module")
+	if err := os.MkdirAll(moduleRoot, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeTestFile(t, filepath.Join(moduleRoot, "go.mod"), "module example.com/app\n")
+	if err := os.Symlink(external, filepath.Join(moduleRoot, "link.yaml")); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	rootPath := filepath.Join(moduleRoot, "root.yaml")
+	writeTestFile(t, rootPath, "imports: [./link.yaml]")
+
+	if _, err := LoadConfig(rootPath, boundaryFor(t, rootPath)); err == nil || !strings.Contains(err.Error(), "outside boundary") {
+		t.Fatalf("expected imported config confinement error, got %v", err)
+	}
+}
+
+func TestLoadConfigExcludesImportedSymlinkBeforeConfinement(t *testing.T) {
+	outer := t.TempDir()
+	externalDir := filepath.Join(outer, "external")
+	if err := os.MkdirAll(externalDir, 0o755); err != nil {
+		t.Fatalf("mkdir external: %v", err)
+	}
+	writeTestFile(t, filepath.Join(externalDir, "secret.yaml"), "parameters: {secret: leaked}")
+
+	moduleRoot := filepath.Join(outer, "module")
+	servicesDir := filepath.Join(moduleRoot, "services")
+	if err := os.MkdirAll(servicesDir, 0o755); err != nil {
+		t.Fatalf("mkdir services: %v", err)
+	}
+	writeTestFile(t, filepath.Join(moduleRoot, "go.mod"), "module example.com/app\n")
+	writeTestFile(t, filepath.Join(servicesDir, "app.yaml"), "parameters: {app: loaded}")
+	if err := os.Symlink(externalDir, filepath.Join(servicesDir, "fixtures")); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	rootPath := filepath.Join(moduleRoot, "root.yaml")
+	writeTestFile(t, rootPath, strings.TrimSpace(`
+imports:
+  - path: ./services/**/*.yaml
+    exclude: [./services/fixtures]
+`))
+
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	if err != nil {
+		t.Fatalf("load with excluded symlink: %v", err)
+	}
+	if _, ok := cfg.Parameters["app"]; !ok {
+		t.Fatal("expected regular candidate to load")
+	}
+	if _, ok := cfg.Parameters["secret"]; ok {
+		t.Fatal("excluded external candidate must not load")
 	}
 }
 

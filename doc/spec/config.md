@@ -37,10 +37,12 @@ Rules:
 - Imports can be a string path or a mapping with `path`
 - Glob patterns are supported; matches are expanded in lexicographic order;
   a glob that matches nothing is a silent no-op
-- Every resolved file is confined to the module of the importing file (or the
-  module the import names). Exclusion masks are applied first, then the final
-  list is resolved through symlinks and checked against the boundary — any
-  file whose real path is outside is a generation-time error. Symlinks whose
+- Every config, including the root, is confined immediately before loading.
+  Imported candidates use the module of the importing file (or the module the
+  import names) as their boundary. Exclusion masks are applied first, then
+  every remaining candidate is resolved through symlinks and checked against
+  its boundary — any file whose real path is outside is a generation-time
+  error. Symlinks whose
   targets stay inside the module work normally; a config imported through a
   symlink anchors its own relative imports and `$this` at the symlink's
   directory, while caching and cycle detection identify it by its real path

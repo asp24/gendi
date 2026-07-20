@@ -16,7 +16,7 @@ import (
 // root config, exactly as production callers do.
 func boundaryFor(t *testing.T, path string) string {
 	t.Helper()
-	boundary, err := imprt.DefaultBoundary(path)
+	boundary, err := DefaultBoundary(path)
 	if err != nil {
 		t.Fatalf("boundary for %s: %v", path, err)
 	}
@@ -38,9 +38,16 @@ type stubResolver struct {
 	paths map[string][]string
 }
 
-func (r stubResolver) ResolveImport(_, importPath string, _ []string) ([]string, error) {
+func (r stubResolver) ResolveImport(baseDir, importPath string, _ []string) ([]imprt.Candidate, error) {
 	if paths, ok := r.paths[importPath]; ok {
-		return paths, nil
+		candidates := make([]imprt.Candidate, 0, len(paths))
+		for _, path := range paths {
+			candidates = append(candidates, imprt.Candidate{
+				Path:     path,
+				Boundary: baseDir,
+			})
+		}
+		return candidates, nil
 	}
 	return nil, os.ErrNotExist
 }
@@ -97,7 +104,7 @@ parameters:
 	}
 	defer func() { defaultOsReadFile = origRead }()
 
-	cfg, err := loader.Load(rootPath)
+	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -137,7 +144,7 @@ imports:
 `)
 
 	loader := defaultLoader(t, rootPath)
-	cfg, err := loader.Load(rootPath)
+	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -183,7 +190,7 @@ imports:
 `)
 
 	loader := defaultLoader(t, rootPath)
-	cfg, err := loader.Load(rootPath)
+	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -223,7 +230,7 @@ imports:
 `)
 
 	loader := defaultLoader(t, rootPath)
-	cfg, err := loader.Load(rootPath)
+	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -250,7 +257,7 @@ imports:
 
 	loader := defaultLoader(t, rootPath)
 
-	cfg, err := loader.Load(rootPath)
+	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -280,7 +287,7 @@ imports:
 `)
 
 	loader := defaultLoader(t, rootPath)
-	_, err := loader.Load(rootPath)
+	_, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err == nil {
 		t.Fatal("expected error for invalid exclusion pattern")
 	}
@@ -310,7 +317,7 @@ imports:
 `)
 
 	loader := defaultLoader(t, rootPath)
-	cfg, err := loader.Load(rootPath)
+	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -356,7 +363,7 @@ imports:
 `)
 
 	loader := defaultLoader(t, rootPath)
-	cfg, err := loader.Load(rootPath)
+	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -398,7 +405,7 @@ imports:
 `, testPath))
 
 	loader := defaultLoader(t, rootPath)
-	_, err := loader.Load(rootPath)
+	_, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err == nil {
 		t.Fatal("expected error for absolute exclusion pattern")
 	}
@@ -442,7 +449,7 @@ imports:
 `)
 
 	loader := defaultLoader(t, rootPath)
-	cfg, err := loader.Load(rootPath)
+	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -481,7 +488,7 @@ imports:
 `, internalDir))
 
 	loader := defaultLoader(t, rootPath)
-	_, err := loader.Load(rootPath)
+	_, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err == nil {
 		t.Fatal("expected error for absolute directory exclusion")
 	}
@@ -508,7 +515,7 @@ imports:
 `, filepath.Join(extDir, "*.yaml")))
 
 	loader := defaultLoader(t, rootPath)
-	_, err := loader.Load(rootPath)
+	_, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err == nil {
 		t.Fatal("expected error for absolute glob import")
 	}
@@ -567,7 +574,7 @@ func TestLoad_UnmarshalError_HasLocation(t *testing.T) {
 			path := writeFile(t, dir, "gendi.yaml", tt.yaml)
 
 			loader := NewConfigLoaderYaml(stubResolver{}, NewParser())
-			_, err := loader.Load(path)
+			_, err := loader.Load(path, boundaryFor(t, path))
 			if err == nil {
 				t.Fatal("expected error")
 			}
@@ -621,7 +628,7 @@ imports:
 `)
 
 	loader := defaultLoader(t, rootPath)
-	cfg, err := loader.Load(rootPath)
+	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -663,7 +670,7 @@ imports:
 `)
 
 	loader := defaultLoader(t, rootPath)
-	cfg, err := loader.Load(rootPath)
+	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -706,7 +713,7 @@ imports:
 `)
 
 	loader := defaultLoader(t, rootPath)
-	cfg, err := loader.Load(rootPath)
+	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("non-matching masks must be no-ops: %v", err)
 	}
@@ -736,7 +743,7 @@ imports:
 `)
 
 	loader := defaultLoader(t, rootPath)
-	cfg, err := loader.Load(rootPath)
+	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -771,7 +778,7 @@ imports:
       - ./services/skip.yaml
 `)
 	loader := defaultLoader(t, rootPath)
-	if _, err := loader.Load(rootPath); err == nil || !strings.Contains(err.Error(), "does not match the addressing") {
+	if _, err := loader.Load(rootPath, boundaryFor(t, rootPath)); err == nil || !strings.Contains(err.Error(), "does not match the addressing") {
 		t.Fatalf("expected form-mismatch error for local exclude on module import, got %v", err)
 	}
 
@@ -783,7 +790,7 @@ imports:
       - example.com/testmod/services/skip.yaml
 `)
 	loader = defaultLoader(t, rootPath)
-	if _, err := loader.Load(rootPath); err == nil || !strings.Contains(err.Error(), "does not match the addressing") {
+	if _, err := loader.Load(rootPath, boundaryFor(t, rootPath)); err == nil || !strings.Contains(err.Error(), "does not match the addressing") {
 		t.Fatalf("expected form-mismatch error for module exclude on local import, got %v", err)
 	}
 }

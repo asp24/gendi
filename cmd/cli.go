@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	di "github.com/gendi-org/gendi"
-	"github.com/gendi-org/gendi/imprt"
 	"github.com/gendi-org/gendi/pipeline"
 	"github.com/gendi-org/gendi/srcloc"
 	"github.com/gendi-org/gendi/stdlib"
@@ -38,7 +37,7 @@ func Generate(cfg Config, passes []di.Pass) error {
 		return fmt.Errorf("config finalize: %w", err)
 	}
 
-	boundary, err := imprt.DefaultBoundary(cfg.ConfigPath)
+	boundary, err := yaml.DefaultBoundary(cfg.ConfigPath)
 	if err != nil {
 		return fmt.Errorf("derive load boundary: %w", err)
 	}

@@ -9,20 +9,22 @@ import (
 	yamllib "github.com/goccy/go-yaml"
 
 	di "github.com/gendi-org/gendi"
+	"github.com/gendi-org/gendi/imprt"
 	"github.com/gendi-org/gendi/srcloc"
 )
 
 // ImportResolver resolves one import entry — path plus its exclusion masks —
-// to config files, confining every result to its sandbox (see imprt.Resolver).
+// to addressed config candidates and their confinement boundaries.
 type ImportResolver interface {
 	// ResolveImport resolves an import path to config files, dropping the
 	// files matched by the exclusion masks before the sandbox check.
-	ResolveImport(baseDir, path string, excludes []string) ([]string, error)
+	ResolveImport(baseDir, path string, excludes []string) ([]imprt.Candidate, error)
 }
 
 // ConfigLoaderYaml loads YAML configuration files with import resolution.
 type ConfigLoaderYaml struct {
 	resolver ImportResolver
+	confiner Confiner
 	parser   *Parser
 }
 
@@ -37,22 +39,23 @@ type loadState struct {
 func NewConfigLoaderYaml(resolver ImportResolver, parser *Parser) *ConfigLoaderYaml {
 	return &ConfigLoaderYaml{
 		resolver: resolver,
+		confiner: Confiner{},
 		parser:   parser,
 	}
 }
 
-// Load loads a YAML config file with imports resolved. Confinement to the Go
-// module of each importing file is enforced by the resolver chain itself.
-func (l *ConfigLoaderYaml) Load(path string) (*di.Config, error) {
+// Load loads a YAML config file with imports resolved. Every config, including
+// the root, is confined immediately before it can be read.
+func (l *ConfigLoaderYaml) Load(path, boundary string) (*di.Config, error) {
 	state := &loadState{
 		inProgress: map[string]bool{},
 		cache:      map[string]*di.Config{},
 	}
-	return l.loadRecursive(path, state)
+	return l.loadRecursive(imprt.Candidate{Path: path, Boundary: boundary}, state)
 }
 
-func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Config, error) {
-	abs, err := filepath.Abs(path)
+func (l *ConfigLoaderYaml) loadRecursive(candidate imprt.Candidate, state *loadState) (*di.Config, error) {
+	abs, err := l.confiner.Confine(candidate.Boundary, candidate.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -87,13 +90,13 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 
 	baseDir := filepath.Dir(abs)
 	for _, imp := range raw.Imports {
-		impPaths, err := l.resolver.ResolveImport(baseDir, imp.Path, imp.Exclude)
+		candidates, err := l.resolver.ResolveImport(baseDir, imp.Path, imp.Exclude)
 		if err != nil {
 			return nil, fmt.Errorf("resolve import %q: %w", imp.Path, err)
 		}
 
-		for _, impPath := range impPaths {
-			child, err := l.loadRecursive(impPath, state)
+		for _, candidate := range candidates {
+			child, err := l.loadRecursive(candidate, state)
 			if err != nil {
 				return nil, err
 			}

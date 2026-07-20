@@ -63,9 +63,9 @@ The generator follows a multi-stage pipeline:
 
 1. **YAML Loading** (`yaml/` package)
    - Loads root YAML config with `yaml.LoadConfig(path, boundary)` — derive
-     the boundary with `imprt.DefaultBoundary(path)`
+     the boundary with `yaml.DefaultBoundary(path)`
    - Resolves imports in two phases: classify (local vs module) and resolve
-     (glob or literal), confined to the importing file's module
+     (glob or literal), then confines every candidate immediately before load
    - Merges imported configs (later imports override earlier ones)
    - Resolves `$this` tokens to current package paths
 
@@ -212,8 +212,10 @@ found and never touch the filesystem themselves:
 
 Every import entry goes through one fixed pipeline: classify (local directory
 or Go module) → compute the anchor and confinement boundary → find the files
-the import mask matches → drop the ones matched by exclusion masks → resolve
-symlinks → verify every remaining file is inside its boundary.
+the import mask matches → drop the ones matched by exclusion masks → return
+addressed candidates → immediately before each load, resolve symlinks and
+verify the candidate is inside its boundary. The root config goes through the
+same final confinement check.
 
 Imports are confined to the **Go module that contains the importing config
 file** (module imports — to the module they name). The module root is found
@@ -238,9 +240,10 @@ to the root config's own directory as the boundary.
   for the local path, or remove the local one to import from the module —
   neither side is ever picked silently.
 - **A file outside its boundary is a generation-time error.** After
-  exclusion masks are applied, the final file list is resolved through
-  symlinks (`EvalSymlinks` on both the boundary and each file) and checked
-  against the boundary — any file whose real path is outside is an error,
+  exclusion masks are applied, each remaining candidate is resolved through
+  symlinks immediately before loading (`EvalSymlinks` on both the boundary
+  and the file) and checked against the boundary — any file whose real path
+  is outside is an error,
   whether it got there via a `../` chain or a symlink. A symlink whose real
   target is inside the module works like a regular file; to keep an
   out-pointing symlink from failing a broad glob, exclude it (`exclude:
@@ -338,7 +341,7 @@ See `examples/custom-pass` for complete example.
 
 ### Reading Configuration
 ```go
-boundary, err := imprt.DefaultBoundary("gendi.yaml")
+boundary, err := yaml.DefaultBoundary("gendi.yaml")
 cfg, err := yaml.LoadConfig("gendi.yaml", boundary)
 cfg, err = di.ApplyPasses(cfg, passes)
 ```

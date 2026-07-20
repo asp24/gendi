@@ -44,11 +44,19 @@ func classify(pattern string) (kind, error) {
 	return kindLocal, nil
 }
 
-// Resolver resolves import entries to config files through one fixed
+// Candidate is a config file found by import resolution. Path preserves the
+// addressed spelling, while Boundary is the root within which the YAML loader
+// must confine the file before reading it.
+type Candidate struct {
+	Path     string
+	Boundary string
+}
+
+// Resolver resolves import entries to config file candidates through one fixed
 // pipeline: classify the import (local directory or Go module), compute its
-// anchor and confinement boundary, find the files the import mask matches,
-// drop the ones matched by the exclusion masks, resolve symlinks, and verify
-// every remaining file is inside its boundary — a file outside is an error.
+// anchor and confinement boundary, find the files the import mask matches, and
+// drop the ones matched by the exclusion masks. The YAML loader performs the
+// final confinement check immediately before loading each candidate.
 type Resolver struct {
 	// boundary is the absolute path outside which loading is forbidden when
 	// the importing file is not inside any Go module; within a module, that
@@ -86,17 +94,6 @@ func NewResolver(boundary string) (*Resolver, error) {
 		return nil, err
 	}
 	return &Resolver{boundary: abs, moduleDirs: map[string]moduleLookup{}}, nil
-}
-
-// DefaultBoundary derives the load boundary for a root config file: the root
-// of the Go module containing it, or the config's own directory when it is
-// not inside any module.
-func DefaultBoundary(configPath string) (string, error) {
-	abs, err := filepath.Abs(configPath)
-	if err != nil {
-		return "", err
-	}
-	return moduleRootOf(filepath.Dir(abs), filepath.Dir(abs)), nil
 }
 
 // target is an addressed import: what to resolve, against which directory,
@@ -155,15 +152,13 @@ func (r *Resolver) address(baseDir, pattern string) (target, error) {
 	}, nil
 }
 
-// ResolveImport resolves an import entry to config files, returned as
-// absolute paths as addressed (symlink spellings preserved, so the addressed
-// location anchors the file's own relative imports and $this) and
-// deduplicated by real identity. A literal path must name an existing file; a
-// glob that matches nothing resolves to no files. Files matched by any
-// exclusion mask are dropped before the sandbox check, so an unwanted match
-// (e.g. a symlink leaving the module) can be excluded explicitly; every file
-// that remains must have its real path inside the import's boundary.
-func (r *Resolver) ResolveImport(baseDir, importPath string, excludes []string) ([]string, error) {
+// ResolveImport resolves an import entry to config file candidates. Paths are
+// absolute and preserve their addressed spelling, so every symlink alias keeps
+// its own relative-import and $this context. A literal path must name an
+// existing file; a glob that matches nothing resolves to no files. Files
+// matched by any exclusion mask are dropped before candidates reach the YAML
+// loader and its sandbox check.
+func (r *Resolver) ResolveImport(baseDir, importPath string, excludes []string) ([]Candidate, error) {
 	// One invariant for the whole pipeline: baseDir is absolute past this
 	// point. Anchoring, module context, and the confinement boundary must all
 	// derive from the same directory, never from the process working
@@ -203,7 +198,14 @@ func (r *Resolver) ResolveImport(baseDir, importPath string, excludes []string) 
 		}
 	}
 
-	return confine(t.boundary, importPath, kept)
+	candidates := make([]Candidate, 0, len(kept))
+	for _, file := range kept {
+		candidates = append(candidates, Candidate{
+			Path:     file,
+			Boundary: t.boundary,
+		})
+	}
+	return candidates, nil
 }
 
 // excludeMasks converts exclusion patterns into slash masks relative to the
@@ -274,39 +276,4 @@ func (t target) notFoundError(full string) error {
 
 func isGlobPattern(pattern string) bool {
 	return strings.ContainsAny(pattern, "*?[")
-}
-
-// confine verifies that every path's real (symlink-free) location is inside
-// root, erroring on the first one outside. Resolving both sides means a
-// symlink cannot smuggle a file past the boundary and a boundary reached
-// through a symlink still contains its own files. Paths are returned as
-// spelled — the addressed location stays the anchor for a config's own
-// relative imports and $this — deduplicated by real identity, so two
-// spellings of the same file yield one entry. All paths exist at this point,
-// so resolution errors are propagated.
-func confine(root, pattern string, paths []string) ([]string, error) {
-	if len(paths) == 0 {
-		return paths, nil
-	}
-	realRoot, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return nil, fmt.Errorf("resolve boundary %q: %w", root, err)
-	}
-	kept := make([]string, 0, len(paths))
-	seen := make(map[string]bool, len(paths))
-	for _, p := range paths {
-		realPath, err := filepath.EvalSymlinks(p)
-		if err != nil {
-			return nil, fmt.Errorf("resolve %q: %w", p, err)
-		}
-		rel, err := filepath.Rel(realRoot, realPath)
-		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return nil, fmt.Errorf("%q resolves outside %q: %s", pattern, root, p)
-		}
-		if !seen[realPath] {
-			seen[realPath] = true
-			kept = append(kept, p)
-		}
-	}
-	return kept, nil
 }
