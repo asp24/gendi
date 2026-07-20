@@ -28,11 +28,6 @@ type ConfigLoaderYaml struct {
 	parser   *Parser
 }
 
-type loadState struct {
-	inProgress map[string]bool
-	cache      map[string]*di.Config
-}
-
 // NewConfigLoaderYaml creates a new YAML config loader with dependencies. A
 // loader is not safe for concurrent use — the underlying resolver memoizes
 // module lookups without locking; use one loader per goroutine.
@@ -47,34 +42,27 @@ func NewConfigLoaderYaml(resolver ImportResolver, parser *Parser) *ConfigLoaderY
 // Load loads a YAML config file with imports resolved. Every config, including
 // the root, is confined immediately before it can be read.
 func (l *ConfigLoaderYaml) Load(path, boundary string) (*di.Config, error) {
-	state := &loadState{
-		inProgress: map[string]bool{},
-		cache:      map[string]*di.Config{},
-	}
-	return l.loadRecursive(imprt.Candidate{Path: path, Boundary: boundary}, state)
+	return l.loadRecursive(imprt.Candidate{Path: path, Boundary: boundary}, map[string]bool{})
 }
 
-func (l *ConfigLoaderYaml) loadRecursive(candidate imprt.Candidate, state *loadState) (*di.Config, error) {
+func (l *ConfigLoaderYaml) loadRecursive(candidate imprt.Candidate, inProgress map[string]bool) (*di.Config, error) {
 	abs, err := l.confiner.Confine(candidate.Boundary, candidate.Path)
 	if err != nil {
 		return nil, err
 	}
-	// Identity is canonical: caching and cycle detection must see one entry
-	// per real file, whatever spelling reached it. Everything else — anchoring
-	// of nested imports, $this, error messages — stays on the spelled path. A
-	// file that cannot be resolved fails loudly at readFile below.
+	// Cycle identity is canonical: an active import reached through another
+	// spelling of the same real file is still a cycle. Loading and conversion
+	// stay on the addressed path so every occurrence gets its own relative
+	// import and $this context.
 	id := abs
 	if real, err := filepath.EvalSymlinks(abs); err == nil {
 		id = real
 	}
-	if cfg, ok := state.cache[id]; ok {
-		return cfg, nil
-	}
-	if state.inProgress[id] {
+	if inProgress[id] {
 		return nil, fmt.Errorf("cyclic import detected at %s", abs)
 	}
-	state.inProgress[id] = true
-	defer delete(state.inProgress, id)
+	inProgress[id] = true
+	defer delete(inProgress, id)
 
 	data, err := l.readFile(abs)
 	if err != nil {
@@ -96,7 +84,7 @@ func (l *ConfigLoaderYaml) loadRecursive(candidate imprt.Candidate, state *loadS
 		}
 
 		for _, candidate := range candidates {
-			child, err := l.loadRecursive(candidate, state)
+			child, err := l.loadRecursive(candidate, inProgress)
 			if err != nil {
 				return nil, err
 			}
@@ -109,9 +97,7 @@ func (l *ConfigLoaderYaml) loadRecursive(candidate imprt.Candidate, state *loadS
 		return nil, srcloc.AddContext(err, "convert %s", abs)
 	}
 
-	result := merged.MergeWith(cfg)
-	state.cache[id] = result
-	return result, nil
+	return merged.MergeWith(cfg), nil
 }
 
 // parseRaw parses YAML data into raw config (with imports).

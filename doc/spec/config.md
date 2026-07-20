@@ -45,7 +45,8 @@ Rules:
   error. Symlinks whose
   targets stay inside the module work normally; a config imported through a
   symlink anchors its own relative imports and `$this` at the symlink's
-  directory, while caching and cycle detection identify it by its real path
+  directory. Every import occurrence is loaded independently; cycle detection
+  alone identifies active imports by their real path
 
 Import exclusions:
 ```yaml

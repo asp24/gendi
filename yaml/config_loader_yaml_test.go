@@ -111,8 +111,8 @@ parameters:
 	if got, want := len(cfg.Parameters), 4; got != want {
 		t.Fatalf("expected %d parameters, got %d", want, got)
 	}
-	if readCount != 4 {
-		t.Fatalf("expected each file read once, got %d reads", readCount)
+	if readCount != 5 {
+		t.Fatalf("expected every import occurrence to be loaded, got %d reads", readCount)
 	}
 }
 

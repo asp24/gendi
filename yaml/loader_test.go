@@ -105,6 +105,45 @@ imports:
 	}
 }
 
+func TestLoadConfigLoadsEachSymlinkAliasInItsAddressedContext(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.com/app\n")
+	writeTestFile(t, filepath.Join(root, "template.yaml"), strings.TrimSpace(`
+imports:
+  - ./common.yaml
+services:
+  contextual:
+    type: $this.Service
+`))
+
+	for _, env := range []string{"dev", "prod"} {
+		dir := filepath.Join(root, "env", env)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", env, err)
+		}
+		writeTestFile(t, filepath.Join(dir, "common.yaml"), fmt.Sprintf("parameters: {%s: loaded}", env))
+		if err := os.Symlink(filepath.Join("..", "..", "template.yaml"), filepath.Join(dir, "gendi.yaml")); err != nil {
+			t.Fatalf("symlink %s: %v", env, err)
+		}
+	}
+
+	rootPath := filepath.Join(root, "gendi.yaml")
+	writeTestFile(t, rootPath, "imports: [./env/**/gendi.yaml]")
+
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	if err != nil {
+		t.Fatalf("load aliases: %v", err)
+	}
+	for _, name := range []string{"dev", "prod"} {
+		if _, ok := cfg.Parameters[name]; !ok {
+			t.Errorf("expected parameter from %s alias context", name)
+		}
+	}
+	if got := cfg.Services["contextual"].Type; got != "example.com/app/env/prod.Service" {
+		t.Fatalf("$this resolved to %q, want last alias context", got)
+	}
+}
+
 func TestLoadConfigRejectsRootSymlinkOutsideBoundaryBeforeRead(t *testing.T) {
 	outer := t.TempDir()
 	external := filepath.Join(outer, "external.yaml")
@@ -175,9 +214,9 @@ services:
 	}
 }
 
-// Cache and cycle detection key by real identity: a cycle reaching the root
-// config through a different spelling (here, the root loaded via a symlink)
-// is still detected instead of parsing the root twice.
+// Cycle detection keys by real identity: a cycle reaching the root config
+// through a different spelling (here, the root loaded via a symlink) is still
+// detected.
 func TestLoadConfigDetectsCycleThroughSymlinkedRoot(t *testing.T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "gendi.yaml"), strings.TrimSpace(`
