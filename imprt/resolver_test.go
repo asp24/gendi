@@ -660,8 +660,9 @@ func TestResolveImportSkipsDanglingSymlink(t *testing.T) {
 	}
 }
 
-// Module resolution is memoized per (baseDir, modulePath): resolving several
-// imports of the same module must not re-run `go list` per import.
+// Module resolution is memoized per (module root, modulePath): resolving
+// imports from different directories of the same module must not re-run
+// `go list` per import.
 func TestResolverMemoizesModuleResolution(t *testing.T) {
 	t.Parallel()
 
@@ -687,8 +688,16 @@ func TestResolverMemoizesModuleResolution(t *testing.T) {
 	if negatives == 0 {
 		t.Fatal("expected failed candidate lookups to be memoized")
 	}
-	if _, err := resolver.ResolveImport(baseDir, modulePath+"/configs/*.yaml", nil); err != nil {
+	cached := len(resolver.moduleDirs)
+	otherBaseDir := filepath.Join(moduleRoot, "other")
+	if err := os.MkdirAll(otherBaseDir, 0o755); err != nil {
+		t.Fatalf("failed to create second base dir: %v", err)
+	}
+	if _, err := resolver.ResolveImport(otherBaseDir, modulePath+"/configs/*.yaml", nil); err != nil {
 		t.Fatalf("second resolve failed: %v", err)
+	}
+	if len(resolver.moduleDirs) != cached {
+		t.Fatalf("module cache grew from %d to %d for another directory in the same module", cached, len(resolver.moduleDirs))
 	}
 }
 

@@ -55,7 +55,7 @@ type Resolver struct {
 	// remain confined to its own filesystem root while resolving modules in
 	// the project that consumes it.
 	moduleContext string
-	// moduleDirs memoizes module resolution per (module context, modulePath),
+	// moduleDirs memoizes module resolution per (module root, modulePath),
 	// failures included: each cold lookup can cost a `go list` subprocess,
 	// and an unresolvable candidate prefix would otherwise re-run it for
 	// every import entry sharing that prefix. Results depend only on the
@@ -106,21 +106,21 @@ func NewResolver(boundary, moduleContext string) (*Resolver, error) {
 // containing baseDir, or — when baseDir is outside any module — the module at
 // the resolver's module context. Without either, module imports are impossible
 // and the error asks for an explicit project root. Lookups are memoized in
-// moduleDirs per (context, modulePath), failures included. Returns
+// moduleDirs per (module root, modulePath), failures included. Returns
 // (moduleDir, modulePath, remainder, error) where:
 //   - moduleDir: absolute path to the module directory
 //   - modulePath: the import path of the found module
 //   - remainder: the path segment after the module path
 func (r *Resolver) findModule(baseDir, importPath string) (string, string, string, error) {
-	contextDir := baseDir
-	if _, _, found := gomod.FindModuleRoot(contextDir); !found {
+	contextDir, _, found := gomod.FindModuleRoot(baseDir)
+	if !found {
 		if r.moduleContext == "" {
 			return "", "", "", fmt.Errorf("module import %q requires a Go module: no go.mod found above %s and no module context was provided", importPath, baseDir)
 		}
-		if _, _, found := gomod.FindModuleRoot(r.moduleContext); !found {
+		contextDir, _, found = gomod.FindModuleRoot(r.moduleContext)
+		if !found {
 			return "", "", "", fmt.Errorf("module import %q requires a Go module: no go.mod found above %s or the module context %s", importPath, baseDir, r.moduleContext)
 		}
-		contextDir = r.moduleContext
 	}
 
 	locator := gomod.NewLocator(contextDir)
