@@ -64,6 +64,74 @@ func TestInvalidImports(t *testing.T) {
 	}
 }
 
+// A config imported through a symlink anchors its own relative imports (and
+// $this) at the symlink's directory — the addressed location — not at the
+// real file's directory. This is the overlay pattern: one template symlinked
+// into several env directories picks up each directory's local files.
+func TestLoadConfigSymlinkedImportAnchorsAtSpelledDir(t *testing.T) {
+	dir := t.TempDir()
+	for _, sub := range []string{"env", "envs"} {
+		if err := os.MkdirAll(filepath.Join(dir, sub), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+	}
+	writeTestFile(t, filepath.Join(dir, "envs", "prod.yaml"), strings.TrimSpace(`
+imports:
+  - ./common.yaml
+`))
+	writeTestFile(t, filepath.Join(dir, "envs", "common.yaml"), strings.TrimSpace(`
+parameters:
+  which: "envs"
+`))
+	writeTestFile(t, filepath.Join(dir, "env", "common.yaml"), strings.TrimSpace(`
+parameters:
+  which: "env"
+`))
+	if err := os.Symlink(filepath.Join("..", "envs", "prod.yaml"), filepath.Join(dir, "env", "gendi.yaml")); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	rootPath := filepath.Join(dir, "root.yaml")
+	writeTestFile(t, rootPath, strings.TrimSpace(`
+imports:
+  - ./env/gendi.yaml
+`))
+
+	cfg, err := LoadConfig(rootPath, boundaryFor(t, rootPath))
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if got := cfg.Parameters["which"].Value.String(); got != "env" {
+		t.Fatalf("symlinked config must anchor at the symlink's directory: which = %q, want %q", got, "env")
+	}
+}
+
+// Cache and cycle detection key by real identity: a cycle reaching the root
+// config through a different spelling (here, the root loaded via a symlink)
+// is still detected instead of parsing the root twice.
+func TestLoadConfigDetectsCycleThroughSymlinkedRoot(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "gendi.yaml"), strings.TrimSpace(`
+imports:
+  - ./child.yaml
+`))
+	writeTestFile(t, filepath.Join(dir, "child.yaml"), strings.TrimSpace(`
+imports:
+  - ./gendi.yaml
+`))
+	linkPath := filepath.Join(dir, "link.yaml")
+	if err := os.Symlink("gendi.yaml", linkPath); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	_, err := LoadConfig(linkPath, boundaryFor(t, linkPath))
+	if err == nil {
+		t.Fatal("expected cyclic import error")
+	}
+	if !strings.Contains(err.Error(), "cyclic import") || !strings.Contains(err.Error(), "gendi.yaml") {
+		t.Fatalf("cycle must be detected at the root config, got: %v", err)
+	}
+}
+
 // writeModuleImportsFixture populates root with a go.mod (module
 // example.com/app) and an imports/ tree used by the own-module import tests:
 // files inside the module are reachable through the module's own import path,

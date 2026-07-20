@@ -130,12 +130,14 @@ func (r *Resolver) address(baseDir, pattern string) (target, error) {
 	}, nil
 }
 
-// ResolveImport resolves an import entry to config files, returned as real
-// (symlink-free) absolute paths. A literal path must name an existing file; a
+// ResolveImport resolves an import entry to config files, returned as
+// absolute paths as addressed (symlink spellings preserved, so the addressed
+// location anchors the file's own relative imports and $this) and
+// deduplicated by real identity. A literal path must name an existing file; a
 // glob that matches nothing resolves to no files. Files matched by any
 // exclusion mask are dropped before the sandbox check, so an unwanted match
 // (e.g. a symlink leaving the module) can be excluded explicitly; every file
-// that remains must be inside the import's boundary.
+// that remains must have its real path inside the import's boundary.
 func (r *Resolver) ResolveImport(baseDir, importPath string, excludes []string) ([]string, error) {
 	t, err := r.address(baseDir, importPath)
 	if err != nil {
@@ -244,13 +246,14 @@ func isGlobPattern(pattern string) bool {
 	return strings.ContainsAny(pattern, "*?[")
 }
 
-// confine resolves every path to its real (symlink-free) absolute form and
-// returns the resolved list, erroring on the first path whose real location
-// is outside root. Resolving both sides means a symlink cannot smuggle a file
-// past the boundary, a boundary reached through a symlink still contains its
-// own files, and callers receive canonical paths — two spellings of the same
-// file collapse into one entry. All paths exist at this point, so resolution
-// errors are propagated.
+// confine verifies that every path's real (symlink-free) location is inside
+// root, erroring on the first one outside. Resolving both sides means a
+// symlink cannot smuggle a file past the boundary and a boundary reached
+// through a symlink still contains its own files. Paths are returned as
+// spelled — the addressed location stays the anchor for a config's own
+// relative imports and $this — deduplicated by real identity, so two
+// spellings of the same file yield one entry. All paths exist at this point,
+// so resolution errors are propagated.
 func confine(root, pattern string, paths []string) ([]string, error) {
 	if len(paths) == 0 {
 		return paths, nil
@@ -259,7 +262,7 @@ func confine(root, pattern string, paths []string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve boundary %q: %w", root, err)
 	}
-	resolved := make([]string, 0, len(paths))
+	kept := make([]string, 0, len(paths))
 	seen := make(map[string]bool, len(paths))
 	for _, p := range paths {
 		realPath, err := filepath.EvalSymlinks(p)
@@ -272,8 +275,8 @@ func confine(root, pattern string, paths []string) ([]string, error) {
 		}
 		if !seen[realPath] {
 			seen[realPath] = true
-			resolved = append(resolved, realPath)
+			kept = append(kept, p)
 		}
 	}
-	return resolved, nil
+	return kept, nil
 }

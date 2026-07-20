@@ -240,7 +240,11 @@ to the root config's own directory as the boundary.
   whether it got there via a `../` chain or a symlink. A symlink whose real
   target is inside the module works like a regular file; to keep an
   out-pointing symlink from failing a broad glob, exclude it (`exclude:
-  [./services/fixtures]`) — masks run before the check.
+  [./services/fixtures]`) — masks run before the check. Symlink resolution
+  is only for the boundary check and file identity (caching and cycle
+  detection see one entry per real file): a config imported through a
+  symlink keeps its addressed location, so its own relative imports and
+  `$this` anchor at the symlink's directory, not the target's.
 - **Cross-module references go through module-path imports.** Only
   `example.com/dep/...` imports may reach another module, and they are bounded
   by the `go.mod` graph. A dependency's own config is likewise confined to its

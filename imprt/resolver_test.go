@@ -685,10 +685,10 @@ func mustAbs(t *testing.T, path string) string {
 	return abs
 }
 
-// ResolveImport returns real absolute paths: an in-module symlink spelling is
-// resolved to its target, and two spellings of the same file collapse into
-// one entry — downstream identity (caching, cycle detection) is canonical.
-func TestResolveImportReturnsRealPaths(t *testing.T) {
+// ResolveImport returns paths as addressed: an in-module symlink spelling is
+// kept — it anchors the file's own relative imports and $this — while two
+// spellings of the same real file still collapse into one entry.
+func TestResolveImportKeepsSpelledPaths(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -699,25 +699,22 @@ func TestResolveImportReturnsRealPaths(t *testing.T) {
 		t.Fatalf("symlink: %v", err)
 	}
 	resolver := newTestResolver(t, root)
-	realApp, err := filepath.EvalSymlinks(app)
-	if err != nil {
-		t.Fatalf("eval: %v", err)
-	}
+	linkApp := filepath.Join(root, "services", "link", "app.yaml")
 
 	got, err := resolver.ResolveImport(root, "./services/link/app.yaml", nil)
 	if err != nil {
 		t.Fatalf("resolve through in-module symlink: %v", err)
 	}
-	if !reflect.DeepEqual(got, []string{realApp}) {
-		t.Fatalf("got %v, want real path %v", got, []string{realApp})
+	if !reflect.DeepEqual(got, []string{linkApp}) {
+		t.Fatalf("got %v, want spelled path %v", got, []string{linkApp})
 	}
 
 	got, err = resolver.ResolveImport(root, "./services/**/*.yaml", nil)
 	if err != nil {
 		t.Fatalf("resolve glob: %v", err)
 	}
-	if !reflect.DeepEqual(got, []string{realApp}) {
-		t.Fatalf("aliased spellings must collapse: got %v, want %v", got, []string{realApp})
+	if len(got) != 1 {
+		t.Fatalf("aliased spellings must collapse to one entry: got %v", got)
 	}
 }
 

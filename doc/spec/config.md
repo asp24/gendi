@@ -39,7 +39,9 @@ Rules:
   module the import names). Exclusion masks are applied first, then the final
   list is resolved through symlinks and checked against the boundary — any
   file whose real path is outside is a generation-time error. Symlinks whose
-  targets stay inside the module work normally
+  targets stay inside the module work normally; a config imported through a
+  symlink anchors its own relative imports and `$this` at the symlink's
+  directory, while caching and cycle detection identify it by its real path
 
 Import exclusions:
 ```yaml

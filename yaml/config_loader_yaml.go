@@ -54,14 +54,22 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 	if err != nil {
 		return nil, err
 	}
-	if cfg, ok := state.cache[abs]; ok {
+	// Identity is canonical: caching and cycle detection must see one entry
+	// per real file, whatever spelling reached it. Everything else — anchoring
+	// of nested imports, $this, error messages — stays on the spelled path. A
+	// file that cannot be resolved fails loudly at readFile below.
+	id := abs
+	if real, err := filepath.EvalSymlinks(abs); err == nil {
+		id = real
+	}
+	if cfg, ok := state.cache[id]; ok {
 		return cfg, nil
 	}
-	if state.inProgress[abs] {
+	if state.inProgress[id] {
 		return nil, fmt.Errorf("cyclic import detected at %s", abs)
 	}
-	state.inProgress[abs] = true
-	defer delete(state.inProgress, abs)
+	state.inProgress[id] = true
+	defer delete(state.inProgress, id)
 
 	data, err := l.readFile(abs)
 	if err != nil {
@@ -97,7 +105,7 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 	}
 
 	result := merged.MergeWith(cfg)
-	state.cache[abs] = result
+	state.cache[id] = result
 	return result, nil
 }
 
