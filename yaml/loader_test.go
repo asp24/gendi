@@ -428,6 +428,47 @@ func TestLoadConfigModuleImportIgnoresEscapingLocalShadow(t *testing.T) {
 	}
 }
 
+func TestLoadConfigNestedModuleRequiresModulePath(t *testing.T) {
+	root := t.TempDir()
+	tools := filepath.Join(root, "tools")
+	if err := os.MkdirAll(tools, 0o755); err != nil {
+		t.Fatalf("mkdir tools: %v", err)
+	}
+	writeTestFile(t, filepath.Join(root, "go.mod"), strings.TrimSpace(`
+module example.com/app
+
+go 1.24
+
+require example.com/tools v0.0.0
+
+replace example.com/tools => ./tools
+`))
+	writeTestFile(t, filepath.Join(tools, "go.mod"), strings.TrimSpace(`
+module example.com/tools
+
+go 1.24
+`))
+	writeTestFile(t, filepath.Join(tools, "gendi.yaml"), "parameters: {tool: loaded}")
+
+	localRoot := filepath.Join(root, "local.yaml")
+	writeTestFile(t, localRoot, "imports: [./tools/gendi.yaml]")
+	if _, err := LoadConfig(localRoot, boundaryFor(t, localRoot)); err == nil ||
+		!strings.Contains(err.Error(), "crosses Go module boundary") ||
+		!strings.Contains(err.Error(), "module-path import") {
+		t.Fatalf("expected local nested-module import to fail, got %v", err)
+	}
+
+	moduleRoot := filepath.Join(root, "module.yaml")
+	writeTestFile(t, moduleRoot, "imports: [example.com/tools/gendi.yaml]")
+	cfg, err := LoadConfig(moduleRoot, boundaryFor(t, moduleRoot))
+	if err != nil {
+		t.Fatalf("module-path import: %v", err)
+	}
+	if got := cfg.Parameters["tool"].Value.String(); got != "loaded" {
+		t.Fatalf("tool = %q, want loaded", got)
+	}
+}
+
 func TestLoadConfigExcludesImportedSymlinkBeforeConfinement(t *testing.T) {
 	outer := t.TempDir()
 	externalDir := filepath.Join(outer, "external")

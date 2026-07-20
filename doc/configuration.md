@@ -512,11 +512,12 @@ imports:
   module) as their boundary: after exclusions are applied, each candidate is
   resolved through symlinks and checked against the boundary — a file whose
   real path is outside is a generation-time error (exclude unwanted
-  symlinked matches to keep a broad glob loadable). Every import occurrence is
-  loaded independently and keeps its addressed path, so a config imported
-  through a symlink anchors its own relative imports and `$this` at the
-  symlink's directory. Cycle detection identifies only active imports by real
-  path
+  symlinked matches to keep a broad glob loadable). A candidate whose real
+  path belongs to a nested Go module is also rejected unless that module was
+  selected through a module-path import. Every import occurrence is loaded
+  independently and keeps its addressed path, so a config imported through a
+  symlink anchors its own relative imports and `$this` at the symlink's
+  directory. Cycle detection identifies only active imports by real path
 - Imports are merged depth-first in declaration order: each imported file's
   imports are merged before that file, and the importing file is merged after
   all of its imports

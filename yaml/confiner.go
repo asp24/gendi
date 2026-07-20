@@ -43,6 +43,38 @@ func (Confiner) Confine(boundary, path string) (string, error) {
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("config %q resolves outside boundary %q", absPath, absBoundary)
 	}
+
+	boundaryModuleRoot, boundaryModulePath, boundaryHasModule := gomod.FindModuleRoot(realBoundary)
+	configModuleRoot, configModulePath, configHasModule := gomod.FindModuleRoot(filepath.Dir(realPath))
+
+	switch {
+	case boundaryHasModule && !configHasModule:
+		return "", fmt.Errorf(
+			"config %q leaves Go module %s at %q",
+			absPath,
+			boundaryModulePath,
+			boundaryModuleRoot,
+		)
+	case !boundaryHasModule && configHasModule:
+		return "", fmt.Errorf(
+			"config %q enters Go module %s at %q from a non-module boundary; use a module-path import",
+			absPath,
+			configModulePath,
+			configModuleRoot,
+		)
+	case boundaryHasModule &&
+		configHasModule &&
+		filepath.Clean(boundaryModuleRoot) != filepath.Clean(configModuleRoot):
+		return "", fmt.Errorf(
+			"config %q crosses Go module boundary from %s at %q to %s at %q; use a module-path import",
+			absPath,
+			boundaryModulePath,
+			boundaryModuleRoot,
+			configModulePath,
+			configModuleRoot,
+		)
+	}
+
 	return absPath, nil
 }
 

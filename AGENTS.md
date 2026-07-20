@@ -253,8 +253,10 @@ to the root config's own directory as the boundary.
   target's.
 - **Cross-module references go through module-path imports.** Only
   `example.com/dep/...` imports may reach another module, and they are bounded
-  by the `go.mod` graph. A dependency's own config is likewise confined to its
-  own module — it cannot reach into the consumer's filesystem.
+  by the `go.mod` graph. A local candidate whose real path belongs to a nearer,
+  nested `go.mod` is rejected even when it remains physically inside the outer
+  module. A dependency's own config is likewise confined to its own module —
+  it cannot reach into the consumer's filesystem.
 - **Module resolution is CWD-independent.** A module is looked up in the
   module context of the importing file (the module containing it, else the
   module at the boundary) via its go.mod graph — including `replace`

@@ -78,6 +78,54 @@ func TestConfinerAllowsSymlinkedBoundary(t *testing.T) {
 	}
 }
 
+func TestConfinerRejectsNestedModule(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.com/app\n")
+	nested := filepath.Join(root, "tools")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatalf("mkdir nested module: %v", err)
+	}
+	writeTestFile(t, filepath.Join(nested, "go.mod"), "module example.com/tools\n")
+	config := filepath.Join(nested, "gendi.yaml")
+	writeTestFile(t, config, "parameters: {tool: loaded}")
+
+	alias := filepath.Join(root, "tool.yaml")
+	if err := os.Symlink(config, alias); err != nil {
+		t.Fatalf("symlink nested config: %v", err)
+	}
+
+	for _, path := range []string{config, alias} {
+		_, err := (Confiner{}).Confine(root, path)
+		if err == nil ||
+			!strings.Contains(err.Error(), "crosses Go module boundary") ||
+			!strings.Contains(err.Error(), "module-path import") {
+			t.Fatalf("Confine(%q): expected module-boundary error, got %v", path, err)
+		}
+	}
+}
+
+func TestConfinerRejectsEnteringModuleFromFallbackBoundary(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	nested := filepath.Join(root, "tools")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatalf("mkdir nested module: %v", err)
+	}
+	writeTestFile(t, filepath.Join(nested, "go.mod"), "module example.com/tools\n")
+	config := filepath.Join(nested, "gendi.yaml")
+	writeTestFile(t, config, "parameters: {tool: loaded}")
+
+	_, err := (Confiner{}).Confine(root, config)
+	if err == nil ||
+		!strings.Contains(err.Error(), "from a non-module boundary") ||
+		!strings.Contains(err.Error(), "module-path import") {
+		t.Fatalf("expected module-entry error, got %v", err)
+	}
+}
+
 func TestConfinerRejectsEmptyBoundary(t *testing.T) {
 	t.Parallel()
 

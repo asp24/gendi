@@ -42,11 +42,12 @@ Rules:
   import names) as their boundary. Exclusion masks are applied first, then
   every remaining candidate is resolved through symlinks and checked against
   its boundary — any file whose real path is outside is a generation-time
-  error. Symlinks whose
-  targets stay inside the module work normally; a config imported through a
-  symlink anchors its own relative imports and `$this` at the symlink's
-  directory. Every import occurrence is loaded independently; cycle detection
-  alone identifies active imports by their real path
+  error. A candidate whose real path belongs to a nested Go module is likewise
+  rejected unless that module was selected by a module-path import. Symlinks
+  whose targets stay inside the module work normally; a config imported
+  through a symlink anchors its own relative imports and `$this` at the
+  symlink's directory. Every import occurrence is loaded independently; cycle
+  detection alone identifies active imports by their real path
 
 Import exclusions:
 ```yaml
