@@ -62,7 +62,7 @@ func writeFile(t *testing.T, dir, name, contents string) string {
 	return path
 }
 
-func TestLoadAllowsDiamondImports(t *testing.T) {
+func TestLoadDeduplicatesDiamondImports(t *testing.T) {
 	dir := t.TempDir()
 
 	rootPath := writeFile(t, dir, "root.yaml", `
@@ -112,8 +112,57 @@ parameters:
 	if got, want := len(cfg.Parameters), 4; got != want {
 		t.Fatalf("expected %d parameters, got %d", want, got)
 	}
-	if readCount != 5 {
-		t.Fatalf("expected every import occurrence to be loaded, got %d reads", readCount)
+	// d is reached through both b and c but resolves to one addressed path, so
+	// it is loaded once: root, b, c, d — not d twice. A shared base reached
+	// through many paths therefore costs one load, not one per path.
+	if readCount != 4 {
+		t.Fatalf("expected the shared import to be loaded once (4 reads), got %d", readCount)
+	}
+}
+
+// Deduplication is keyed by the addressed path, so two symlink aliases of the
+// same real file are still loaded independently — each keeps its own directory
+// context for relative imports and $this.
+func TestLoadDoesNotDeduplicateSymlinkAliases(t *testing.T) {
+	dir := t.TempDir()
+
+	realPath := writeFile(t, dir, "d.yaml", `
+parameters:
+  d: "D"
+`)
+	aliasPath := filepath.Join(dir, "d_alias.yaml")
+	if err := os.Symlink(realPath, aliasPath); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+
+	rootPath := writeFile(t, dir, "root.yaml", `
+imports:
+  - path: d
+  - path: d_alias
+`)
+
+	loader := NewConfigLoaderYaml(stubResolver{
+		paths: map[string][]string{
+			"d":       {realPath},
+			"d_alias": {aliasPath},
+		},
+	}, NewParser())
+
+	readCount := 0
+	origRead := defaultOsReadFile
+	defaultOsReadFile = func(path string) ([]byte, error) {
+		readCount++
+		return os.ReadFile(path)
+	}
+	defer func() { defaultOsReadFile = origRead }()
+
+	if _, err := loader.Load(rootPath, boundaryFor(t, rootPath)); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	// root, d (real spelling), d_alias (symlink spelling): the two spellings of
+	// the same real file are distinct addressed paths and both load.
+	if readCount != 3 {
+		t.Fatalf("expected distinct symlink spellings to load independently (3 reads), got %d", readCount)
 	}
 }
 

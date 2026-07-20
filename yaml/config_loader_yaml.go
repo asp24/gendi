@@ -39,27 +39,49 @@ func NewConfigLoaderYaml(resolver ImportResolver, parser *Parser) *ConfigLoaderY
 	}
 }
 
+// loadState carries the per-Load bookkeeping shared across the recursion: the
+// imports currently on the stack (for cycle detection, keyed by canonical real
+// path) and the configs already loaded (so a diamond reaches each once, keyed
+// by addressed path).
+type loadState struct {
+	inProgress map[string]bool
+	cache      map[string]*di.Config
+}
+
 // Load loads a YAML config file with imports resolved. Every config, including
 // the root, is confined immediately before it can be read.
 func (l *ConfigLoaderYaml) Load(path, boundary string) (*di.Config, error) {
-	return l.loadRecursive(imprt.Candidate{Path: path, Boundary: boundary}, map[string]bool{})
+	state := &loadState{
+		inProgress: map[string]bool{},
+		cache:      map[string]*di.Config{},
+	}
+	return l.loadRecursive(imprt.Candidate{Path: path, Boundary: boundary}, state)
 }
 
-func (l *ConfigLoaderYaml) loadRecursive(candidate imprt.Candidate, inProgress map[string]bool) (*di.Config, error) {
+func (l *ConfigLoaderYaml) loadRecursive(candidate imprt.Candidate, state *loadState) (*di.Config, error) {
 	abs, id, err := l.confiner.Confine(candidate.Boundary, candidate.Path)
 	if err != nil {
 		return nil, err
+	}
+	// A config already loaded through this same addressed spelling is reused:
+	// its merged result is a pure function of that path — the path fixes $this
+	// and the directory its own imports resolve against — so a diamond that
+	// reaches it again need not re-read, re-parse and re-merge it. Keyed by the
+	// addressed path, not the real path, so distinct symlink aliases still load
+	// independently and keep their own $this context.
+	if cfg, ok := state.cache[abs]; ok {
+		return cfg, nil
 	}
 	// Cycle identity is canonical: an active import reached through another
 	// spelling of the same real file is still a cycle. Confine returns id as
 	// the symlink-resolved real path; loading and conversion stay on the
 	// addressed path so every occurrence gets its own relative import and
 	// $this context.
-	if inProgress[id] {
+	if state.inProgress[id] {
 		return nil, fmt.Errorf("cyclic import detected at %s", abs)
 	}
-	inProgress[id] = true
-	defer delete(inProgress, id)
+	state.inProgress[id] = true
+	defer delete(state.inProgress, id)
 
 	data, err := l.readFile(abs)
 	if err != nil {
@@ -81,7 +103,7 @@ func (l *ConfigLoaderYaml) loadRecursive(candidate imprt.Candidate, inProgress m
 		}
 
 		for _, candidate := range candidates {
-			child, err := l.loadRecursive(candidate, inProgress)
+			child, err := l.loadRecursive(candidate, state)
 			if err != nil {
 				return nil, err
 			}
@@ -94,7 +116,9 @@ func (l *ConfigLoaderYaml) loadRecursive(candidate imprt.Candidate, inProgress m
 		return nil, srcloc.AddContext(err, "convert %s", abs)
 	}
 
-	return merged.MergeWith(cfg), nil
+	result := merged.MergeWith(cfg)
+	state.cache[abs] = result
+	return result, nil
 }
 
 // parseRaw parses YAML data into raw config (with imports).
