@@ -47,7 +47,7 @@ func moduleRootOf(dir, boundary string) string {
 // does not exist — yields no results without error; only a malformed pattern
 // is an error.
 func globMatches(root, pattern string) ([]string, error) {
-	base, glob := doublestar.SplitPattern(path.Clean(pattern))
+	base, glob := doublestar.SplitPattern(path.Clean(filepath.ToSlash(pattern)))
 	dir := filepath.Join(root, filepath.FromSlash(base))
 	matches, err := doublestar.Glob(os.DirFS(dir), glob)
 	if err != nil {

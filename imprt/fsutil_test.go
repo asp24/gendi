@@ -61,3 +61,23 @@ func TestGlobMatchesMetacharInRoot(t *testing.T) {
 		t.Fatalf("expected files %v, got %v", want, files)
 	}
 }
+
+// Native path separators in a glob are normalized before doublestar parses
+// the pattern. In particular, Windows separators must not be read as escapes.
+func TestGlobMatchesNativeSeparators(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "services", "a.yaml"), "a")
+	writeFile(t, filepath.Join(root, "services", "nested", "b.yaml"), "b")
+
+	files, err := globMatches(root, filepath.Join("services", "**", "*.yaml"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{
+		mustAbs(t, filepath.Join(root, "services", "a.yaml")),
+		mustAbs(t, filepath.Join(root, "services", "nested", "b.yaml")),
+	}
+	if len(files) != 2 || files[0] != want[0] || files[1] != want[1] {
+		t.Fatalf("expected files %v, got %v", want, files)
+	}
+}
