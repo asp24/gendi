@@ -22,7 +22,7 @@ func TestConfinerPreservesAddressedPathInsideBoundary(t *testing.T) {
 	}
 	addressed := filepath.Join(linkDir, "config.yaml")
 
-	got, err := (Confiner{}).Confine(root, addressed)
+	got, _, err := NewConfiner().Confine(root, addressed)
 	if err != nil {
 		t.Fatalf("confine: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestConfinerRejectsPathsOutsideBoundary(t *testing.T) {
 	}
 
 	for _, path := range []string{secret, link} {
-		if _, err := (Confiner{}).Confine(root, path); err == nil || !strings.Contains(err.Error(), "outside boundary") {
+		if _, _, err := NewConfiner().Confine(root, path); err == nil || !strings.Contains(err.Error(), "outside boundary") {
 			t.Fatalf("Confine(%q): expected outside-boundary error, got %v", path, err)
 		}
 	}
@@ -69,7 +69,7 @@ func TestConfinerAllowsSymlinkedBoundary(t *testing.T) {
 	}
 
 	addressed := filepath.Join(linkedRoot, "config.yaml")
-	got, err := (Confiner{}).Confine(linkedRoot, addressed)
+	got, _, err := NewConfiner().Confine(linkedRoot, addressed)
 	if err != nil {
 		t.Fatalf("confine through symlinked boundary: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestConfinerRejectsNestedModule(t *testing.T) {
 	}
 
 	for _, path := range []string{config, alias} {
-		_, err := (Confiner{}).Confine(root, path)
+		_, _, err := NewConfiner().Confine(root, path)
 		if err == nil ||
 			!strings.Contains(err.Error(), "crosses Go module boundary") ||
 			!strings.Contains(err.Error(), "module-path import") {
@@ -118,7 +118,7 @@ func TestConfinerRejectsEnteringModuleFromFallbackBoundary(t *testing.T) {
 	config := filepath.Join(nested, "gendi.yaml")
 	writeTestFile(t, config, "parameters: {tool: loaded}")
 
-	_, err := (Confiner{}).Confine(root, config)
+	_, _, err := NewConfiner().Confine(root, config)
 	if err == nil ||
 		!strings.Contains(err.Error(), "from a non-module boundary") ||
 		!strings.Contains(err.Error(), "module-path import") {
@@ -129,7 +129,7 @@ func TestConfinerRejectsEnteringModuleFromFallbackBoundary(t *testing.T) {
 func TestConfinerRejectsEmptyBoundary(t *testing.T) {
 	t.Parallel()
 
-	if _, err := (Confiner{}).Confine("", "config.yaml"); err == nil || !strings.Contains(err.Error(), "boundary") {
+	if _, _, err := NewConfiner().Confine("", "config.yaml"); err == nil || !strings.Contains(err.Error(), "boundary") {
 		t.Fatalf("expected empty-boundary error, got %v", err)
 	}
 }

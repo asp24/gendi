@@ -24,7 +24,7 @@ type ImportResolver interface {
 // ConfigLoaderYaml loads YAML configuration files with import resolution.
 type ConfigLoaderYaml struct {
 	resolver ImportResolver
-	confiner Confiner
+	confiner *Confiner
 	parser   *Parser
 }
 
@@ -34,7 +34,7 @@ type ConfigLoaderYaml struct {
 func NewConfigLoaderYaml(resolver ImportResolver, parser *Parser) *ConfigLoaderYaml {
 	return &ConfigLoaderYaml{
 		resolver: resolver,
-		confiner: Confiner{},
+		confiner: NewConfiner(),
 		parser:   parser,
 	}
 }
@@ -46,18 +46,15 @@ func (l *ConfigLoaderYaml) Load(path, boundary string) (*di.Config, error) {
 }
 
 func (l *ConfigLoaderYaml) loadRecursive(candidate imprt.Candidate, inProgress map[string]bool) (*di.Config, error) {
-	abs, err := l.confiner.Confine(candidate.Boundary, candidate.Path)
+	abs, id, err := l.confiner.Confine(candidate.Boundary, candidate.Path)
 	if err != nil {
 		return nil, err
 	}
 	// Cycle identity is canonical: an active import reached through another
-	// spelling of the same real file is still a cycle. Loading and conversion
-	// stay on the addressed path so every occurrence gets its own relative
-	// import and $this context.
-	id := abs
-	if real, err := filepath.EvalSymlinks(abs); err == nil {
-		id = real
-	}
+	// spelling of the same real file is still a cycle. Confine returns id as
+	// the symlink-resolved real path; loading and conversion stay on the
+	// addressed path so every occurrence gets its own relative import and
+	// $this context.
 	if inProgress[id] {
 		return nil, fmt.Errorf("cyclic import detected at %s", abs)
 	}
