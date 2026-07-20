@@ -129,24 +129,21 @@ func (r *Resolver) address(baseDir, pattern string) (target, error) {
 
 	moduleDir, modulePath, remainder, err := r.findModule(baseDir, pattern)
 	if err != nil {
-		return target{}, fmt.Errorf("%w (for a local directory use %q)", err, "./"+pattern)
+		// Only suggest the local spelling when it would actually resolve —
+		// otherwise the hint sends the user chasing a path that does not
+		// exist, on top of an unrelated failure (no go.mod, typo'd module).
+		if localMatch(baseDir, pattern) {
+			return target{}, fmt.Errorf("%w (for a local directory use %q)", err, "./"+pattern)
+		}
+		return target{}, err
 	}
 	if remainder == "" {
 		return target{}, fmt.Errorf("module import %q must reference a file, e.g. %s/gendi.yaml", pattern, modulePath)
 	}
 	// A module-shaped spelling that also matches something relative to the
 	// importing file is ambiguous: picking either side would silently shadow
-	// the other. The probe is best-effort — the authoritative errors come
-	// from the resolution itself.
-	local := false
-	if isGlobPattern(pattern) {
-		if files, err := globMatches(baseDir, pattern); err == nil && len(files) > 0 {
-			local = true
-		}
-	} else {
-		local = fileExists(filepath.Join(baseDir, pattern))
-	}
-	if local {
+	// the other.
+	if localMatch(baseDir, pattern) {
 		return target{}, fmt.Errorf("import %q is ambiguous: it resolves in module %s but the same spelling exists locally — use %q for the local path, or remove the local one to import from the module", pattern, modulePath, "./"+pattern)
 	}
 	return target{

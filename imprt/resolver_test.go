@@ -262,6 +262,25 @@ func TestResolveImportDottedSegmentIsModule(t *testing.T) {
 	}
 }
 
+// A genuinely module-shaped import that fails to resolve and has no local
+// counterpart must not carry the "./" hint — it would send the user chasing
+// a path that does not exist, on top of the real failure.
+func TestResolveImportModuleErrorNoLocalHint(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/app\n")
+	resolver := newTestResolver(t, root)
+
+	_, err := resolver.ResolveImport(root, "example.com/absent/config.yaml", nil)
+	if err == nil {
+		t.Fatal("expected error for an unresolvable module import")
+	}
+	if strings.Contains(err.Error(), "for a local directory") {
+		t.Fatalf("no local path exists, so the ./ hint must be omitted, got: %v", err)
+	}
+}
+
 // A single-segment pattern can never be a valid module import (a module
 // import must name a file inside the module), so a bare dotted filename like
 // base.yaml resolves locally — the master spelling keeps working.

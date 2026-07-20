@@ -21,6 +21,18 @@ func fileExists(path string) bool {
 	return !info.IsDir()
 }
 
+// localMatch reports whether pattern names an existing file (or, for a glob,
+// at least one match) relative to baseDir — the signal that a module-shaped
+// spelling was really meant as a local path. Best-effort: a malformed glob
+// is treated as no match, deferring the authoritative error to resolution.
+func localMatch(baseDir, pattern string) bool {
+	if isGlobPattern(pattern) {
+		files, err := globMatches(baseDir, pattern)
+		return err == nil && len(files) > 0
+	}
+	return fileExists(filepath.Join(baseDir, pattern))
+}
+
 // findModule locates a Go module by iterating through import path segments,
 // resolving within the module context of the importing file: the module
 // containing baseDir, or — when baseDir is outside any module — the module at
