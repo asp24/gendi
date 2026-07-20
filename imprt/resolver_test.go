@@ -718,6 +718,34 @@ func TestResolveImportKeepsSpelledPaths(t *testing.T) {
 	}
 }
 
+// A relative baseDir confines exactly like its absolute spelling: the
+// boundary is the module root of the importing directory, not the resolver's
+// wider fallback. No t.Parallel — t.Chdir forbids it.
+func TestResolveImportRelativeBaseDir(t *testing.T) {
+	outer := t.TempDir()
+	writeFile(t, filepath.Join(outer, "secret.yaml"), "secret: leaked")
+	moduleRoot := filepath.Join(outer, "module")
+	writeFile(t, filepath.Join(moduleRoot, "go.mod"), "module example.com/app\n")
+	sub := filepath.Join(moduleRoot, "sub")
+	app := filepath.Join(sub, "app.yaml")
+	writeFile(t, app, "x: 1")
+	resolver := newTestResolver(t, outer)
+
+	t.Chdir(sub)
+
+	got, err := resolver.ResolveImport(".", "./app.yaml", nil)
+	if err != nil {
+		t.Fatalf("relative baseDir must resolve local files: %v", err)
+	}
+	if !reflect.DeepEqual(got, []string{mustAbs(t, app)}) {
+		t.Fatalf("got %v, want %v", got, []string{app})
+	}
+
+	if _, err := resolver.ResolveImport(".", "../../secret.yaml", nil); err == nil {
+		t.Fatal("relative baseDir must not widen the confinement boundary past the module root")
+	}
+}
+
 // Module resolution is a pure function of the importing file's module context
 // and its go.mod graph — never of the process working directory. A module
 // absent from the graph must not resolve just because the process happens to

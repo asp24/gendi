@@ -54,8 +54,14 @@ func (l *Locator) findModuleDirViaGoList(modulePath string) (string, error) {
 }
 
 // FindModuleRoot searches upward from startDir to find a go.mod file.
-// Returns the directory containing go.mod, the module path, and whether it was found.
+// Returns the directory containing go.mod, the module path, and whether it
+// was found. A relative startDir is resolved against the process working
+// directory first — an upward walk on the relative spelling would stop at
+// the working directory instead of climbing its ancestors.
 func FindModuleRoot(startDir string) (dir string, modulePath string, found bool) {
+	if abs, err := filepath.Abs(startDir); err == nil {
+		startDir = abs
+	}
 	dir = startDir
 	for {
 		modFile := filepath.Join(dir, "go.mod")

@@ -32,7 +32,7 @@ func fileExists(path string) bool {
 //   - modulePath: the import path of the found module
 //   - remainder: the path segment after the module path
 func (r *Resolver) findModule(baseDir, importPath string) (string, string, string, error) {
-	contextDir := pathToAbs(baseDir)
+	contextDir := baseDir
 	if _, _, found := gomod.FindModuleRoot(contextDir); !found {
 		if _, _, found := gomod.FindModuleRoot(r.boundary); !found {
 			return "", "", "", fmt.Errorf("module import %q requires a Go module: no go.mod found above %s or the boundary %s — point the boundary at the project's module root", importPath, baseDir, r.boundary)

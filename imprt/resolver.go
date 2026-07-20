@@ -108,7 +108,7 @@ func (r *Resolver) address(baseDir, pattern string) (target, error) {
 	if k == kindLocal {
 		return target{
 			kind:      kindLocal,
-			anchorDir: pathToAbs(baseDir),
+			anchorDir: baseDir,
 			boundary:  moduleRootOf(baseDir, r.boundary),
 			pattern:   pattern,
 		}, nil
@@ -139,6 +139,11 @@ func (r *Resolver) address(baseDir, pattern string) (target, error) {
 // (e.g. a symlink leaving the module) can be excluded explicitly; every file
 // that remains must have its real path inside the import's boundary.
 func (r *Resolver) ResolveImport(baseDir, importPath string, excludes []string) ([]string, error) {
+	// One invariant for the whole pipeline: baseDir is absolute past this
+	// point. Anchoring, module context, and the confinement boundary must all
+	// derive from the same directory, never from the process working
+	// directory.
+	baseDir = pathToAbs(baseDir)
 	t, err := r.address(baseDir, importPath)
 	if err != nil {
 		return nil, err
