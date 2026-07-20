@@ -71,7 +71,7 @@ func globMatches(root, pattern string) ([]string, error) {
 }
 
 func isGlobPattern(pattern string) bool {
-	return strings.ContainsAny(pattern, "*?[")
+	return strings.ContainsAny(pattern, "*?[{")
 }
 
 // localMatch reports whether pattern names an existing file (or, for a glob,

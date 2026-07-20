@@ -121,6 +121,29 @@ func TestResolveImportLocalGlob(t *testing.T) {
 	}
 }
 
+func TestResolveImportLocalBraceGlob(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	resolver := newTestResolver(t, tempDir)
+
+	writeFile(t, filepath.Join(tempDir, "dev.yaml"), "dev")
+	writeFile(t, filepath.Join(tempDir, "prod.yaml"), "prod")
+	writeFile(t, filepath.Join(tempDir, "test.yaml"), "test")
+
+	result, err := resolver.ResolveImport(tempDir, "./{dev,prod}.yaml", nil)
+	if err != nil {
+		t.Fatalf("resolve brace glob failed: %v", err)
+	}
+	expected := []string{
+		mustAbs(t, filepath.Join(tempDir, "dev.yaml")),
+		mustAbs(t, filepath.Join(tempDir, "prod.yaml")),
+	}
+	if !reflect.DeepEqual(candidatePaths(result), expected) {
+		t.Fatalf("expected %v, got %v", expected, result)
+	}
+}
+
 // Glob metacharacters in the checkout path (the anchor directory) are literal
 // path bytes, never pattern syntax.
 func TestResolveImportGlobMetacharAnchor(t *testing.T) {

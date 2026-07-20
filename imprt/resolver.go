@@ -106,8 +106,8 @@ func (r *Resolver) findModule(baseDir, importPath string) (string, string, strin
 	parts := strings.Split(importPath, "/")
 	for i := len(parts); i >= 1; i-- {
 		candidate := strings.Join(parts[:i], "/")
-		// Skip if candidate contains glob characters
-		if strings.ContainsAny(candidate, "*?[") {
+		// Skip if candidate contains glob characters.
+		if isGlobPattern(candidate) {
 			continue
 		}
 		key := contextDir + "\x00" + candidate
