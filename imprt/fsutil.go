@@ -21,62 +21,6 @@ func fileExists(path string) bool {
 	return !info.IsDir()
 }
 
-// localMatch reports whether pattern names an existing file (or, for a glob,
-// at least one match) relative to baseDir — the signal that a module-shaped
-// spelling was really meant as a local path. Best-effort: a malformed glob
-// is treated as no match, deferring the authoritative error to resolution.
-func localMatch(baseDir, pattern string) bool {
-	if isGlobPattern(pattern) {
-		files, err := globMatches(baseDir, pattern)
-		return err == nil && len(files) > 0
-	}
-	return fileExists(filepath.Join(baseDir, pattern))
-}
-
-// findModule locates a Go module by iterating through import path segments,
-// resolving within the module context of the importing file: the module
-// containing baseDir, or — when baseDir is outside any module — the module at
-// the resolver's boundary. Without either, module imports are impossible and
-// the error asks for an explicit project root. Lookups are memoized in
-// moduleDirs per (context, modulePath), failures included. Returns
-// (moduleDir, modulePath, remainder, error) where:
-//   - moduleDir: absolute path to the module directory
-//   - modulePath: the import path of the found module
-//   - remainder: the path segment after the module path
-func (r *Resolver) findModule(baseDir, importPath string) (string, string, string, error) {
-	contextDir := baseDir
-	if _, _, found := gomod.FindModuleRoot(contextDir); !found {
-		if _, _, found := gomod.FindModuleRoot(r.boundary); !found {
-			return "", "", "", fmt.Errorf("module import %q requires a Go module: no go.mod found above %s or the boundary %s — point the boundary at the project's module root", importPath, baseDir, r.boundary)
-		}
-		contextDir = r.boundary
-	}
-
-	locator := gomod.NewLocator(contextDir)
-	parts := strings.Split(importPath, "/")
-	for i := len(parts); i >= 1; i-- {
-		candidate := strings.Join(parts[:i], "/")
-		// Skip if candidate contains glob characters
-		if strings.ContainsAny(candidate, "*?[") {
-			continue
-		}
-		key := contextDir + "\x00" + candidate
-		lookup, cached := r.moduleDirs[key]
-		if !cached {
-			dir, err := locator.FindModuleDir(candidate)
-			lookup = moduleLookup{dir: dir, ok: err == nil}
-			r.moduleDirs[key] = lookup
-		}
-		if !lookup.ok {
-			continue
-		}
-		remainder := strings.Join(parts[i:], "/")
-		return lookup.dir, candidate, remainder, nil
-	}
-
-	return "", "", "", fmt.Errorf("module %s not found", importPath)
-}
-
 func pathToAbs(path string) string {
 	abs, err := filepath.Abs(path)
 	if err == nil {
@@ -124,4 +68,20 @@ func globMatches(root, pattern string) ([]string, error) {
 	}
 	sort.Strings(files)
 	return files, nil
+}
+
+func isGlobPattern(pattern string) bool {
+	return strings.ContainsAny(pattern, "*?[")
+}
+
+// localMatch reports whether pattern names an existing file (or, for a glob,
+// at least one match) relative to baseDir — the signal that a module-shaped
+// spelling was really meant as a local path. Best-effort: a malformed glob
+// is treated as no match, deferring the authoritative error to resolution.
+func localMatch(baseDir, pattern string) bool {
+	if isGlobPattern(pattern) {
+		files, err := globMatches(baseDir, pattern)
+		return err == nil && len(files) > 0
+	}
+	return fileExists(filepath.Join(baseDir, pattern))
 }
