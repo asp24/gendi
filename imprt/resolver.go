@@ -71,6 +71,14 @@ type moduleLookup struct {
 	ok  bool
 }
 
+// findResult describes a resolved module and the part of the import path that
+// remains relative to its directory.
+type findResult struct {
+	moduleDir  string
+	modulePath string
+	remainder  string
+}
+
 // NewResolver creates a Resolver whose out-of-module confinement boundary is
 // boundary. moduleContext supplies the go.mod graph used for module imports
 // from configs outside any Go module; it may be empty when those configs use
@@ -106,20 +114,16 @@ func NewResolver(boundary, moduleContext string) (*Resolver, error) {
 // containing baseDir, or — when baseDir is outside any module — the module at
 // the resolver's module context. Without either, module imports are impossible
 // and the error asks for an explicit project root. Lookups are memoized in
-// moduleDirs per (module root, modulePath), failures included. Returns
-// (moduleDir, modulePath, remainder, error) where:
-//   - moduleDir: absolute path to the module directory
-//   - modulePath: the import path of the found module
-//   - remainder: the path segment after the module path
-func (r *Resolver) findModule(baseDir, importPath string) (string, string, string, error) {
+// moduleDirs per (module root, modulePath), failures included.
+func (r *Resolver) findModule(baseDir, importPath string) (findResult, error) {
 	contextDir, _, found := gomod.FindModuleRoot(baseDir)
 	if !found {
 		if r.moduleContext == "" {
-			return "", "", "", fmt.Errorf("module import %q requires a Go module: no go.mod found above %s and no module context was provided", importPath, baseDir)
+			return findResult{}, fmt.Errorf("module import %q requires a Go module: no go.mod found above %s and no module context was provided", importPath, baseDir)
 		}
 		contextDir, _, found = gomod.FindModuleRoot(r.moduleContext)
 		if !found {
-			return "", "", "", fmt.Errorf("module import %q requires a Go module: no go.mod found above %s or the module context %s", importPath, baseDir, r.moduleContext)
+			return findResult{}, fmt.Errorf("module import %q requires a Go module: no go.mod found above %s or the module context %s", importPath, baseDir, r.moduleContext)
 		}
 	}
 
@@ -141,11 +145,14 @@ func (r *Resolver) findModule(baseDir, importPath string) (string, string, strin
 		if !lookup.ok {
 			continue
 		}
-		remainder := strings.Join(parts[i:], "/")
-		return lookup.dir, candidate, remainder, nil
+		return findResult{
+			moduleDir:  lookup.dir,
+			modulePath: candidate,
+			remainder:  strings.Join(parts[i:], "/"),
+		}, nil
 	}
 
-	return "", "", "", fmt.Errorf("module %s not found", importPath)
+	return findResult{}, fmt.Errorf("module %s not found", importPath)
 }
 
 // address classifies pattern and computes its resolution anchor. Local
@@ -166,7 +173,7 @@ func (r *Resolver) address(baseDir, pattern string) (target, error) {
 		}, nil
 	}
 
-	moduleDir, modulePath, remainder, err := r.findModule(baseDir, pattern)
+	result, err := r.findModule(baseDir, pattern)
 	if err != nil {
 		// Only suggest the explicit local spelling when the same spelling
 		// exists locally; otherwise the hint would distract from the actual
@@ -176,15 +183,15 @@ func (r *Resolver) address(baseDir, pattern string) (target, error) {
 		}
 		return target{}, err
 	}
-	if remainder == "" {
-		return target{}, fmt.Errorf("module import %q must reference a file, e.g. %s/gendi.yaml", pattern, modulePath)
+	if result.remainder == "" {
+		return target{}, fmt.Errorf("module import %q must reference a file, e.g. %s/gendi.yaml", pattern, result.modulePath)
 	}
 	return target{
 		kind:       kindModule,
-		anchorDir:  pathToAbs(moduleDir),
-		boundary:   pathToAbs(moduleDir),
-		pattern:    remainder,
-		modulePath: modulePath,
+		anchorDir:  pathToAbs(result.moduleDir),
+		boundary:   pathToAbs(result.moduleDir),
+		pattern:    result.remainder,
+		modulePath: result.modulePath,
 	}, nil
 }
 
