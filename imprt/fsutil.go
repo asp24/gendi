@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
-
-	"github.com/gendi-org/gendi/gomod"
 )
 
 func fileExists(path string) bool {
@@ -28,16 +26,6 @@ func pathToAbs(path string) string {
 	}
 
 	return path
-}
-
-// moduleRootOf returns the absolute root of the Go module containing dir, or
-// boundary when dir is not inside any module. It is the containment boundary
-// a path resolved relative to an importing file in dir may not escape.
-func moduleRootOf(dir, boundary string) string {
-	if root, _, found := gomod.FindModuleRoot(dir); found {
-		return pathToAbs(root)
-	}
-	return pathToAbs(boundary)
 }
 
 // globMatches expands the slash-separated glob pattern relative to root and
@@ -72,16 +60,4 @@ func globMatches(root, pattern string) ([]string, error) {
 
 func isGlobPattern(pattern string) bool {
 	return strings.ContainsAny(pattern, "*?[{")
-}
-
-// localMatch reports whether pattern names an existing file (or, for a glob,
-// at least one match) relative to baseDir — the signal that a module-shaped
-// spelling was really meant as a local path. Best-effort: a malformed glob
-// is treated as no match, deferring the authoritative error to resolution.
-func localMatch(baseDir, pattern string) bool {
-	if isGlobPattern(pattern) {
-		files, err := globMatches(baseDir, pattern)
-		return err == nil && len(files) > 0
-	}
-	return fileExists(filepath.Join(baseDir, pattern))
 }

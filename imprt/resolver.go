@@ -155,6 +155,28 @@ func (r *Resolver) findModule(baseDir, importPath string) (findResult, error) {
 	return findResult{}, fmt.Errorf("module %s not found", importPath)
 }
 
+// localBoundary returns the confinement boundary for a path resolved relative
+// to an importing file in dir: the root of the Go module containing dir, or the
+// resolver's out-of-module boundary when dir is inside no module.
+func (r *Resolver) localBoundary(dir string) string {
+	if root, _, found := gomod.FindModuleRoot(dir); found {
+		return pathToAbs(root)
+	}
+	return pathToAbs(r.boundary)
+}
+
+// localMatch reports whether pattern names an existing file (or, for a glob, at
+// least one match) relative to baseDir — the signal that a module-shaped
+// spelling was really meant as a local path. Best-effort: a malformed glob is
+// treated as no match, deferring the authoritative error to resolution.
+func (r *Resolver) localMatch(baseDir, pattern string) bool {
+	if isGlobPattern(pattern) {
+		files, err := globMatches(baseDir, pattern)
+		return err == nil && len(files) > 0
+	}
+	return fileExists(filepath.Join(baseDir, pattern))
+}
+
 // address classifies pattern and computes its resolution anchor. Local
 // patterns resolve against the importing file's directory and are confined to
 // its module; module patterns resolve against — and are confined to — the
@@ -168,7 +190,7 @@ func (r *Resolver) address(baseDir, pattern string) (target, error) {
 		return target{
 			kind:      kindLocal,
 			anchorDir: baseDir,
-			boundary:  moduleRootOf(baseDir, r.boundary),
+			boundary:  r.localBoundary(baseDir),
 			pattern:   pattern,
 		}, nil
 	}
@@ -178,7 +200,7 @@ func (r *Resolver) address(baseDir, pattern string) (target, error) {
 		// Only suggest the explicit local spelling when the same spelling
 		// exists locally; otherwise the hint would distract from the actual
 		// failure (no go.mod, typo'd module).
-		if localMatch(baseDir, pattern) {
+		if r.localMatch(baseDir, pattern) {
 			return target{}, fmt.Errorf("%w (for a local directory use %q)", err, "./"+pattern)
 		}
 		return target{}, err
