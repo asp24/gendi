@@ -6,3 +6,4 @@
 justfile
 /docs/superpowers
 /.codex
+/coverage.txt
