@@ -135,50 +135,57 @@ func TestReachabilityFromPublicRoots(t *testing.T) {
 	}
 }
 
-func TestTaggedInjectionConversion(t *testing.T) {
-	cfg := &di.Config{
-		Tags: map[string]di.Tag{
-			"test.tag": {
-				ElementType: "*github.com/gendi-org/gendi/generator/testdata/app.A",
+func TestTaggedConversionCodegen(t *testing.T) {
+	const appPkg = "github.com/gendi-org/gendi/generator/testdata/app"
+
+	for _, tt := range []struct {
+		name            string
+		constructor     string
+		wantContains    []string
+		wantNotContains []string
+	}{
+		{
+			name:        "interface slice",
+			constructor: appPkg + ".NewInterfaceConsumer",
+			wantContains: []string{
+				"getTaggedWithTestTag",
+				"var arg0_tagged_test_tag []interface{}",
+				"arg0_tagged_test_tag = make([]interface{}, len(tagged_test_tag))",
+				"for idx, item := range tagged_test_tag",
+				"arg0_tagged_test_tag[idx] = item",
 			},
 		},
-		Services: map[string]di.Service{
-			"a": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
+		{
+			// Hub is a non-nilable value type whose constructor returns an
+			// error, so the conversion error path must return its zero value.
+			name:            "value type error path",
+			constructor:     appPkg + ".NewHub",
+			wantContains:    []string{"return zero, fmt.Errorf"},
+			wantNotContains: []string{"return nil, fmt.Errorf"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &di.Config{
+				Tags: map[string]di.Tag{
+					"test.tag": {ElementType: "*" + appPkg + ".A"},
 				},
-				Tags: []di.ServiceTag{
-					{Name: "test.tag"},
-				},
-			},
-			"consumer": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewInterfaceConsumer",
-					Args: []di.Argument{
-						{Kind: di.ArgTagged, Value: "test.tag"},
+				Services: map[string]di.Service{
+					"a": {
+						Constructor: di.Constructor{Func: appPkg + ".NewA"},
+						Tags:        []di.ServiceTag{{Name: "test.tag"}},
+					},
+					"consumer": {
+						Constructor: di.Constructor{
+							Func: tt.constructor,
+							Args: []di.Argument{{Kind: di.ArgTagged, Value: "test.tag"}},
+						},
+						Public: true,
 					},
 				},
-				Public: true,
-			},
-		},
-	}
+			}
 
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, "getTaggedWithTestTag") {
-		t.Fatalf("expected private tag getter to be used")
-	}
-	if !strings.Contains(out, "var arg0_tagged_test_tag []interface{}") {
-		t.Fatalf("expected tagged conversion destination variable")
-	}
-	if !strings.Contains(out, "arg0_tagged_test_tag = make([]interface{}, len(tagged_test_tag))") {
-		t.Fatalf("expected tagged conversion slice allocation")
-	}
-	if !strings.Contains(out, "for idx, item := range tagged_test_tag") {
-		t.Fatalf("expected tagged conversion loop")
-	}
-	if !strings.Contains(out, "arg0_tagged_test_tag[idx] = item") {
-		t.Fatalf("expected tagged conversion assignment")
+			assertCodegen(t, cfg, tt.wantContains, tt.wantNotContains, nil)
+		})
 	}
 }
 
@@ -1280,46 +1287,6 @@ func TestFmtImport(t *testing.T) {
 				t.Fatalf("expected no fmt usage in generated code:\n%s", out)
 			}
 		})
-	}
-}
-
-func TestTaggedConversionInValueTypeBuild(t *testing.T) {
-	// Hub is a non-nilable value type whose constructor returns an error: the
-	// conversion error path must return the zero value, not nil.
-	cfg := &di.Config{
-		Tags: map[string]di.Tag{
-			"test.tag": {
-				ElementType: "*github.com/gendi-org/gendi/generator/testdata/app.A",
-			},
-		},
-		Services: map[string]di.Service{
-			"a": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
-				},
-				Tags: []di.ServiceTag{
-					{Name: "test.tag"},
-				},
-			},
-			"hub": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHub",
-					Args: []di.Argument{
-						{Kind: di.ArgTagged, Value: "test.tag"},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-
-	if strings.Contains(out, "return nil, fmt.Errorf") {
-		t.Fatalf("conversion error path must not return nil for value types:\n%s", out)
-	}
-	if !strings.Contains(out, "return zero, fmt.Errorf") {
-		t.Fatalf("expected zero-value return in conversion error path:\n%s", out)
 	}
 }
 
