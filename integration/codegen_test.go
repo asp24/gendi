@@ -1204,105 +1204,79 @@ func TestDecoratorSpreadInnerRejected(t *testing.T) {
 	}
 }
 
-func TestDecoratorSharesStorageWithBase(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"svc": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
-				},
-				Public: true,
-				Shared: true,
-			},
-			"svc.decorator": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorA",
-					Args: []di.Argument{
-						{Kind: di.ArgInner},
-					},
-				},
-				Decorates:          "svc",
-				DecorationPriority: 10,
-				Public:             true,
-				Shared:             true,
-			},
-		},
-	}
+func TestDecoratorStorage(t *testing.T) {
+	const appPkg = "github.com/gendi-org/gendi/generator/testdata/app"
 
-	out := generate(t, cfg)
-
-	// Verify that storage is attached to the decorator (base is an alias)
-	if !strings.Contains(out, "svc_svc_decorator ") {
-		t.Fatalf("expected storage field for decorator, got:\n%s", out)
-	}
-	if strings.Contains(out, "svc_svc ") {
-		t.Fatalf("unexpected storage field for base alias")
-	}
-
-	// Verify that BOTH getters share the same storage
-	// getSvcDecorator should use nil check (optimized for nilable types)
-	if !strings.Contains(out, "if c.svc_svc_decorator != nil") {
-		t.Fatalf("expected decorator getter to use nil check for caching")
-	}
-	// getSvc should delegate to getSvcDecorator
-	if !strings.Contains(out, "return c.getSvcDecorator()") {
-		t.Fatalf("expected getSvc to delegate to getSvcDecorator")
-	}
-	// Only getSvcDecorator should check the cache directly (deduplication)
-	count := strings.Count(out, "if c.svc_svc_decorator != nil")
-	if count != 1 {
-		t.Fatalf("expected nil check to appear exactly once (in decorator getter), found %d", count)
-	}
-}
-
-func TestDecoratorKeepsSharedFlagsIndependent(t *testing.T) {
-	for _, tc := range []struct {
-		name                 string
-		baseShared           bool
-		decoratorShared      bool
-		wantInnerStorage     bool
-		wantDecoratorStorage bool
+	for _, tt := range []struct {
+		name            string
+		baseShared      bool
+		decoratorShared bool
+		decoratorPublic bool
+		wantContains    []string
+		wantNotContains []string
+		wantExactCounts map[string]int
 	}{
 		{
-			name:                 "shared base and non-shared decorator",
-			baseShared:           true,
-			wantInnerStorage:     true,
-			wantDecoratorStorage: false,
+			name:            "shared base and shared decorator",
+			baseShared:      true,
+			decoratorShared: true,
+			decoratorPublic: true,
+			wantContains: []string{
+				"svc_svc_decorator ",
+				"if c.svc_svc_decorator != nil",
+				"return c.getSvcDecorator()",
+			},
+			wantNotContains: []string{"svc_svc "},
+			wantExactCounts: map[string]int{"if c.svc_svc_decorator != nil": 1},
 		},
 		{
-			name:                 "non-shared base and shared decorator",
-			decoratorShared:      true,
-			wantInnerStorage:     false,
-			wantDecoratorStorage: true,
+			name:            "shared base and non-shared decorator",
+			baseShared:      true,
+			wantContains:    []string{"svc_svc_decorator_inner "},
+			wantNotContains: []string{"svc_svc_decorator "},
+		},
+		{
+			name:            "non-shared base and shared decorator",
+			decoratorShared: true,
+			wantContains:    []string{"svc_svc_decorator "},
+			wantNotContains: []string{"svc_svc_decorator_inner "},
 		},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			cfg := &di.Config{
 				Services: map[string]di.Service{
 					"svc": {
-						Constructor: di.Constructor{
-							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
-						},
-						Public: true,
-						Shared: tc.baseShared,
+						Constructor: di.Constructor{Func: appPkg + ".NewServiceBase"},
+						Public:      true,
+						Shared:      tt.baseShared,
 					},
 					"svc.decorator": {
 						Constructor: di.Constructor{
-							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorA",
+							Func: appPkg + ".NewServiceDecoratorA",
 							Args: []di.Argument{{Kind: di.ArgInner}},
 						},
 						Decorates: "svc",
-						Shared:    tc.decoratorShared,
+						Public:    tt.decoratorPublic,
+						Shared:    tt.decoratorShared,
 					},
 				},
 			}
 
 			out := generate(t, cfg)
-			if got := strings.Contains(out, "svc_svc_decorator_inner "); got != tc.wantInnerStorage {
-				t.Errorf("inner storage present = %t, want %t", got, tc.wantInnerStorage)
+			for _, want := range tt.wantContains {
+				if !strings.Contains(out, want) {
+					t.Errorf("expected generated code containing %q, got:\n%s", want, out)
+				}
 			}
-			if got := strings.Contains(out, "svc_svc_decorator "); got != tc.wantDecoratorStorage {
-				t.Errorf("decorator storage present = %t, want %t", got, tc.wantDecoratorStorage)
+			for _, unwanted := range tt.wantNotContains {
+				if strings.Contains(out, unwanted) {
+					t.Errorf("expected generated code not to contain %q, got:\n%s", unwanted, out)
+				}
+			}
+			for value, wantCount := range tt.wantExactCounts {
+				if got := strings.Count(out, value); got != wantCount {
+					t.Errorf("generated code contains %q %d times, want %d:\n%s", value, got, wantCount, out)
+				}
 			}
 		})
 	}
