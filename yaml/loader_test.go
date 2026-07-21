@@ -629,49 +629,39 @@ imports:
 }
 
 func TestLoadConfigOwnModuleImportGlob(t *testing.T) {
-	dir := t.TempDir()
-	writeModuleImportsFixture(t, dir)
+	for _, tt := range []struct {
+		name         string
+		importPath   string
+		wantServices []string
+	}{
+		{
+			name:         "direct children",
+			importPath:   "example.com/app/imports/*.yaml",
+			wantServices: []string{"module.service", "module.extra"},
+		},
+		{
+			name:         "recursive",
+			importPath:   "example.com/app/imports/**/*.yaml",
+			wantServices: []string{"module.service", "module.extra", "module.nested"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeModuleImportsFixture(t, dir)
 
-	rootPath := filepath.Join(dir, "root.yaml")
-	writeTestFile(t, rootPath, strings.TrimSpace(`
-imports:
-  - path: example.com/app/imports/*.yaml
-`))
+			rootPath := filepath.Join(dir, "root.yaml")
+			writeTestFile(t, rootPath, fmt.Sprintf("imports:\n  - path: %s\n", tt.importPath))
 
-	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-	if _, ok := cfg.Services["module.service"]; !ok {
-		t.Fatalf("expected service from own-module glob import to load")
-	}
-	if _, ok := cfg.Services["module.extra"]; !ok {
-		t.Fatalf("expected extra service from own-module glob import to load")
-	}
-}
-
-func TestLoadConfigOwnModuleImportGlobRecursive(t *testing.T) {
-	dir := t.TempDir()
-	writeModuleImportsFixture(t, dir)
-
-	rootPath := filepath.Join(dir, "root.yaml")
-	writeTestFile(t, rootPath, strings.TrimSpace(`
-imports:
-  - path: example.com/app/imports/**/*.yaml
-`))
-
-	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-	if _, ok := cfg.Services["module.service"]; !ok {
-		t.Fatalf("expected service from own-module recursive glob import to load")
-	}
-	if _, ok := cfg.Services["module.extra"]; !ok {
-		t.Fatalf("expected extra service from own-module recursive glob import to load")
-	}
-	if _, ok := cfg.Services["module.nested"]; !ok {
-		t.Fatalf("expected nested service from own-module recursive glob import to load")
+			cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
+			if err != nil {
+				t.Fatalf("load config: %v", err)
+			}
+			for _, service := range tt.wantServices {
+				if _, ok := cfg.Services[service]; !ok {
+					t.Errorf("expected service %q to load", service)
+				}
+			}
+		})
 	}
 }
 
