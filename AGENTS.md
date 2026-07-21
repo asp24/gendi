@@ -62,8 +62,12 @@ go test -v -run TestName ./path/to/package
 The generator follows a multi-stage pipeline:
 
 1. **YAML Loading** (`yaml/` package)
-   - Loads root YAML config with `yaml.LoadConfig()`
-   - Resolves imports (supports glob patterns and relative paths)
+   - Loads root YAML config with
+     `yaml.LoadConfig(path, boundary, moduleContext)` — derive the boundary
+     with `yaml.DefaultBoundary(path)` and use the finalized pipeline
+     `Options.ModuleRoot` as the module context
+   - Resolves imports in two phases: classify (local vs module) and resolve
+     (glob or literal), then confines every candidate immediately before load
    - Merges imported configs (later imports override earlier ones)
    - Resolves `$this` tokens to current package paths
 
@@ -159,7 +163,7 @@ Configuration files can import others:
 
 #### Import Exclusions
 
-Exclude files from imports using glob patterns or directory paths:
+Exclude files from imports using glob patterns, file paths, or directory paths:
 
 ```yaml
 imports:
@@ -175,13 +179,95 @@ imports:
       - ./config/**/dev_*.yaml
 ```
 
-Features:
-- Exclusion entries can be glob patterns (`*`, `?`, `[]`, `**`) or directory paths
-- Directory paths exclude all files under that directory
-- Patterns resolved relative to importing file's directory
-- Works with any import type (local, absolute, module-based)
-- Exclusions take precedence over inclusions
+**An `exclude` pattern is addressed exactly like an import `path`** — it is
+"one of the things the import could have matched, written the same way":
+
+```yaml
+imports:
+  # local import → relative exclude (both anchored at the importing file's dir)
+  - path: ./services/*.yaml
+    exclude: [./services/skip.yaml]
+
+  # module import → module-form exclude
+  - path: example.com/mod/services/*.yaml
+    exclude: [example.com/mod/services/skip.yaml]
+```
+
+**The exclusion's form must match the import's form**: a local import takes
+local exclusions and a module import takes exclusions inside the same module
+— a mismatch is a generation-time error.
+
+**Exclusions are masks, not lookups.** They filter the files the import
+found and never touch the filesystem themselves:
+- A mask supports full glob syntax (`*`, `?`, `[]`, `**`) and is anchored
+  like the import: local masks at the importing file's directory, module
+  masks at the module's root (`example.com/mod/services/skip.yaml`)
+- A mask matching a directory on a file's path — literally or via a glob —
+  excludes the whole subtree
+- A mask that matches none of the found files is a silent no-op, whatever
+  its spelling; only a malformed pattern is an error
+- Masks are applied BEFORE the sandbox check, so an unwanted match (e.g. a
+  symlink leaving the module) can be excluded explicitly
 - Backward compatible - `exclude` field is optional
+
+#### Import Sandboxing (Module Root)
+
+Every import entry goes through one fixed pipeline: classify (local directory
+or Go module) → compute the anchor and confinement boundary → find the files
+the import mask matches → drop the ones matched by exclusion masks → return
+addressed candidates → immediately before each load, resolve symlinks and
+verify the candidate is inside its boundary. The root config goes through the
+same final confinement check.
+
+Imports are confined to the **Go module that contains the importing config
+file** (module imports — to the module they name). The module root is found
+by walking up to the nearest `go.mod`; a config outside any module falls back
+to the root config's own directory as the boundary.
+
+- **Absolute filesystem paths are not allowed** in imports or exclusions —
+  they are a generation-time error. Everything inside the module is addressed
+  relative to the importing file; for a location-independent anchor at the
+  module root, use the module's own import path
+  (`path: example.com/app/services/x.yaml` from anywhere inside
+  `example.com/app`).
+- **Classification is deterministic, by form alone.** A multi-segment path
+  whose first segment contains a dot names a Go module; everything else is
+  local. Single-segment patterns (`base.yaml`, `test_*.yaml`) are always
+  local — a module import must name a file inside the module, so it always
+  contains a slash. A local directory whose name contains a dot must use the
+  `./` spelling (`./assets.d/*.yaml`) — the bare spelling is resolved as a
+  module and fails loudly with a hint if that module does not exist. When the
+  module exists, the bare spelling always selects it, regardless of any
+  same-spelled local path; use `./` to select the local path explicitly.
+- **A file outside its boundary is a generation-time error.** After
+  exclusion masks are applied, each remaining candidate is resolved through
+  symlinks immediately before loading (`EvalSymlinks` on both the boundary
+  and the file) and checked against the boundary — any file whose real path
+  is outside is an error,
+  whether it got there via a `../` chain or a symlink. A symlink whose real
+  target is inside the module works like a regular file; to keep an
+  out-pointing symlink from failing a broad glob, exclude it (`exclude:
+  [./services/fixtures]`) — masks run before the check. Symlink resolution
+  is only for the boundary check and cycle identity: cycle detection sees one
+  entry per real file, while every import occurrence is loaded independently.
+  A config imported through a symlink keeps its addressed location, so its own
+  relative imports and `$this` anchor at the symlink's directory, not the
+  target's.
+- **Cross-module references go through module-path imports.** Only
+  `example.com/dep/...` imports may reach another module, and they are bounded
+  by the `go.mod` graph. A local candidate whose real path belongs to a nearer,
+  nested `go.mod` is rejected even when it remains physically inside the outer
+  module. A dependency's own config is likewise confined to its own module —
+  it cannot reach into the consumer's filesystem.
+- **Module resolution is CWD-independent.** A module is looked up in the
+  module context of the importing file (the module containing it, else the
+  explicitly supplied module context) via its go.mod graph — including
+  `replace` directives, which is the supported way to use a local checkout.
+  A config outside any module can use module imports only when moduleContext
+  points inside a Go module; its confinement boundary remains independent.
+
+This guarantees generation only ever reads files within the project module or
+its declared Go-module dependencies — never arbitrary filesystem paths.
 
 ### The `$this` Token
 
@@ -258,18 +344,19 @@ See `examples/custom-pass` for complete example.
 
 ### Reading Configuration
 ```go
-cfg, err := yaml.LoadConfig("gendi.yaml")
-cfg, err = di.ApplyPasses(cfg, passes)
-```
-
-### Generating Container
-```go
 opts := pipeline.Options{
     Out:     "./internal/di",
     Package: "di",
 }
 opts.Finalize()
 
+boundary, err := yaml.DefaultBoundary("gendi.yaml")
+cfg, err := yaml.LoadConfig("gendi.yaml", boundary, opts.ModuleRoot)
+cfg, err = di.ApplyPasses(cfg, passes)
+```
+
+### Generating Container
+```go
 code, err := pipeline.Emit(cfg, opts)
 ```
 

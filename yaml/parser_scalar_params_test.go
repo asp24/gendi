@@ -16,7 +16,7 @@ func loadConfigString(t *testing.T, content string) (*di.Config, error) {
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
-	return LoadConfig(path)
+	return LoadConfig(path, dir, dir)
 }
 
 func TestScalarParameters(t *testing.T) {

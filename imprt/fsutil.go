@@ -3,13 +3,12 @@ package imprt
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
-
-	"github.com/gendi-org/gendi/gomod"
 )
 
 func fileExists(path string) bool {
@@ -18,31 +17,6 @@ func fileExists(path string) bool {
 		return false
 	}
 	return !info.IsDir()
-}
-
-// findModule locates a Go module by iterating through import path segments.
-// Returns (moduleDir, modulePath, remainder, error) where:
-//   - moduleDir: absolute path to the module directory
-//   - modulePath: the import path of the found module
-//   - remainder: the path segment after the module path
-func findModule(baseDir, importPath string) (string, string, string, error) {
-	locator := gomod.NewLocator(baseDir)
-	parts := strings.Split(importPath, "/")
-	for i := len(parts); i >= 1; i-- {
-		candidate := strings.Join(parts[:i], "/")
-		// Skip if candidate contains glob characters
-		if strings.ContainsAny(candidate, "*?[") {
-			continue
-		}
-		moduleDir, err := locator.FindModuleDir(candidate)
-		if err != nil {
-			continue
-		}
-		remainder := strings.Join(parts[i:], "/")
-		return moduleDir, candidate, remainder, nil
-	}
-
-	return "", "", "", fmt.Errorf("module %s not found", importPath)
 }
 
 func pathToAbs(path string) string {
@@ -54,43 +28,39 @@ func pathToAbs(path string) string {
 	return path
 }
 
-func findDefaultConfig(moduleDir string) (string, bool) {
-	path := filepath.Join(moduleDir, "gendi.yaml")
-	if fileExists(path) {
-		return pathToAbs(path), true
-	}
-
-	path = filepath.Join(moduleDir, "gendi.yml")
-	if fileExists(path) {
-		return pathToAbs(path), true
-	}
-	return "", false
-}
-
-func globFiles(pattern string) ([]string, error) {
-	// An empty match set is a valid no-op, but a glob rooted at a
-	// non-existent directory is almost certainly a typo.
-	base, _ := doublestar.SplitPattern(filepath.ToSlash(pattern))
-	if info, err := os.Stat(filepath.FromSlash(base)); err != nil || !info.IsDir() {
+// globMatches expands the slash-separated glob pattern relative to root and
+// returns the matched files as absolute sorted paths. Glob syntax is
+// interpreted only in pattern — a metacharacter in root is a literal path
+// byte. An existing base directory that yields no matches is a valid no-op,
+// but a base directory that does not exist is almost always a typo and is a
+// generation-time error; a malformed pattern is likewise an error.
+func globMatches(root, pattern string) ([]string, error) {
+	base, glob := doublestar.SplitPattern(path.Clean(filepath.ToSlash(pattern)))
+	dir := filepath.Join(root, filepath.FromSlash(base))
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
 		return nil, fmt.Errorf("import glob %q: directory %q does not exist", pattern, base)
 	}
-
-	matches, err := doublestar.FilepathGlob(pattern)
+	matches, err := doublestar.Glob(os.DirFS(dir), glob)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("glob %q: %w", pattern, err)
 	}
-	files := make([]string, 0, len(matches))
+	var files []string
 	for _, match := range matches {
-		if fileExists(match) {
-			abs, err := filepath.Abs(match)
-			if err != nil {
-				return nil, err
-			}
-			files = append(files, abs)
+		full := filepath.Join(dir, match)
+		info, err := os.Stat(full)
+		if err != nil {
+			// A match that cannot be stat'ed — typically a dangling
+			// symlink — is skipped rather than failing the whole load.
+			continue
+		}
+		if !info.IsDir() {
+			files = append(files, full)
 		}
 	}
-	if len(files) != 0 {
-		sort.Strings(files)
-	}
+	sort.Strings(files)
 	return files, nil
+}
+
+func isGlobPattern(pattern string) bool {
+	return strings.ContainsAny(pattern, "*?[{")
 }

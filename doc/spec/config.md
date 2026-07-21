@@ -23,12 +23,36 @@ imports:
 
 Rules:
 - Imports are processed in declaration order
-- Relative paths are resolved relative to the importing file
+- An import is classified by its form: multi-segment paths whose first
+  segment contains a dot are module imports; everything else (single-segment
+  names and explicit `./`/`../` prefixes included) is a local path resolved
+  relative to the importing file. A module-shaped spelling always selects the
+  module when it exists, regardless of a same-spelled local path; use `./` to
+  select the local path
+- Absolute filesystem paths are not allowed
+- Module imports must name a file or glob inside the module
+  (`github.com/acme/billing/gendi.yaml`, not `github.com/acme/billing`)
+- Module imports resolve through the `go.mod` graph of the importing config's
+  module. For a root config outside every Go module, the CLI uses the module
+  containing the generated output as a separate lookup context; the root
+  config remains confined to its own directory
 - Recursive imports are allowed; cyclic imports are forbidden
 - Later definitions override earlier ones
 - Imports can be a string path or a mapping with `path`
-- Module imports resolve to `gendi.yaml`/`gendi.yml` at module root when no file is provided
-- Glob patterns are supported; matches are expanded in lexicographic order
+- Glob patterns are supported; matches are expanded in lexicographic order;
+  a glob over an existing directory that matches nothing is a silent no-op,
+  but a glob whose base directory does not exist is a generation-time error
+- Every config, including the root, is confined immediately before loading.
+  Imported candidates use the module of the importing file (or the module the
+  import names) as their boundary. Exclusion masks are applied first, then
+  every remaining candidate is resolved through symlinks and checked against
+  its boundary — any file whose real path is outside is a generation-time
+  error. A candidate whose real path belongs to a nested Go module is likewise
+  rejected unless that module was selected by a module-path import. Symlinks
+  whose targets stay inside the module work normally; a config imported
+  through a symlink anchors its own relative imports and `$this` at the
+  symlink's directory. Every import occurrence is loaded independently; cycle
+  detection alone identifies active imports by their real path
 
 Import exclusions:
 ```yaml
@@ -38,6 +62,12 @@ imports:
       - ./services/test_*.yaml
       - ./services/internal/*.yaml
 ```
+
+Exclusions are masks over the files the import found — they never touch the
+filesystem. They are addressed like the import and must use the same form: a
+local import takes local masks, a module import takes masks inside the same
+module. A mask matching a directory on a file's path excludes the subtree; a
+mask matching nothing is a silent no-op.
 
 ## The `$this` Package Token
 

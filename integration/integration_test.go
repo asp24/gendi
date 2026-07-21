@@ -21,7 +21,7 @@ func runEmbeddedTest(t *testing.T, testName string, expectedOutput string, wantC
 	configPath := filepath.Join(tmpDir, "gendi.yaml")
 
 	// Load and parse config
-	cfg, err := yaml.LoadConfig(configPath)
+	cfg, err := yaml.LoadConfig(configPath, tmpDir, tmpDir)
 	if err != nil {
 		t.Fatalf("failed to load config: %v", err)
 	}
@@ -183,6 +183,7 @@ func TestWorkflow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			runEmbeddedTest(t, tt.name, tt.expectedOutput, tt.wantCompileErr, tt.wantRuntimeErr)
 		})
 	}

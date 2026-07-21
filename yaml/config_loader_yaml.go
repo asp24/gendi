@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
-	"github.com/bmatcuk/doublestar/v4"
 	yamllib "github.com/goccy/go-yaml"
 
 	di "github.com/gendi-org/gendi"
@@ -15,47 +13,75 @@ import (
 	"github.com/gendi-org/gendi/srcloc"
 )
 
+// ImportResolver resolves one import entry — path plus its exclusion masks —
+// to addressed config candidates and their confinement boundaries.
+type ImportResolver interface {
+	// ResolveImport resolves an import path to config files, dropping the
+	// files matched by the exclusion masks before the sandbox check.
+	ResolveImport(baseDir, path string, excludes []string) ([]imprt.Candidate, error)
+}
+
 // ConfigLoaderYaml loads YAML configuration files with import resolution.
 type ConfigLoaderYaml struct {
-	resolver imprt.Resolver
+	resolver ImportResolver
+	confiner *Confiner
 	parser   *Parser
 }
 
+// NewConfigLoaderYaml creates a new YAML config loader with dependencies. A
+// loader is not safe for concurrent use — the underlying resolver memoizes
+// module lookups without locking; use one loader per goroutine.
+func NewConfigLoaderYaml(resolver ImportResolver, parser *Parser) *ConfigLoaderYaml {
+	return &ConfigLoaderYaml{
+		resolver: resolver,
+		confiner: NewConfiner(),
+		parser:   parser,
+	}
+}
+
+// loadState carries the per-Load bookkeeping shared across the recursion: the
+// imports currently on the stack (for cycle detection, keyed by canonical real
+// path) and the configs already loaded (so a diamond reaches each once, keyed
+// by addressed path).
 type loadState struct {
 	inProgress map[string]bool
 	cache      map[string]*di.Config
 }
 
-// NewConfigLoaderYaml creates a new YAML config loader with dependencies.
-func NewConfigLoaderYaml(resolver imprt.Resolver, parser *Parser) *ConfigLoaderYaml {
-	return &ConfigLoaderYaml{
-		resolver: resolver,
-		parser:   parser,
-	}
-}
-
-// Load loads a YAML config file with imports resolved.
-func (l *ConfigLoaderYaml) Load(path string) (*di.Config, error) {
+// Load loads a YAML config file with imports resolved. Every config, including
+// the root, is confined immediately before it can be read.
+func (l *ConfigLoaderYaml) Load(path, boundary string) (*di.Config, error) {
 	state := &loadState{
 		inProgress: map[string]bool{},
 		cache:      map[string]*di.Config{},
 	}
-	return l.loadRecursive(path, state)
+	return l.loadRecursive(imprt.Candidate{Path: path, Boundary: boundary}, state)
 }
 
-func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Config, error) {
-	abs, err := filepath.Abs(path)
+func (l *ConfigLoaderYaml) loadRecursive(candidate imprt.Candidate, state *loadState) (*di.Config, error) {
+	abs, id, err := l.confiner.Confine(candidate.Boundary, candidate.Path)
 	if err != nil {
 		return nil, err
 	}
+	// A config already loaded through this same addressed spelling is reused:
+	// its merged result is a pure function of that path — the path fixes $this
+	// and the directory its own imports resolve against — so a diamond that
+	// reaches it again need not re-read, re-parse and re-merge it. Keyed by the
+	// addressed path, not the real path, so distinct symlink aliases still load
+	// independently and keep their own $this context.
 	if cfg, ok := state.cache[abs]; ok {
 		return cfg, nil
 	}
-	if state.inProgress[abs] {
+	// Cycle identity is canonical: an active import reached through another
+	// spelling of the same real file is still a cycle. Confine returns id as
+	// the symlink-resolved real path; loading and conversion stay on the
+	// addressed path so every occurrence gets its own relative import and
+	// $this context.
+	if state.inProgress[id] {
 		return nil, fmt.Errorf("cyclic import detected at %s", abs)
 	}
-	state.inProgress[abs] = true
-	defer delete(state.inProgress, abs)
+	state.inProgress[id] = true
+	defer delete(state.inProgress, id)
 
 	data, err := l.readFile(abs)
 	if err != nil {
@@ -71,18 +97,13 @@ func (l *ConfigLoaderYaml) loadRecursive(path string, state *loadState) (*di.Con
 
 	baseDir := filepath.Dir(abs)
 	for _, imp := range raw.Imports {
-		impPaths, err := l.resolver.Resolve(baseDir, imp.Path)
+		candidates, err := l.resolver.ResolveImport(baseDir, imp.Path, imp.Exclude)
 		if err != nil {
 			return nil, fmt.Errorf("resolve import %q: %w", imp.Path, err)
 		}
 
-		impPaths, err = l.filterExcludedFiles(impPaths, baseDir, imp.Exclude)
-		if err != nil {
-			return nil, fmt.Errorf("apply exclusions for import %q: %w", imp.Path, err)
-		}
-
-		for _, impPath := range impPaths {
-			child, err := l.loadRecursive(impPath, state)
+		for _, candidate := range candidates {
+			child, err := l.loadRecursive(candidate, state)
 			if err != nil {
 				return nil, err
 			}
@@ -166,69 +187,4 @@ func (l *ConfigLoaderYaml) toSrclocError(file string, err error) error {
 	}
 
 	return srcloc.AddContext(err, "parse %s", file)
-}
-
-// filterExcludedFiles removes files matching any exclusion pattern.
-// files - absolute paths returned by resolver
-// baseDir - directory for resolving relative exclusion patterns
-// excludePatterns - glob patterns, file paths, or directory paths to exclude
-func (l *ConfigLoaderYaml) filterExcludedFiles(files []string, baseDir string, excludePatterns []string) ([]string, error) {
-	if len(excludePatterns) == 0 {
-		return files, nil
-	}
-
-	excludedSet := make(map[string]bool)
-	var excludedDirs []string
-
-	for _, pattern := range excludePatterns {
-		// Resolve pattern relative to baseDir
-		absPattern := pattern
-		if !filepath.IsAbs(pattern) {
-			absPattern = filepath.Join(baseDir, pattern)
-		}
-
-		// If the pattern is a directory, exclude all files under it
-		if info, err := os.Stat(absPattern); err == nil && info.IsDir() {
-			excludedDirs = append(excludedDirs, absPattern+string(filepath.Separator))
-			continue
-		}
-
-		// Match pattern using doublestar (same library as glob imports)
-		matches, err := doublestar.FilepathGlob(absPattern)
-		if err != nil {
-			return nil, fmt.Errorf("invalid exclusion pattern %q: %w", pattern, err)
-		}
-
-		for _, match := range matches {
-			abs, err := filepath.Abs(match)
-			if err != nil {
-				return nil, fmt.Errorf("exclusion pattern %q: resolve %q: %w", pattern, match, err)
-			}
-			if info, err := os.Stat(abs); err == nil && info.IsDir() {
-				excludedDirs = append(excludedDirs, abs+string(filepath.Separator))
-			} else {
-				excludedSet[abs] = true
-			}
-		}
-	}
-
-	// Filter files not in exclusion set and not under excluded directories
-	result := make([]string, 0, len(files))
-	for _, file := range files {
-		if excludedSet[file] {
-			continue
-		}
-		excluded := false
-		for _, dir := range excludedDirs {
-			if strings.HasPrefix(file, dir) {
-				excluded = true
-				break
-			}
-		}
-		if !excluded {
-			result = append(result, file)
-		}
-	}
-
-	return result, nil
 }

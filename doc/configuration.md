@@ -488,16 +488,37 @@ Configuration files can import and override other configurations.
 
 ```yaml
 imports:
-  - ./base.yaml              # Relative path
-  - ./services/*.yaml        # Glob pattern
-  - ./**/gendi.yaml          # Recursive glob
-  - github.com/pkg/stdlib    # Module import
+  - ./base.yaml                     # Relative path
+  - ./services/*.yaml               # Glob pattern
+  - ./**/gendi.yaml                 # Recursive glob
+  - github.com/pkg/stdlib/gendi.yaml # Module import (must name a file)
 ```
 
 ### Import Resolution
 
+- An import is classified by its form: a multi-segment path whose first
+  segment contains a dot (`example.com/...`) names a Go module; everything
+  else — including single-segment names like `base.yaml` — is a local path.
+  For a local directory whose name contains a dot, use the `./` spelling
+  (`./assets.d/*.yaml`). A bare module-shaped spelling always selects the
+  module when it exists, regardless of a same-spelled local path; use `./` to
+  select the local path explicitly
+- Absolute filesystem paths are not allowed
 - Relative paths resolved from importing file's directory
-- Glob patterns expanded using doublestar matching
+- Glob patterns expanded using doublestar matching; a glob over an existing
+  directory that matches nothing is a silent no-op, but a glob whose base
+  directory does not exist is a generation-time error
+- Every config, including the root, is confined immediately before loading.
+  Imported candidates use the module of the importing file (or the named
+  module) as their boundary: after exclusions are applied, each candidate is
+  resolved through symlinks and checked against the boundary — a file whose
+  real path is outside is a generation-time error (exclude unwanted
+  symlinked matches to keep a broad glob loadable). A candidate whose real
+  path belongs to a nested Go module is also rejected unless that module was
+  selected through a module-path import. Every import occurrence is loaded
+  independently and keeps its addressed path, so a config imported through a
+  symlink anchors its own relative imports and `$this` at the symlink's
+  directory. Cycle detection identifies only active imports by real path
 - Imports are merged depth-first in declaration order: each imported file's
   imports are merged before that file, and the importing file is merged after
   all of its imports
@@ -528,10 +549,17 @@ imports:
 ```
 
 **Exclusion Features:**
+- Exclusions are masks over the files the import found — they never touch
+  the filesystem themselves
 - Supports full glob syntax (`*`, `?`, `[]`, `**`)
-- Patterns resolved relative to importing file's directory
-- Works with any import type (local, absolute, module-based)
-- Exclusions take precedence over inclusions
+- Addressed like the import and must use the same form: a local import takes
+  local masks, a module import takes masks inside the same module
+  (`example.com/mod/services/skip.yaml`)
+- A mask matching a directory on a file's path excludes the whole subtree
+- A mask that matches nothing is a silent no-op; only a malformed pattern is
+  an error
+- Applied before the sandbox check, so unwanted symlinked matches can be
+  excluded explicitly
 
 ### Import Merging
 
@@ -550,7 +578,16 @@ imports:
   - github.com/gendi-org/gendi/stdlib/gendi.yaml
 ```
 
-Resolves to module's root directory and loads `gendi.yaml`.
+The module is located through the `go.mod` graph (including `replace`
+directives) and the named file is loaded from it. A module import must name a
+file or glob explicitly — a bare module path is an error.
+
+Module lookup uses the module containing the importing config. When the root
+config is outside every Go module, the CLI uses the module containing the
+generated output as the lookup context while keeping the root config confined
+to its own directory. Library callers provide these independently as
+`yaml.LoadConfig(path, boundary, moduleContext)`. Resolution never depends on
+the process working directory.
 
 ### Best Practices
 

@@ -1,22 +1,81 @@
 package imprt
 
-import "testing"
+import (
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
-func TestGlobFilesMissingBaseDirErrors(t *testing.T) {
+// A glob over an existing directory that matches nothing is a silent no-op; a
+// glob whose base directory does not exist, or a malformed pattern, is an error.
+func TestGlobMatches(t *testing.T) {
 	dir := t.TempDir()
 
-	// Empty match inside an existing directory is a valid no-op.
-	files, err := globFiles(dir + "/*.yaml")
+	files, err := globMatches(dir, "*.yaml")
 	if err != nil {
 		t.Fatalf("unexpected error for empty match: %v", err)
 	}
 	if len(files) != 0 {
-		t.Fatalf("expected no files, got %v", files)
+		t.Fatalf("expected no matches, got %v", files)
 	}
 
-	// A glob rooted at a non-existent directory is a typo, not a no-op.
-	_, err = globFiles(dir + "/no_such_dir/*.yaml")
-	if err == nil {
-		t.Fatal("expected error for glob with missing base directory")
+	if _, err = globMatches(dir, "no_such_dir/*.yaml"); err == nil ||
+		!strings.Contains(err.Error(), "does not exist") {
+		t.Fatalf("expected missing-base-directory error, got %v", err)
+	}
+
+	if _, err = globMatches(dir, "[invalid"); err == nil {
+		t.Fatal("expected error for malformed pattern")
+	}
+
+	writeFile(t, filepath.Join(dir, "sub", "a.yaml"), "a")
+	writeFile(t, filepath.Join(dir, "b.yaml"), "b")
+	files, err = globMatches(dir, "*")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{mustAbs(t, filepath.Join(dir, "b.yaml"))}
+	if len(files) != 1 || files[0] != want[0] {
+		t.Fatalf("expected files %v, got %v", want, files)
+	}
+}
+
+// Glob metacharacters in the anchor directory are literal path bytes, not
+// pattern syntax.
+func TestGlobMatchesMetacharInRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "work[2024]", "app")
+	writeFile(t, filepath.Join(root, "services", "a.yaml"), "a")
+	writeFile(t, filepath.Join(root, "services", "b.yaml"), "b")
+
+	files, err := globMatches(root, "services/*.yaml")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{
+		mustAbs(t, filepath.Join(root, "services", "a.yaml")),
+		mustAbs(t, filepath.Join(root, "services", "b.yaml")),
+	}
+	if len(files) != 2 || files[0] != want[0] || files[1] != want[1] {
+		t.Fatalf("expected files %v, got %v", want, files)
+	}
+}
+
+// Native path separators in a glob are normalized before doublestar parses
+// the pattern. In particular, Windows separators must not be read as escapes.
+func TestGlobMatchesNativeSeparators(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "services", "a.yaml"), "a")
+	writeFile(t, filepath.Join(root, "services", "nested", "b.yaml"), "b")
+
+	files, err := globMatches(root, filepath.Join("services", "**", "*.yaml"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{
+		mustAbs(t, filepath.Join(root, "services", "a.yaml")),
+		mustAbs(t, filepath.Join(root, "services", "nested", "b.yaml")),
+	}
+	if len(files) != 2 || files[0] != want[0] || files[1] != want[1] {
+		t.Fatalf("expected files %v, got %v", want, files)
 	}
 }
