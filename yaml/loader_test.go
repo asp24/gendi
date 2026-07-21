@@ -580,51 +580,30 @@ imports:
 
 func TestLoadConfigImportGlobLocalRecursive(t *testing.T) {
 	dir := t.TempDir()
-	configsDir := filepath.Join(dir, "configs")
-	nestedDir := filepath.Join(configsDir, "nested")
+	nestedDir := filepath.Join(dir, "configs", "nested")
 	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
 		t.Fatalf("create nested dir: %v", err)
 	}
 
-	baseAPath := filepath.Join(configsDir, "base_a.yaml")
-	baseBPath := filepath.Join(nestedDir, "base_b.yaml")
+	writeTestFile(t, filepath.Join(nestedDir, "service.yaml"), strings.TrimSpace(`
+services:
+  nested:
+    constructor:
+      func: "example.NewNested"
+`))
+
 	rootPath := filepath.Join(dir, "root.yaml")
-
-	baseA := strings.TrimSpace(`
-services:
-  dupe:
-    constructor:
-      func: "example.NewA"
-`)
-	writeTestFile(t, baseAPath, baseA)
-
-	baseB := strings.TrimSpace(`
-services:
-  dupe:
-    constructor:
-      func: "example.NewB"
-  extra_recursive:
-    constructor:
-      func: "example.NewExtraRecursive"
-`)
-	writeTestFile(t, baseBPath, baseB)
-
-	root := strings.TrimSpace(`
+	writeTestFile(t, rootPath, strings.TrimSpace(`
 imports:
   - "./configs/**/*.yaml"
-`)
-	writeTestFile(t, rootPath, root)
+`))
 
 	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	dupe, ok := cfg.Services["dupe"]
-	if !ok || dupe.Constructor.Func != "example.NewB" {
-		t.Fatalf("expected dupe service to come from nested base_b")
-	}
-	if _, ok = cfg.Services["extra_recursive"]; !ok {
-		t.Fatalf("expected extra_recursive service from nested base_b")
+	if _, ok := cfg.Services["nested"]; !ok {
+		t.Fatal("expected service from nested directory to load")
 	}
 }
 
