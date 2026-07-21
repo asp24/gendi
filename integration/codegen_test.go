@@ -764,51 +764,160 @@ func TestGenericTypeWithTypeArgs(t *testing.T) {
 	}
 }
 
-func TestSpreadWithServiceRef(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"handler.a": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
-				},
-			},
-			"handler.b": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerB",
-				},
-			},
-			"all_handlers": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.GetAllHandlers",
-					Args: []di.Argument{
-						{Kind: di.ArgServiceRef, Value: "handler.a"},
-						{Kind: di.ArgServiceRef, Value: "handler.a"},
+func TestSpreadArguments(t *testing.T) {
+	tests := []struct {
+		name            string
+		cfg             *di.Config
+		wantContains    []string
+		wantErrContains []string
+	}{
+		{
+			name: "service reference",
+			cfg: &di.Config{
+				Services: map[string]di.Service{
+					"handler.a": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
+						},
+					},
+					"handler.b": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerB",
+						},
+					},
+					"all_handlers": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.GetAllHandlers",
+							Args: []di.Argument{
+								{Kind: di.ArgServiceRef, Value: "handler.a"},
+								{Kind: di.ArgServiceRef, Value: "handler.a"},
+							},
+						},
+						Shared: true,
+					},
+					"server": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServer",
+							Args: []di.Argument{
+								{Kind: di.ArgSpread, Value: "@all_handlers"},
+							},
+						},
+						Public: true,
 					},
 				},
-				Shared: true,
 			},
-			"server": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServer",
-					Args: []di.Argument{
-						{Kind: di.ArgSpread, Value: "@all_handlers"},
+			wantContains: []string{"NewServer(", "...", "getAllHandlers()"},
+		},
+		{
+			name: "tagged services",
+			cfg: &di.Config{
+				Tags: map[string]di.Tag{
+					"handler": {
+						ElementType: "github.com/gendi-org/gendi/generator/testdata/app.Handler",
 					},
 				},
-				Public: true,
+				Services: map[string]di.Service{
+					"handler.a": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
+						},
+						Tags: []di.ServiceTag{{Name: "handler"}},
+					},
+					"handler.b": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerB",
+						},
+						Tags: []di.ServiceTag{{Name: "handler"}},
+					},
+					"server": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServer",
+							Args: []di.Argument{
+								{Kind: di.ArgSpread, Value: "!tagged:handler"},
+							},
+						},
+						Public: true,
+					},
+				},
 			},
+			wantContains: []string{"NewServer(", "...", "handler"},
+		},
+		{
+			name: "after regular argument",
+			cfg: &di.Config{
+				Services: map[string]di.Service{
+					"handler.a": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
+						},
+					},
+					"handler.b": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerB",
+						},
+					},
+					"more_handlers": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.GetAllHandlers",
+							Args: []di.Argument{
+								{Kind: di.ArgServiceRef, Value: "handler.a"},
+								{Kind: di.ArgServiceRef, Value: "handler.a"},
+							},
+						},
+						Shared: true,
+					},
+					"server": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewPrefixedServer",
+							Args: []di.Argument{
+								{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("api")},
+								{Kind: di.ArgSpread, Value: "@more_handlers"},
+							},
+						},
+						Public: true,
+					},
+				},
+			},
+			wantContains: []string{"NewPrefixedServer(", "...", "getHandlerA()", "getMoreHandlers()"},
+		},
+		{
+			name: "mixed with positional variadic argument",
+			cfg: &di.Config{
+				Services: map[string]di.Service{
+					"handler.a": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
+						},
+					},
+					"more_handlers": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.GetAllHandlers",
+							Args: []di.Argument{
+								{Kind: di.ArgServiceRef, Value: "handler.a"},
+								{Kind: di.ArgServiceRef, Value: "handler.a"},
+							},
+						},
+					},
+					"server": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServer",
+							Args: []di.Argument{
+								{Kind: di.ArgServiceRef, Value: "handler.a"},
+								{Kind: di.ArgSpread, Value: "@more_handlers"},
+							},
+						},
+						Public: true,
+					},
+				},
+			},
+			wantErrContains: []string{"positional variadic"},
 		},
 	}
 
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, "NewServer(") {
-		t.Fatal("expected NewServer call")
-	}
-	if !strings.Contains(out, "...") {
-		t.Fatal("expected spread operator ... in generated code")
-	}
-	if !strings.Contains(out, "getAllHandlers()") {
-		t.Fatal("expected getAllHandlers call")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assertCodegen(t, tt.cfg, tt.wantContains, tt.wantErrContains)
+		})
 	}
 }
 
@@ -848,109 +957,6 @@ func TestSpreadWithServiceRefPropagatesDependencyErrors(t *testing.T) {
 	}
 	if strings.Contains(out, ", _ := c.getAllHandlers()") {
 		t.Fatalf("expected spread arg to avoid discarding all_handlers getter errors, got:\n%s", out)
-	}
-}
-
-func TestSpreadWithTagged(t *testing.T) {
-	cfg := &di.Config{
-		Tags: map[string]di.Tag{
-			"handler": {
-				ElementType: "github.com/gendi-org/gendi/generator/testdata/app.Handler",
-			},
-		},
-		Services: map[string]di.Service{
-			"handler.a": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
-				},
-				Tags: []di.ServiceTag{
-					{Name: "handler"},
-				},
-			},
-			"handler.b": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerB",
-				},
-				Tags: []di.ServiceTag{
-					{Name: "handler"},
-				},
-			},
-			"server": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServer",
-					Args: []di.Argument{
-						{Kind: di.ArgSpread, Value: "!tagged:handler"},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, "NewServer(") {
-		t.Fatal("expected NewServer call")
-	}
-	if !strings.Contains(out, "...") {
-		t.Fatal("expected spread operator ... in generated code")
-	}
-	if !strings.Contains(out, "handler") {
-		t.Fatal("expected handler services to be generated")
-	}
-}
-
-func TestSpreadWithMixedArgs(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"handler.a": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
-				},
-			},
-			"handler.b": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerB",
-				},
-			},
-			"more_handlers": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.GetAllHandlers",
-					Args: []di.Argument{
-						{Kind: di.ArgServiceRef, Value: "handler.a"},
-						{Kind: di.ArgServiceRef, Value: "handler.a"},
-					},
-				},
-				Shared: true,
-			},
-			"server": {
-				Constructor: di.Constructor{
-					// NewPrefixedServer(prefix string, handlers ...Handler):
-					// regular parameters may precede the spread.
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewPrefixedServer",
-					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("api")},
-						{Kind: di.ArgSpread, Value: "@more_handlers"},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, "NewPrefixedServer(") {
-		t.Fatal("expected NewPrefixedServer call")
-	}
-	if !strings.Contains(out, "...") {
-		t.Fatal("expected spread operator ... in generated code")
-	}
-	if !strings.Contains(out, "getHandlerA()") {
-		t.Fatal("expected getHandlerA call for regular arg")
-	}
-	if !strings.Contains(out, "getMoreHandlers()") {
-		t.Fatal("expected getMoreHandlers call for spread arg")
 	}
 }
 
@@ -1543,44 +1549,6 @@ func TestUserPackageNamedParameters(t *testing.T) {
 	out := generate(t, cfg)
 	if !strings.Contains(out, "parameters2 \"github.com/gendi-org/gendi/generator/testdata/parameters\"") {
 		t.Fatalf("expected user parameters package to get a distinct alias:\n%s", out)
-	}
-}
-
-func TestSpreadMixedWithPositionalVariadicFailsGeneration(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"handler.a": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
-				},
-			},
-			"more_handlers": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.GetAllHandlers",
-					Args: []di.Argument{
-						{Kind: di.ArgServiceRef, Value: "handler.a"},
-						{Kind: di.ArgServiceRef, Value: "handler.a"},
-					},
-				},
-			},
-			"server": {
-				Constructor: di.Constructor{
-					// NewServer(handlers ...Handler): Go forbids mixing
-					// positional variadic values with a spread.
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServer",
-					Args: []di.Argument{
-						{Kind: di.ArgServiceRef, Value: "handler.a"},
-						{Kind: di.ArgSpread, Value: "@more_handlers"},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	err := generateErr(t, cfg)
-	if err == nil || !strings.Contains(err.Error(), "positional variadic") {
-		t.Fatalf("expected mixed positional/spread error, got %v", err)
 	}
 }
 
