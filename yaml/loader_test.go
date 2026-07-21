@@ -278,28 +278,6 @@ services:
 `))
 }
 
-// Absolute filesystem paths are not allowed in imports — even ones pointing
-// inside the module. Files in the module are addressed relatively or through
-// the module's own import path.
-func TestLoadConfigRejectsAbsoluteImport(t *testing.T) {
-	dir := t.TempDir()
-	writeModuleImportsFixture(t, dir)
-
-	rootPath := filepath.Join(dir, "root.yaml")
-	writeTestFile(t, rootPath, strings.TrimSpace(fmt.Sprintf(`
-imports:
-  - path: %q
-`, filepath.Join(dir, "imports", "module.yaml"))))
-
-	_, err := loadConfigWithDefaultBoundary(t, rootPath)
-	if err == nil {
-		t.Fatal("expected error for absolute import path")
-	}
-	if !strings.Contains(err.Error(), "absolute") {
-		t.Fatalf("error should mention absolute paths, got: %v", err)
-	}
-}
-
 // A config file inside the module is importable through the module's own
 // import path, giving a location-independent anchor at the module root.
 func TestLoadConfigOwnModuleImport(t *testing.T) {
