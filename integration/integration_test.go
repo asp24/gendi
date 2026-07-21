@@ -124,6 +124,10 @@ func TestWorkflow(t *testing.T) {
 			expectedOutput: "[LOG] Service running\n",
 		},
 		{
+			name:           "shared_value_service",
+			expectedOutput: "id1=1 id2=1 builds=1\n",
+		},
+		{
 			name:           "tagged_injection",
 			expectedOutput: "B\nA\n",
 		},

@@ -1,0 +1,5 @@
+services:
+  counter:
+    constructor:
+      func: "test.NewCounter"
+    public: true
