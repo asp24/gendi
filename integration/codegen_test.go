@@ -1379,52 +1379,57 @@ func TestMustGettersGenerated(t *testing.T) {
 	}
 }
 
-func TestNoUnusedFmtImport(t *testing.T) {
-	// A container with only error-free, dependency-free constructors emits no
-	// fmt.Errorf calls, so importing fmt would break compilation.
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"a": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-	if strings.Contains(out, "\"fmt\"") {
-		t.Fatalf("expected no fmt import in generated code:\n%s", out)
-	}
-	if strings.Contains(out, "fmt.") {
-		t.Fatalf("expected no fmt usage in generated code:\n%s", out)
-	}
-}
-
-func TestFmtImportedWhenErrorHandlingPresent(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"a": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
-				},
-			},
-			"b": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewB",
-					Args: []di.Argument{
-						{Kind: di.ArgServiceRef, Value: "a"},
+func TestFmtImport(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		cfg        *di.Config
+		wantImport bool
+	}{
+		{
+			name: "omitted without error handling",
+			cfg: &di.Config{
+				Services: map[string]di.Service{
+					"a": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
+						},
+						Public: true,
 					},
 				},
-				Public: true,
 			},
 		},
-	}
-
-	out := generate(t, cfg)
-	if !strings.Contains(out, "\"fmt\"") {
-		t.Fatalf("expected fmt import in generated code:\n%s", out)
+		{
+			name: "included with error handling",
+			cfg: &di.Config{
+				Services: map[string]di.Service{
+					"a": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
+						},
+					},
+					"b": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewB",
+							Args: []di.Argument{
+								{Kind: di.ArgServiceRef, Value: "a"},
+							},
+						},
+						Public: true,
+					},
+				},
+			},
+			wantImport: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			out := generate(t, tt.cfg)
+			if got := strings.Contains(out, "\"fmt\""); got != tt.wantImport {
+				t.Fatalf("fmt import present = %t, want %t:\n%s", got, tt.wantImport, out)
+			}
+			if !tt.wantImport && strings.Contains(out, "fmt.") {
+				t.Fatalf("expected no fmt usage in generated code:\n%s", out)
+			}
+		})
 	}
 }
 
