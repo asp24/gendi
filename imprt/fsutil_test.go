@@ -2,11 +2,12 @@ package imprt
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-// A glob that matches nothing is a silent no-op — whether its base directory
-// exists or not. Only a malformed pattern is an error.
+// A glob over an existing directory that matches nothing is a silent no-op; a
+// glob whose base directory does not exist, or a malformed pattern, is an error.
 func TestGlobMatches(t *testing.T) {
 	dir := t.TempDir()
 
@@ -18,12 +19,9 @@ func TestGlobMatches(t *testing.T) {
 		t.Fatalf("expected no matches, got %v", files)
 	}
 
-	files, err = globMatches(dir, "no_such_dir/*.yaml")
-	if err != nil {
-		t.Fatalf("unexpected error for missing base directory: %v", err)
-	}
-	if len(files) != 0 {
-		t.Fatalf("expected no matches, got %v", files)
+	if _, err = globMatches(dir, "no_such_dir/*.yaml"); err == nil ||
+		!strings.Contains(err.Error(), "does not exist") {
+		t.Fatalf("expected missing-base-directory error, got %v", err)
 	}
 
 	if _, err = globMatches(dir, "[invalid"); err == nil {

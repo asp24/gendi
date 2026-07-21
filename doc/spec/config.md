@@ -40,7 +40,8 @@ Rules:
 - Later definitions override earlier ones
 - Imports can be a string path or a mapping with `path`
 - Glob patterns are supported; matches are expanded in lexicographic order;
-  a glob that matches nothing is a silent no-op
+  a glob over an existing directory that matches nothing is a silent no-op,
+  but a glob whose base directory does not exist is a generation-time error
 - Every config, including the root, is confined immediately before loading.
   Imported candidates use the module of the importing file (or the module the
   import names) as their boundary. Exclusion masks are applied first, then

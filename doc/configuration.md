@@ -505,8 +505,9 @@ imports:
   select the local path explicitly
 - Absolute filesystem paths are not allowed
 - Relative paths resolved from importing file's directory
-- Glob patterns expanded using doublestar matching; a glob that matches
-  nothing is a silent no-op
+- Glob patterns expanded using doublestar matching; a glob over an existing
+  directory that matches nothing is a silent no-op, but a glob whose base
+  directory does not exist is a generation-time error
 - Every config, including the root, is confined immediately before loading.
   Imported candidates use the module of the importing file (or the named
   module) as their boundary: after exclusions are applied, each candidate is

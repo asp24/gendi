@@ -169,18 +169,34 @@ func TestResolveImportGlobMetacharAnchor(t *testing.T) {
 
 // A glob that matches nothing — including one whose base directory does not
 // exist — is a silent no-op, not an error.
-func TestResolveImportGlobNoMatchIsSilent(t *testing.T) {
+func TestResolveImportGlobEmptyDirIsSilent(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	emptyDir := filepath.Join(tempDir, "services")
+	if err := os.MkdirAll(emptyDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	resolver := newTestResolver(t, tempDir)
+
+	result, err := resolver.ResolveImport(tempDir, "./services/*.yaml", nil)
+	if err != nil {
+		t.Fatalf("no-match glob over an existing dir must be silent, got %v", err)
+	}
+	if len(result) != 0 {
+		t.Fatalf("expected no files, got %v", result)
+	}
+}
+
+func TestResolveImportGlobMissingDirIsError(t *testing.T) {
 	t.Parallel()
 
 	tempDir := t.TempDir()
 	resolver := newTestResolver(t, tempDir)
 
-	result, err := resolver.ResolveImport(tempDir, "./missing-dir/*.yaml", nil)
-	if err != nil {
-		t.Fatalf("no-match glob must be silent, got %v", err)
-	}
-	if len(result) != 0 {
-		t.Fatalf("expected no files, got %v", result)
+	_, err := resolver.ResolveImport(tempDir, "./missing-dir/*.yaml", nil)
+	if err == nil || !strings.Contains(err.Error(), "does not exist") {
+		t.Fatalf("expected missing-directory error for a glob over a nonexistent base, got %v", err)
 	}
 }
 
