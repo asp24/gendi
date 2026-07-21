@@ -69,105 +69,69 @@ func assertCodegen(t *testing.T, cfg *di.Config, wantContains, wantNotContains, 
 	}
 }
 
-func TestRequiresPublicService(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"a": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
-				},
-			},
-		},
-	}
-	err := generateErr(t, cfg)
-	if err == nil || !strings.Contains(err.Error(), "at least one public service or tag") {
-		t.Fatalf("expected public service error, got %v", err)
-	}
-}
+func TestReachabilityFromPublicRoots(t *testing.T) {
+	const appPkg = "github.com/gendi-org/gendi/generator/testdata/app"
 
-func TestReachabilityAndPublicGetters(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"a": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewA",
+	for _, tt := range []struct {
+		name            string
+		cfg             *di.Config
+		wantContains    []string
+		wantNotContains []string
+		wantErrContains []string
+	}{
+		{
+			name: "no public roots",
+			cfg: &di.Config{
+				Services: map[string]di.Service{
+					"a": {Constructor: di.Constructor{Func: appPkg + ".NewA"}},
 				},
 			},
-			"b": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewB",
-					Args: []di.Argument{
-						{Kind: di.ArgServiceRef, Value: "a"},
+			wantErrContains: []string{"at least one public service or tag"},
+		},
+		{
+			name: "public service",
+			cfg: &di.Config{
+				Services: map[string]di.Service{
+					"a": {Constructor: di.Constructor{Func: appPkg + ".NewA"}},
+					"b": {
+						Constructor: di.Constructor{
+							Func: appPkg + ".NewB",
+							Args: []di.Argument{{Kind: di.ArgServiceRef, Value: "a"}},
+						},
+						Public: true,
+					},
+					"unused": {Constructor: di.Constructor{Func: appPkg + ".NewC"}},
+				},
+			},
+			wantContains:    []string{"GetB", "getA"},
+			wantNotContains: []string{"GetA", "buildUnused", "getUnused", "GetUnused", "svc_unused"},
+		},
+		{
+			name: "public tag",
+			cfg: &di.Config{
+				Tags: map[string]di.Tag{
+					"svc.tag": {ElementType: appPkg + ".Service", Public: true},
+				},
+				Services: map[string]di.Service{
+					"base": {
+						Constructor: di.Constructor{Func: appPkg + ".NewServiceBase"},
+						Tags:        []di.ServiceTag{{Name: "svc.tag"}},
 					},
 				},
-				Public: true,
 			},
-			"unused": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewC",
-				},
+			wantContains: []string{
+				"GetTaggedWithSvcTag",
+				"getTaggedWithSvcTag",
+				"[]app.Service",
+				"getBase",
+				"[]app.Service{",
 			},
+			wantNotContains: []string{"stdlib.MakeSlice"},
 		},
-	}
-
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, "GetB") {
-		t.Fatalf("expected public getter for b")
-	}
-	if strings.Contains(out, "GetA") {
-		t.Fatalf("unexpected public getter for private service a")
-	}
-	if !strings.Contains(out, "getA") {
-		t.Fatalf("expected private getter for a")
-	}
-	if strings.Contains(out, "buildUnused") || strings.Contains(out, "getUnused") || strings.Contains(out, "GetUnused") {
-		t.Fatalf("unexpected generation for unreachable service")
-	}
-	if strings.Contains(out, "svc_unused") {
-		t.Fatalf("unexpected field for unreachable service")
-	}
-}
-
-func TestPublicTagGetter(t *testing.T) {
-	cfg := &di.Config{
-		Tags: map[string]di.Tag{
-			"svc.tag": {
-				ElementType: "github.com/gendi-org/gendi/generator/testdata/app.Service",
-				Public:      true,
-			},
-		},
-		Services: map[string]di.Service{
-			"base": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
-				},
-				Tags: []di.ServiceTag{
-					{Name: "svc.tag"},
-				},
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, "GetTaggedWithSvcTag") {
-		t.Fatalf("expected public tag getter to be generated")
-	}
-	if !strings.Contains(out, "getTaggedWithSvcTag") {
-		t.Fatalf("expected private tag getter to be generated")
-	}
-	if !strings.Contains(out, "[]app.Service") {
-		t.Fatalf("expected tag getter to use declared element type")
-	}
-	if !strings.Contains(out, "getBase") {
-		t.Fatalf("expected tagged service to be reachable")
-	}
-	if strings.Contains(out, "stdlib.MakeSlice") {
-		t.Fatalf("expected stdlib.MakeSlice to be inlined")
-	}
-	if !strings.Contains(out, "[]app.Service{") {
-		t.Fatalf("expected tag constructor to use slice literal")
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assertCodegen(t, tt.cfg, tt.wantContains, tt.wantNotContains, tt.wantErrContains)
+		})
 	}
 }
 
