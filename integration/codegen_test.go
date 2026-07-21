@@ -280,98 +280,88 @@ func TestParameterCodegen(t *testing.T) {
 	}
 }
 
-func TestNullLiteralArgument(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"b": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewB",
-					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: di.NewNullLiteral()},
-					},
-				},
-				Public: true,
-			},
-		},
+func TestLiteralArguments(t *testing.T) {
+	const appPkg = "github.com/gendi-org/gendi/generator/testdata/app"
+	literalServerArgs := func(value di.Literal) []di.Argument {
+		return []di.Argument{
+			{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("localhost")},
+			{Kind: di.ArgLiteral, Literal: value},
+		}
 	}
 
-	out := generate(t, cfg)
-	if !strings.Contains(out, "NewB(nil)") {
-		t.Fatalf("expected nil literal for null argument")
-	}
-}
-
-func TestLiteralForIntArg(t *testing.T) {
-	tests := []struct {
+	for _, tt := range []struct {
 		name            string
-		literal         di.Literal
+		constructor     string
+		args            []di.Argument
 		wantContains    []string
 		wantErrContains []string
 	}{
 		{
+			name:        "null for nilable argument",
+			constructor: appPkg + ".NewB",
+			args: []di.Argument{
+				{Kind: di.ArgLiteral, Literal: di.NewNullLiteral()},
+			},
+			wantContains: []string{"NewB(nil)"},
+		},
+		{
 			name:            "string rejected",
-			literal:         di.NewStringLiteral("hello world"),
+			constructor:     appPkg + ".NewServerWithAddr",
+			args:            literalServerArgs(di.NewStringLiteral("hello world")),
 			wantErrContains: []string{"cannot use", "arg[1]"},
 		},
 		{
 			name:            "null rejected",
-			literal:         di.NewNullLiteral(),
+			constructor:     appPkg + ".NewServerWithAddr",
+			args:            literalServerArgs(di.NewNullLiteral()),
 			wantErrContains: []string{"not nilable"},
 		},
 		{
 			name:            "bool rejected",
-			literal:         di.NewBoolLiteral(true),
+			constructor:     appPkg + ".NewServerWithAddr",
+			args:            literalServerArgs(di.NewBoolLiteral(true)),
 			wantErrContains: []string{"cannot use"},
 		},
 		{
 			// Go permits untyped float constants with integral values for
 			// integer targets, so 5.0 must keep generating.
 			name:         "integral float accepted",
-			literal:      di.NewFloatLiteral(5.0),
+			constructor:  appPkg + ".NewServerWithAddr",
+			args:         literalServerArgs(di.NewFloatLiteral(5.0)),
 			wantContains: []string{`NewServerWithAddr("localhost", 5.0)`},
 		},
-	}
-
-	for _, tt := range tests {
+		{
+			name:        "integer for duration argument",
+			constructor: appPkg + ".NewTimer",
+			args: []di.Argument{
+				{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(5000000000)},
+			},
+			wantContains: []string{"NewTimer(5000000000)"},
+		},
+		{
+			// Literals in variadic positions resolve against the element type
+			// instead of the raw slice parameter.
+			name:        "variadic duration strings",
+			constructor: appPkg + ".NewTimed",
+			args: []di.Argument{
+				{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("5s")},
+				{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("10s")},
+			},
+			wantContains: []string{"app.NewTimed("},
+		},
+	} {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &di.Config{
 				Services: map[string]di.Service{
-					"server": {
-						Constructor: di.Constructor{
-							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServerWithAddr",
-							Args: []di.Argument{
-								{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("localhost")},
-								{Kind: di.ArgLiteral, Literal: tt.literal},
-							},
-						},
-						Public: true,
+					"service": {
+						Constructor: di.Constructor{Func: tt.constructor, Args: tt.args},
+						Public:      true,
 					},
 				},
 			}
 
 			assertCodegen(t, cfg, tt.wantContains, tt.wantErrContains)
 		})
-	}
-}
-
-func TestIntLiteralForDurationArg(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"timer": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimer",
-					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(5000000000)},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-	if !strings.Contains(out, "NewTimer(5000000000)") {
-		t.Fatalf("expected int literal for duration argument, got:\n%s", out)
 	}
 }
 
@@ -1393,30 +1383,6 @@ func TestTaggedConversionInValueTypeBuild(t *testing.T) {
 	}
 	if !strings.Contains(out, "return zero, fmt.Errorf") {
 		t.Fatalf("expected zero-value return in conversion error path:\n%s", out)
-	}
-}
-
-func TestVariadicDurationLiterals(t *testing.T) {
-	// Literals in variadic positions resolve against the element type in IR;
-	// the generator must use that type instead of the raw slice parameter.
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"timed": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimed",
-					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("5s")},
-						{Kind: di.ArgLiteral, Literal: di.NewStringLiteral("10s")},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-	if !strings.Contains(out, "app.NewTimed(") {
-		t.Fatalf("expected NewTimed constructor call:\n%s", out)
 	}
 }
 
