@@ -575,49 +575,51 @@ func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
 	}
 }
 
-func TestServiceTypeAssignableOverride(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"svc": {
-				Type: "github.com/gendi-org/gendi/generator/testdata/app.Service",
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBaseConcrete",
-				},
-				Public: true,
-			},
-		},
-	}
-
-	if err := generateErr(t, cfg); err != nil {
-		t.Fatalf("generate failed: %v", err)
-	}
-}
-
-func TestDecoratorAssignableToDeclaredBaseType(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"svc": {
-				Type: "github.com/gendi-org/gendi/generator/testdata/app.Service",
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBaseConcrete",
-				},
-				Public: true,
-			},
-			"svc.decorator": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorAConcrete",
-					Args: []di.Argument{
-						{Kind: di.ArgInner},
+func TestDeclaredServiceTypeAssignability(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		services map[string]di.Service
+	}{
+		{
+			name: "constructor result",
+			services: map[string]di.Service{
+				"svc": {
+					Type: "github.com/gendi-org/gendi/generator/testdata/app.Service",
+					Constructor: di.Constructor{
+						Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBaseConcrete",
 					},
+					Public: true,
 				},
-				Decorates:          "svc",
-				DecorationPriority: 10,
 			},
 		},
-	}
-
-	if err := generateErr(t, cfg); err != nil {
-		t.Fatalf("generate failed: %v", err)
+		{
+			name: "decorator result",
+			services: map[string]di.Service{
+				"svc": {
+					Type: "github.com/gendi-org/gendi/generator/testdata/app.Service",
+					Constructor: di.Constructor{
+						Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBaseConcrete",
+					},
+					Public: true,
+				},
+				"svc.decorator": {
+					Constructor: di.Constructor{
+						Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorAConcrete",
+						Args: []di.Argument{
+							{Kind: di.ArgInner},
+						},
+					},
+					Decorates:          "svc",
+					DecorationPriority: 10,
+				},
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := generateErr(t, &di.Config{Services: tt.services}); err != nil {
+				t.Fatalf("generate failed: %v", err)
+			}
+		})
 	}
 }
 
