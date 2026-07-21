@@ -32,33 +32,24 @@ func mustParseNode(t *testing.T, src string) ast.Node {
 }
 
 func TestParseServiceAlias(t *testing.T) {
-	raw := &RawService{
-		Alias: "@foo",
-	}
-	p := NewParser()
-	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "", "")
-	if err != nil {
-		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
-	}
-	if svc.Alias != "foo" {
-		t.Errorf("expected alias 'foo', got '%s'", svc.Alias)
-	}
-	if svc.Shared {
-		t.Error("alias must not define shared")
-	}
-}
-
-func TestParseServiceAliasDirect(t *testing.T) {
-	raw := &RawService{
-		Alias: "foo", // direct ID, no @
-	}
-	p := NewParser()
-	svc, err := p.convertServiceWithPackageAndFile(raw, nil, "", "")
-	if err != nil {
-		t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
-	}
-	if svc.Alias != "foo" {
-		t.Errorf("expected alias 'foo', got '%s'", svc.Alias)
+	for _, alias := range []string{"@foo", "foo"} {
+		t.Run(alias, func(t *testing.T) {
+			svc, err := NewParser().convertServiceWithPackageAndFile(
+				&RawService{Alias: alias},
+				nil,
+				"",
+				"",
+			)
+			if err != nil {
+				t.Fatalf("convertServiceWithPackageAndFile failed: %v", err)
+			}
+			if svc.Alias != "foo" {
+				t.Errorf("alias = %q, want %q", svc.Alias, "foo")
+			}
+			if svc.Shared {
+				t.Error("alias must not define shared")
+			}
+		})
 	}
 }
 
