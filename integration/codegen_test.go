@@ -480,98 +480,126 @@ func TestServiceAliasSharedRejected(t *testing.T) {
 	}
 }
 
-func TestDecoratorPrivateGetterGeneratedForChain(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"svc": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
-				},
-				Public: true,
-				Shared: true,
-			},
-			"svc.decoratorA": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorA",
-					Args: []di.Argument{
-						{Kind: di.ArgInner},
+func TestDecoratorPrivateGetterGeneration(t *testing.T) {
+	const appPkg = "github.com/gendi-org/gendi/generator/testdata/app"
+
+	for _, tt := range []struct {
+		name             string
+		cfg              *di.Config
+		wantContains     []string
+		wantNotContains  []string
+		wantCountAtLeast map[string]int
+	}{
+		{
+			name: "decorator chain",
+			cfg: &di.Config{
+				Services: map[string]di.Service{
+					"svc": {
+						Constructor: di.Constructor{Func: appPkg + ".NewServiceBase"},
+						Public:      true,
+						Shared:      true,
+					},
+					"svc.decoratorA": {
+						Constructor: di.Constructor{
+							Func: appPkg + ".NewServiceDecoratorA",
+							Args: []di.Argument{{Kind: di.ArgInner}},
+						},
+						Decorates:          "svc",
+						DecorationPriority: 10,
+						Shared:             true,
+					},
+					"svc.decoratorB": {
+						Constructor: di.Constructor{
+							Func: appPkg + ".NewServiceDecoratorB",
+							Args: []di.Argument{{Kind: di.ArgInner}},
+						},
+						Decorates:          "svc",
+						DecorationPriority: 20,
+						Shared:             true,
 					},
 				},
-				Decorates:          "svc",
-				DecorationPriority: 10,
-				Shared:             true,
 			},
-			"svc.decoratorB": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorB",
-					Args: []di.Argument{
-						{Kind: di.ArgInner},
-					},
-				},
-				Decorates:          "svc",
-				DecorationPriority: 20,
-				Shared:             true,
+			wantContains: []string{
+				"getSvcDecoratorB",
+				"getSvcDecoratorA",
+				"getSvcDecoratorAInner",
+				"svc_svc_decoratorB",
 			},
+			wantNotContains: []string{"svc_svc_decoratorA "},
 		},
-	}
-
-	out := generate(t, cfg)
-	if !strings.Contains(out, "getSvcDecoratorB") {
-		t.Fatalf("expected private getter for outer decorator")
-	}
-	if !strings.Contains(out, "getSvcDecoratorA") {
-		t.Fatalf("expected private getter for inner decorator")
-	}
-	if !strings.Contains(out, "getSvcDecoratorAInner") {
-		t.Fatalf("expected private getter for raw base")
-	}
-	// Note: After DecoratorPass refactoring, decoratorB (the outermost decorator)
-	// is public via alias and gets a storage field. This is expected behavior.
-	if !strings.Contains(out, "svc_svc_decoratorB") {
-		t.Fatalf("expected storage field for outer decorator (public via alias)")
-	}
-	// Inner decorator A should be optimized away (used only by B)
-	if strings.Contains(out, "svc_svc_decoratorA ") {
-		t.Fatalf("unexpected storage field for inner decorator (should be non-shared)")
-	}
-}
-
-func TestDecoratorPrivateGetterGeneratedWhenReferenced(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"svc": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
-				},
-			},
-			"svc.decoratorA": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorA",
-					Args: []di.Argument{
-						{Kind: di.ArgInner},
+		{
+			name: "referenced decorator",
+			cfg: &di.Config{
+				Services: map[string]di.Service{
+					"svc": {
+						Constructor: di.Constructor{Func: appPkg + ".NewServiceBase"},
+					},
+					"svc.decoratorA": {
+						Constructor: di.Constructor{
+							Func: appPkg + ".NewServiceDecoratorA",
+							Args: []di.Argument{{Kind: di.ArgInner}},
+						},
+						Decorates:          "svc",
+						DecorationPriority: 10,
+					},
+					"consumer": {
+						Constructor: di.Constructor{
+							Func: appPkg + ".NewConsumer",
+							Args: []di.Argument{{Kind: di.ArgServiceRef, Value: "svc.decoratorA"}},
+						},
+						Public: true,
 					},
 				},
-				Decorates:          "svc",
-				DecorationPriority: 10,
 			},
-			"consumer": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewConsumer",
-					Args: []di.Argument{
-						{Kind: di.ArgServiceRef, Value: "svc.decoratorA"},
-					},
-				},
-				Public: true,
-			},
+			wantContains:    []string{"getSvcDecoratorA"},
+			wantNotContains: []string{"svc_svc_decoratorA "},
 		},
-	}
-
-	out := generate(t, cfg)
-	if !strings.Contains(out, "getSvcDecoratorA") {
-		t.Fatalf("expected private getter for referenced decorator")
-	}
-	if strings.Contains(out, "svc_svc_decoratorA ") {
-		t.Fatalf("unexpected shared field for referenced decorator")
+		{
+			name: "public tag",
+			cfg: &di.Config{
+				Tags: map[string]di.Tag{
+					"public.tag": {
+						ElementType: appPkg + ".Service",
+						Public:      true,
+					},
+				},
+				Services: map[string]di.Service{
+					"svc": {
+						Constructor: di.Constructor{Func: appPkg + ".NewServiceBase"},
+					},
+					"svc.decorator": {
+						Constructor: di.Constructor{
+							Func: appPkg + ".NewServiceDecoratorA",
+							Args: []di.Argument{{Kind: di.ArgInner}},
+						},
+						Decorates:          "svc",
+						DecorationPriority: 10,
+						Tags:               []di.ServiceTag{{Name: "public.tag"}},
+					},
+				},
+			},
+			wantContains:     []string{"func (c *Container) getSvcDecorator()"},
+			wantCountAtLeast: map[string]int{"getSvcDecorator()": 2},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			out := generate(t, tt.cfg)
+			for _, want := range tt.wantContains {
+				if !strings.Contains(out, want) {
+					t.Errorf("expected generated code containing %q, got:\n%s", want, out)
+				}
+			}
+			for _, unwanted := range tt.wantNotContains {
+				if strings.Contains(out, unwanted) {
+					t.Errorf("expected generated code not to contain %q, got:\n%s", unwanted, out)
+				}
+			}
+			for value, minCount := range tt.wantCountAtLeast {
+				if got := strings.Count(out, value); got < minCount {
+					t.Errorf("generated code contains %q %d times, want at least %d:\n%s", value, got, minCount, out)
+				}
+			}
+		})
 	}
 }
 
@@ -1173,48 +1201,6 @@ func TestDecoratorSpreadInnerRejected(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "!spread:@.inner is not supported") {
 		t.Fatalf("expected unsupported spread-inner error, got: %v", err)
-	}
-}
-
-func TestDecoratorWithPublicTagHasPrivateGetter(t *testing.T) {
-	cfg := &di.Config{
-		Tags: map[string]di.Tag{
-			"public.tag": {
-				ElementType: "github.com/gendi-org/gendi/generator/testdata/app.Service",
-				Public:      true,
-			},
-		},
-		Services: map[string]di.Service{
-			"svc": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceBase",
-				},
-			},
-			"svc.decorator": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServiceDecoratorA",
-					Args: []di.Argument{
-						{Kind: di.ArgInner},
-					},
-				},
-				Decorates:          "svc",
-				DecorationPriority: 10,
-				Tags: []di.ServiceTag{
-					{Name: "public.tag"},
-				},
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-
-	// Verify that the private getter for the decorator exists (required by tag getter)
-	if !strings.Contains(out, "func (c *Container) getSvcDecorator()") {
-		t.Fatalf("expected private getter for tagged decorator")
-	}
-	// Verify that the tag getter calls the private getter of the decorator
-	if !strings.Contains(out, "getSvcDecorator()") {
-		t.Fatalf("expected tag getter to call decorator private getter")
 	}
 }
 
