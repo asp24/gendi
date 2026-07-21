@@ -36,6 +36,34 @@ func generateErr(t *testing.T, cfg *di.Config) error {
 	return err
 }
 
+func assertCodegen(t *testing.T, cfg *di.Config, wantContains, wantErrContains []string) {
+	t.Helper()
+
+	if (len(wantContains) == 0) == (len(wantErrContains) == 0) {
+		t.Fatal("exactly one codegen expectation must be configured")
+	}
+
+	if len(wantErrContains) != 0 {
+		err := generateErr(t, cfg)
+		if err == nil {
+			t.Fatal("expected generation error")
+		}
+		for _, want := range wantErrContains {
+			if !strings.Contains(err.Error(), want) {
+				t.Fatalf("expected error containing %q, got %v", want, err)
+			}
+		}
+		return
+	}
+
+	out := generate(t, cfg)
+	for _, want := range wantContains {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expected generated code containing %q, got:\n%s", want, out)
+		}
+	}
+}
+
 func TestRequiresPublicService(t *testing.T) {
 	cfg := &di.Config{
 		Services: map[string]di.Service{
@@ -322,7 +350,7 @@ func TestLiteralForIntArg(t *testing.T) {
 	tests := []struct {
 		name            string
 		literal         di.Literal
-		wantCode        string
+		wantContains    []string
 		wantErrContains []string
 	}{
 		{
@@ -343,9 +371,9 @@ func TestLiteralForIntArg(t *testing.T) {
 		{
 			// Go permits untyped float constants with integral values for
 			// integer targets, so 5.0 must keep generating.
-			name:     "integral float accepted",
-			literal:  di.NewFloatLiteral(5.0),
-			wantCode: `NewServerWithAddr("localhost", 5.0)`,
+			name:         "integral float accepted",
+			literal:      di.NewFloatLiteral(5.0),
+			wantContains: []string{`NewServerWithAddr("localhost", 5.0)`},
 		},
 	}
 
@@ -366,23 +394,7 @@ func TestLiteralForIntArg(t *testing.T) {
 				},
 			}
 
-			if len(tt.wantErrContains) != 0 {
-				err := generateErr(t, cfg)
-				if err == nil {
-					t.Fatal("expected generation error")
-				}
-				for _, want := range tt.wantErrContains {
-					if !strings.Contains(err.Error(), want) {
-						t.Fatalf("expected error containing %q, got %v", want, err)
-					}
-				}
-				return
-			}
-
-			out := generate(t, cfg)
-			if !strings.Contains(out, tt.wantCode) {
-				t.Fatalf("expected generated code containing %q, got:\n%s", tt.wantCode, out)
-			}
+			assertCodegen(t, cfg, tt.wantContains, tt.wantErrContains)
 		})
 	}
 }
@@ -669,12 +681,7 @@ func TestGenericFunctionConstructors(t *testing.T) {
 				},
 			}
 
-			out := generate(t, cfg)
-			for _, want := range tt.wantContains {
-				if !strings.Contains(out, want) {
-					t.Fatalf("expected generated code containing %q, got:\n%s", want, out)
-				}
-			}
+			assertCodegen(t, cfg, tt.wantContains, nil)
 		})
 	}
 }
@@ -727,15 +734,7 @@ func TestGenericValidationErrors(t *testing.T) {
 			service.Public = true
 			cfg := &di.Config{Services: map[string]di.Service{"service": service}}
 
-			err := generateErr(t, cfg)
-			if err == nil {
-				t.Fatal("expected generation error")
-			}
-			for _, want := range tt.wantErrContains {
-				if !strings.Contains(err.Error(), want) {
-					t.Fatalf("expected error containing %q, got %v", want, err)
-				}
-			}
+			assertCodegen(t, cfg, nil, tt.wantErrContains)
 		})
 	}
 }
@@ -953,108 +952,122 @@ func TestSpreadWithMixedArgs(t *testing.T) {
 	}
 }
 
-func TestGoRefArgument(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"writer": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewWriter",
-					Args: []di.Argument{
-						{Kind: di.ArgGoRef, Value: "os.Stdout"},
-					},
-				},
-				Public: true,
-			},
+func TestGoRefArguments(t *testing.T) {
+	const appPkg = "github.com/gendi-org/gendi/generator/testdata/app"
+
+	tests := []struct {
+		name            string
+		constructor     string
+		value           string
+		wantContains    []string
+		wantErrContains []string
+	}{
+		{
+			name:         "standard library variable",
+			constructor:  appPkg + ".NewWriter",
+			value:        "os.Stdout",
+			wantContains: []string{"os.Stdout", "NewWriter(os.Stdout)"},
+		},
+		{
+			name:         "package-level variable",
+			constructor:  appPkg + ".NewLogger",
+			value:        appPkg + ".DefaultPrefix",
+			wantContains: []string{"app.DefaultPrefix", "NewLogger(app.DefaultPrefix)"},
+		},
+		{
+			name:            "type mismatch",
+			constructor:     appPkg + ".NewLogger",
+			value:           "os.Stdout",
+			wantErrContains: []string{"not assignable"},
 		},
 	}
 
-	out := generate(t, cfg)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &di.Config{
+				Services: map[string]di.Service{
+					"service": {
+						Constructor: di.Constructor{
+							Func: tt.constructor,
+							Args: []di.Argument{{Kind: di.ArgGoRef, Value: tt.value}},
+						},
+						Public: true,
+					},
+				},
+			}
 
-	if !strings.Contains(out, "os.Stdout") {
-		t.Fatalf("expected os.Stdout in generated code, got:\n%s", out)
-	}
-	if !strings.Contains(out, "NewWriter(os.Stdout)") {
-		t.Fatalf("expected NewWriter(os.Stdout) call, got:\n%s", out)
+			assertCodegen(t, cfg, tt.wantContains, tt.wantErrContains)
+		})
 	}
 }
 
-func TestGoRefArgumentWithPackageLevelVar(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"logger": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
-					Args: []di.Argument{
-						{Kind: di.ArgGoRef, Value: "github.com/gendi-org/gendi/generator/testdata/app.DefaultPrefix"},
-					},
-				},
-				Public: true,
+func TestFieldAccessArguments(t *testing.T) {
+	const appPkg = "github.com/gendi-org/gendi/generator/testdata/app"
+
+	tests := []struct {
+		name            string
+		constructor     string
+		args            []di.Argument
+		withConfig      bool
+		wantContains    []string
+		wantErrContains []string
+	}{
+		{
+			name:        "service fields",
+			constructor: appPkg + ".NewServerWithAddr",
+			args: []di.Argument{
+				{Kind: di.ArgFieldAccessService, Value: "config.Host"},
+				{Kind: di.ArgFieldAccessService, Value: "config.Port"},
 			},
+			withConfig:   true,
+			wantContains: []string{".Host", ".Port"},
+		},
+		{
+			name:         "nested service field",
+			constructor:  appPkg + ".NewLogger",
+			args:         []di.Argument{{Kind: di.ArgFieldAccessService, Value: "config.Database.DSN"}},
+			withConfig:   true,
+			wantContains: []string{".Database.DSN"},
+		},
+		{
+			name:         "Go reference field",
+			constructor:  appPkg + ".NewTimer",
+			args:         []di.Argument{{Kind: di.ArgFieldAccessGo, Value: "net/http.DefaultClient.Timeout"}},
+			wantContains: []string{"http.DefaultClient.Timeout"},
+		},
+		{
+			name:            "type mismatch",
+			constructor:     appPkg + ".NewTimer",
+			args:            []di.Argument{{Kind: di.ArgFieldAccessService, Value: "config.Host"}},
+			withConfig:      true,
+			wantErrContains: []string{"not assignable"},
+		},
+		{
+			name:            "unknown field",
+			constructor:     appPkg + ".NewLogger",
+			args:            []di.Argument{{Kind: di.ArgFieldAccessService, Value: "config.NonExistentField"}},
+			withConfig:      true,
+			wantErrContains: []string{"not found"},
 		},
 	}
 
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, "app.DefaultPrefix") {
-		t.Fatalf("expected app.DefaultPrefix in generated code, got:\n%s", out)
-	}
-	if !strings.Contains(out, "NewLogger(app.DefaultPrefix)") {
-		t.Fatalf("expected NewLogger(app.DefaultPrefix) call, got:\n%s", out)
-	}
-}
-
-func TestGoRefArgumentTypeMismatch(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"logger": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
-					Args: []di.Argument{
-						{Kind: di.ArgGoRef, Value: "os.Stdout"},
-					},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			services := map[string]di.Service{
+				"consumer": {
+					Constructor: di.Constructor{Func: tt.constructor, Args: tt.args},
+					Public:      true,
 				},
-				Public: true,
-			},
-		},
-	}
+			}
+			if tt.withConfig {
+				services["config"] = di.Service{
+					Constructor: di.Constructor{Func: appPkg + ".LoadConfig"},
+				}
+			}
+			cfg := &di.Config{Services: services}
 
-	err := generateErr(t, cfg)
-	if err == nil {
-		t.Fatal("expected type mismatch error")
-	}
-	if !strings.Contains(err.Error(), "not assignable") {
-		t.Fatalf("expected assignability error, got: %v", err)
-	}
-}
-
-func TestFieldAccessOnService(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"config": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.LoadConfig",
-				},
-			},
-			"server": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServerWithAddr",
-					Args: []di.Argument{
-						{Kind: di.ArgFieldAccessService, Value: "config.Host"},
-						{Kind: di.ArgFieldAccessService, Value: "config.Port"},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, ".Host") {
-		t.Fatalf("expected .Host field access in generated code, got:\n%s", out)
-	}
-	if !strings.Contains(out, ".Port") {
-		t.Fatalf("expected .Port field access in generated code, got:\n%s", out)
+			assertCodegen(t, cfg, tt.wantContains, tt.wantErrContains)
+		})
 	}
 }
 
@@ -1085,113 +1098,6 @@ func TestFieldAccessOnServicePropagatesDependencyErrors(t *testing.T) {
 	}
 	if strings.Contains(out, ", _ := c.getConfig()") {
 		t.Fatalf("expected field access to avoid discarding config getter errors, got:\n%s", out)
-	}
-}
-
-func TestFieldAccessNested(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"config": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.LoadConfig",
-				},
-			},
-			"logger": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
-					Args: []di.Argument{
-						{Kind: di.ArgFieldAccessService, Value: "config.Database.DSN"},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, ".Database.DSN") {
-		t.Fatalf("expected .Database.DSN field access in generated code, got:\n%s", out)
-	}
-}
-
-func TestFieldAccessOnGoRef(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"timer": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimer",
-					Args: []di.Argument{
-						{Kind: di.ArgFieldAccessGo, Value: "net/http.DefaultClient.Timeout"},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, "http.DefaultClient.Timeout") {
-		t.Fatalf("expected http.DefaultClient.Timeout in generated code, got:\n%s", out)
-	}
-}
-
-func TestFieldAccessTypeMismatch(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"config": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.LoadConfig",
-				},
-			},
-			"timer": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimer",
-					Args: []di.Argument{
-						{Kind: di.ArgFieldAccessService, Value: "config.Host"},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	err := generateErr(t, cfg)
-	if err == nil {
-		t.Fatal("expected type mismatch error")
-	}
-	if !strings.Contains(err.Error(), "not assignable") {
-		t.Fatalf("expected assignability error, got: %v", err)
-	}
-}
-
-func TestFieldAccessUnknownField(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"config": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.LoadConfig",
-				},
-			},
-			"logger": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
-					Args: []di.Argument{
-						{Kind: di.ArgFieldAccessService, Value: "config.NonExistentField"},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	err := generateErr(t, cfg)
-	if err == nil {
-		t.Fatal("expected unknown field error")
-	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Fatalf("expected 'not found' error, got: %v", err)
 	}
 }
 
