@@ -36,10 +36,10 @@ func generateErr(t *testing.T, cfg *di.Config) error {
 	return err
 }
 
-func assertCodegen(t *testing.T, cfg *di.Config, wantContains, wantErrContains []string) {
+func assertCodegen(t *testing.T, cfg *di.Config, wantContains, wantNotContains, wantErrContains []string) {
 	t.Helper()
 
-	if (len(wantContains) == 0) == (len(wantErrContains) == 0) {
+	if (len(wantContains) == 0 && len(wantNotContains) == 0) == (len(wantErrContains) == 0) {
 		t.Fatal("exactly one codegen expectation must be configured")
 	}
 
@@ -60,6 +60,11 @@ func assertCodegen(t *testing.T, cfg *di.Config, wantContains, wantErrContains [
 	for _, want := range wantContains {
 		if !strings.Contains(out, want) {
 			t.Fatalf("expected generated code containing %q, got:\n%s", want, out)
+		}
+	}
+	for _, unwanted := range wantNotContains {
+		if strings.Contains(out, unwanted) {
+			t.Fatalf("expected generated code not to contain %q, got:\n%s", unwanted, out)
 		}
 	}
 }
@@ -275,7 +280,7 @@ func TestParameterCodegen(t *testing.T) {
 				},
 			}
 
-			assertCodegen(t, cfg, tt.wantContains, tt.wantErrContains)
+			assertCodegen(t, cfg, tt.wantContains, nil, tt.wantErrContains)
 		})
 	}
 }
@@ -360,68 +365,50 @@ func TestLiteralArguments(t *testing.T) {
 				},
 			}
 
-			assertCodegen(t, cfg, tt.wantContains, tt.wantErrContains)
+			assertCodegen(t, cfg, tt.wantContains, nil, tt.wantErrContains)
 		})
 	}
 }
 
 func TestServiceAliasCodegen(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"logger": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
-					Args: []di.Argument{
-						{Kind: di.ArgParam, Value: "log_prefix"},
+	for _, tt := range []struct {
+		name            string
+		alias           di.Service
+		wantContains    []string
+		wantNotContains []string
+		wantErrContains []string
+	}{
+		{
+			name:            "public getter forwards to target",
+			alias:           di.Service{Alias: "logger", Public: true},
+			wantContains:    []string{"GetLoggerAlias", "return c.getLogger()"},
+			wantNotContains: []string{"buildLoggerAlias"},
+		},
+		{
+			name:            "shared rejected",
+			alias:           di.Service{Alias: "logger", Shared: true},
+			wantErrContains: []string{`service "logger.alias": alias cannot define shared`},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &di.Config{
+				Parameters: map[string]di.Parameter{
+					"log_prefix": {Value: di.NewStringLiteral("[app] ")},
+				},
+				Services: map[string]di.Service{
+					"logger": {
+						Constructor: di.Constructor{
+							Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
+							Args: []di.Argument{{Kind: di.ArgParam, Value: "log_prefix"}},
+						},
+						Public: true,
 					},
+					"logger.alias": tt.alias,
 				},
-				Public: true,
-			},
-			"logger.alias": {
-				Alias:  "logger",
-				Public: true,
-			},
-		},
-		Parameters: map[string]di.Parameter{
-			"log_prefix": {
-				Value: di.NewStringLiteral("[app] "),
-			},
-		},
-	}
+			}
 
-	out := generate(t, cfg)
-	if !strings.Contains(out, "GetLoggerAlias") {
-		t.Fatalf("expected alias public getter")
-	}
-	if strings.Contains(out, "buildLoggerAlias") {
-		t.Fatalf("unexpected build function for alias")
-	}
-	if !strings.Contains(out, "return c.getLogger()") {
-		t.Fatalf("expected alias getter to forward to target")
-	}
-}
-
-func TestServiceAliasSharedRejected(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"logger": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
-				},
-			},
-			"logger.alias": {
-				Alias:  "logger",
-				Shared: true,
-			},
-		},
-	}
-
-	err := generateErr(t, cfg)
-	if err == nil {
-		t.Fatal("expected shared alias to fail")
-	}
-	if !strings.Contains(err.Error(), `service "logger.alias": alias cannot define shared`) {
-		t.Fatalf("unexpected error: %v", err)
+			assertCodegen(t, cfg, tt.wantContains, tt.wantNotContains, tt.wantErrContains)
+		})
 	}
 }
 
@@ -656,7 +643,7 @@ func TestGenericFunctionConstructors(t *testing.T) {
 				},
 			}
 
-			assertCodegen(t, cfg, tt.wantContains, nil)
+			assertCodegen(t, cfg, tt.wantContains, nil, nil)
 		})
 	}
 }
@@ -709,7 +696,7 @@ func TestGenericValidationErrors(t *testing.T) {
 			service.Public = true
 			cfg := &di.Config{Services: map[string]di.Service{"service": service}}
 
-			assertCodegen(t, cfg, nil, tt.wantErrContains)
+			assertCodegen(t, cfg, nil, nil, tt.wantErrContains)
 		})
 	}
 }
@@ -889,7 +876,7 @@ func TestSpreadArguments(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assertCodegen(t, tt.cfg, tt.wantContains, tt.wantErrContains)
+			assertCodegen(t, tt.cfg, tt.wantContains, nil, tt.wantErrContains)
 		})
 	}
 }
@@ -977,7 +964,7 @@ func TestGoRefArguments(t *testing.T) {
 				},
 			}
 
-			assertCodegen(t, cfg, tt.wantContains, tt.wantErrContains)
+			assertCodegen(t, cfg, tt.wantContains, nil, tt.wantErrContains)
 		})
 	}
 }
@@ -1047,7 +1034,7 @@ func TestFieldAccessArguments(t *testing.T) {
 			}
 			cfg := &di.Config{Services: services}
 
-			assertCodegen(t, cfg, tt.wantContains, tt.wantErrContains)
+			assertCodegen(t, cfg, tt.wantContains, nil, tt.wantErrContains)
 		})
 	}
 }
