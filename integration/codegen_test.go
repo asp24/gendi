@@ -583,11 +583,12 @@ func TestDeclaredServiceTypeAssignability(t *testing.T) {
 	}
 }
 
-func TestGenericFunctionConstructors(t *testing.T) {
+func TestGenericCodegen(t *testing.T) {
 	const genericPkg = "github.com/gendi-org/gendi/generator/testdata/generics"
 
 	tests := []struct {
 		name         string
+		serviceType  string
 		constructor  di.Constructor
 		wantContains []string
 	}{
@@ -606,6 +607,15 @@ func TestGenericFunctionConstructors(t *testing.T) {
 				Args: []di.Argument{{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)}},
 			},
 			wantContains: []string{"NewPool[generics.Message]", "*generics.Pool[generics.Message]"},
+		},
+		{
+			name:        "explicit generic service type",
+			serviceType: "*" + genericPkg + ".Pool[" + genericPkg + ".Message]",
+			constructor: di.Constructor{
+				Func: genericPkg + ".NewPool[" + genericPkg + ".Message]",
+				Args: []di.Argument{{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)}},
+			},
+			wantContains: []string{"*generics.Pool[generics.Message]"},
 		},
 		{
 			name: "slice type argument",
@@ -637,6 +647,7 @@ func TestGenericFunctionConstructors(t *testing.T) {
 			cfg := &di.Config{
 				Services: map[string]di.Service{
 					"service": {
+						Type:        tt.serviceType,
 						Constructor: tt.constructor,
 						Public:      true,
 					},
@@ -698,29 +709,6 @@ func TestGenericValidationErrors(t *testing.T) {
 
 			assertCodegen(t, cfg, nil, nil, tt.wantErrContains)
 		})
-	}
-}
-
-func TestGenericTypeWithTypeArgs(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"pool": {
-				Type: "*github.com/gendi-org/gendi/generator/testdata/generics.Pool[github.com/gendi-org/gendi/generator/testdata/generics.Message]",
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewPool[github.com/gendi-org/gendi/generator/testdata/generics.Message]",
-					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, "*generics.Pool[generics.Message]") {
-		t.Fatalf("expected *Pool[Message] type, got:\n%s", out)
 	}
 }
 
