@@ -323,53 +323,35 @@ imports:
 
 // An import that escapes the module root via ".." is rejected.
 func TestLoadConfigRejectsEscapingImport(t *testing.T) {
-	outer := t.TempDir()
-	writeTestFile(t, filepath.Join(outer, "secret.yaml"), strings.TrimSpace(`
-parameters:
-  secret: "leaked"
-`))
+	for _, tt := range []struct {
+		name       string
+		importPath string
+	}{
+		{name: "parent path", importPath: "../secret.yaml"},
+		{
+			// The dotted first segment looks module-shaped, but the path is
+			// still a local escape and must be rejected in the same way.
+			name:       "dotted first segment",
+			importPath: "assets.d/../../secret.yaml",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			outer := t.TempDir()
+			writeTestFile(t, filepath.Join(outer, "secret.yaml"), "parameters: {secret: leaked}")
 
-	moduleRoot := filepath.Join(outer, "module")
-	if err := os.MkdirAll(moduleRoot, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	writeTestFile(t, filepath.Join(moduleRoot, "go.mod"), "module example.com/app\n")
+			moduleRoot := filepath.Join(outer, "module")
+			if err := os.MkdirAll(moduleRoot, 0o755); err != nil {
+				t.Fatalf("mkdir: %v", err)
+			}
+			writeTestFile(t, filepath.Join(moduleRoot, "go.mod"), "module example.com/app\n")
 
-	rootPath := filepath.Join(moduleRoot, "root.yaml")
-	writeTestFile(t, rootPath, strings.TrimSpace(`
-imports:
-  - path: ../secret.yaml
-`))
+			rootPath := filepath.Join(moduleRoot, "root.yaml")
+			writeTestFile(t, rootPath, fmt.Sprintf("imports:\n  - path: %s\n", tt.importPath))
 
-	if _, err := loadConfigWithDefaultBoundary(t, rootPath); err == nil {
-		t.Fatal("expected error for import escaping the module root")
-	}
-}
-
-// A relative import whose first segment merely contains a dot (so it looks
-// module-shaped) but which uses ".." to climb out of the module root must be
-// rejected, exactly like a plain "../" escape.
-func TestLoadConfigRejectsDottedSegmentEscape(t *testing.T) {
-	outer := t.TempDir()
-	writeTestFile(t, filepath.Join(outer, "secret.yaml"), strings.TrimSpace(`
-parameters:
-  secret: "leaked"
-`))
-
-	moduleRoot := filepath.Join(outer, "module")
-	if err := os.MkdirAll(moduleRoot, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	writeTestFile(t, filepath.Join(moduleRoot, "go.mod"), "module example.com/app\n")
-
-	rootPath := filepath.Join(moduleRoot, "root.yaml")
-	writeTestFile(t, rootPath, strings.TrimSpace(`
-imports:
-  - path: assets.d/../../secret.yaml
-`))
-
-	if _, err := loadConfigWithDefaultBoundary(t, rootPath); err == nil {
-		t.Fatal("expected error for dotted-segment import escaping the module root")
+			if _, err := loadConfigWithDefaultBoundary(t, rootPath); err == nil {
+				t.Fatal("expected error for import escaping the module root")
+			}
+		})
 	}
 }
 
