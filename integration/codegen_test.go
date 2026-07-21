@@ -213,115 +213,70 @@ func TestTaggedInjectionConversion(t *testing.T) {
 	}
 }
 
-func TestParameterProviderCodegen(t *testing.T) {
-	cfg := &di.Config{
-		Parameters: map[string]di.Parameter{
-			"log_prefix": {
-				Value: di.NewStringLiteral("[app] "),
+func TestParameterCodegen(t *testing.T) {
+	const appPkg = "github.com/gendi-org/gendi/generator/testdata/app"
+
+	for _, tt := range []struct {
+		name            string
+		parameter       string
+		defaultValue    di.Literal
+		constructor     string
+		wantContains    []string
+		wantErrContains []string
+	}{
+		{
+			name:         "string resolution and container options",
+			parameter:    "log_prefix",
+			defaultValue: di.NewStringLiteral("[app] "),
+			constructor:  appPkg + ".NewLogger",
+			wantContains: []string{
+				"NewContainer",
+				`.String("log_prefix")`,
+				"WithContainerParameterCaster",
 			},
 		},
-		Services: map[string]di.Service{
-			"logger": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
-					Args: []di.Argument{
-						{Kind: di.ArgParam, Value: "log_prefix"},
-					},
-				},
-				Public: true,
-			},
+		{
+			name:         "duration resolution",
+			parameter:    "timeout",
+			defaultValue: di.NewStringLiteral("1s"),
+			constructor:  appPkg + ".NewTimer",
+			wantContains: []string{`.Duration("timeout")`},
 		},
-	}
-
-	out := generate(t, cfg)
-	if !strings.Contains(out, "NewContainer") {
-		t.Fatalf("expected container constructor when parameters are present")
-	}
-	if !strings.Contains(out, ".String(\"log_prefix\")") {
-		t.Fatalf("expected contextual string resolution in generated code:\n%s", out)
-	}
-	if !strings.Contains(out, "WithContainerParameterCaster") {
-		t.Fatalf("expected caster option in generated code:\n%s", out)
-	}
-}
-
-func TestDurationParameterCodegen(t *testing.T) {
-	cfg := &di.Config{
-		Parameters: map[string]di.Parameter{
-			"timeout": {
-				Value: di.NewStringLiteral("1s"),
-			},
-		},
-		Services: map[string]di.Service{
-			"timer": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimer",
-					Args: []di.Argument{
-						{Kind: di.ArgParam, Value: "timeout"},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-	if !strings.Contains(out, ".Duration(\"timeout\")") {
-		t.Fatalf("expected contextual duration resolution:\n%s", out)
-	}
-}
-
-func TestIntParameterDefaultRenderedAsInt64(t *testing.T) {
-	cfg := &di.Config{
-		Parameters: map[string]di.Parameter{
+		{
 			// Value exceeds MaxInt32: as an untyped constant in the defaults
 			// map it would fail to compile on 32-bit targets.
-			"timeout": {
-				Value: di.NewIntLiteral(2147483648),
-			},
+			name:         "integer default rendered as int64",
+			parameter:    "timeout",
+			defaultValue: di.NewIntLiteral(2147483648),
+			constructor:  appPkg + ".NewTimer",
+			wantContains: []string{"int64(2147483648)"},
 		},
-		Services: map[string]di.Service{
-			"timer": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimer",
-					Args: []di.Argument{
-						{Kind: di.ArgParam, Value: "timeout"},
+		{
+			name:            "invalid default rejected",
+			parameter:       "timeout",
+			defaultValue:    di.NewStringLiteral("not-a-duration"),
+			constructor:     appPkg + ".NewTimer",
+			wantErrContains: []string{"cannot cast"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &di.Config{
+				Parameters: map[string]di.Parameter{
+					tt.parameter: {Value: tt.defaultValue},
+				},
+				Services: map[string]di.Service{
+					"service": {
+						Constructor: di.Constructor{
+							Func: tt.constructor,
+							Args: []di.Argument{{Kind: di.ArgParam, Value: tt.parameter}},
+						},
+						Public: true,
 					},
 				},
-				Public: true,
-			},
-		},
-	}
+			}
 
-	out := generate(t, cfg)
-	if !strings.Contains(out, "int64(2147483648)") {
-		t.Fatalf("expected int default rendered as int64 for GOARCH independence:\n%s", out)
-	}
-}
-
-func TestParameterDefaultCastRejected(t *testing.T) {
-	cfg := &di.Config{
-		Parameters: map[string]di.Parameter{
-			"timeout": {
-				Value: di.NewStringLiteral("not-a-duration"),
-			},
-		},
-		Services: map[string]di.Service{
-			"timer": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewTimer",
-					Args: []di.Argument{
-						{Kind: di.ArgParam, Value: "timeout"},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	err := generateErr(t, cfg)
-	if err == nil || !strings.Contains(err.Error(), "cannot cast") {
-		t.Fatalf("expected generation-time default cast error, got %v", err)
+			assertCodegen(t, cfg, tt.wantContains, tt.wantErrContains)
+		})
 	}
 }
 
