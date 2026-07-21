@@ -881,42 +881,70 @@ func TestSpreadArguments(t *testing.T) {
 	}
 }
 
-func TestSpreadWithServiceRefPropagatesDependencyErrors(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"handler.a": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewHandlerA",
-				},
-			},
-			"all_handlers": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.GetAllHandlersWithError",
-					Args: []di.Argument{
-						{Kind: di.ArgServiceRef, Value: "handler.a"},
-						{Kind: di.ArgServiceRef, Value: "handler.a"},
+func TestSpecialArgumentDependencyErrorsPropagated(t *testing.T) {
+	const appPkg = "github.com/gendi-org/gendi/generator/testdata/app"
+
+	for _, tt := range []struct {
+		name   string
+		cfg    *di.Config
+		getter string
+	}{
+		{
+			name: "spread service reference",
+			cfg: &di.Config{
+				Services: map[string]di.Service{
+					"handler.a": {
+						Constructor: di.Constructor{Func: appPkg + ".NewHandlerA"},
+					},
+					"all_handlers": {
+						Constructor: di.Constructor{
+							Func: appPkg + ".GetAllHandlersWithError",
+							Args: []di.Argument{
+								{Kind: di.ArgServiceRef, Value: "handler.a"},
+								{Kind: di.ArgServiceRef, Value: "handler.a"},
+							},
+						},
+					},
+					"server": {
+						Constructor: di.Constructor{
+							Func: appPkg + ".NewServer",
+							Args: []di.Argument{{Kind: di.ArgSpread, Value: "@all_handlers"}},
+						},
+						Public: true,
 					},
 				},
 			},
-			"server": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewServer",
-					Args: []di.Argument{
-						{Kind: di.ArgSpread, Value: "@all_handlers"},
-					},
-				},
-				Public: true,
-			},
+			getter: "getAllHandlers",
 		},
-	}
-
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, ", err := c.getAllHandlers()") {
-		t.Fatalf("expected spread arg to propagate all_handlers getter errors, got:\n%s", out)
-	}
-	if strings.Contains(out, ", _ := c.getAllHandlers()") {
-		t.Fatalf("expected spread arg to avoid discarding all_handlers getter errors, got:\n%s", out)
+		{
+			name: "service field access",
+			cfg: &di.Config{
+				Services: map[string]di.Service{
+					"config": {
+						Constructor: di.Constructor{Func: appPkg + ".LoadConfigWithError"},
+					},
+					"server": {
+						Constructor: di.Constructor{
+							Func: appPkg + ".NewLogger",
+							Args: []di.Argument{{Kind: di.ArgFieldAccessService, Value: "config.Host"}},
+						},
+						Public: true,
+					},
+				},
+			},
+			getter: "getConfig",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			getterCall := "c." + tt.getter + "()"
+			assertCodegen(
+				t,
+				tt.cfg,
+				[]string{", err := " + getterCall},
+				[]string{", _ := " + getterCall},
+				nil,
+			)
+		})
 	}
 }
 
@@ -1036,36 +1064,6 @@ func TestFieldAccessArguments(t *testing.T) {
 
 			assertCodegen(t, cfg, tt.wantContains, nil, tt.wantErrContains)
 		})
-	}
-}
-
-func TestFieldAccessOnServicePropagatesDependencyErrors(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"config": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.LoadConfigWithError",
-				},
-			},
-			"server": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/app.NewLogger",
-					Args: []di.Argument{
-						{Kind: di.ArgFieldAccessService, Value: "config.Host"},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, ", err := c.getConfig()") {
-		t.Fatalf("expected field access to propagate config getter errors, got:\n%s", out)
-	}
-	if strings.Contains(out, ", _ := c.getConfig()") {
-		t.Fatalf("expected field access to avoid discarding config getter errors, got:\n%s", out)
 	}
 }
 
