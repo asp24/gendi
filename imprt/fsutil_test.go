@@ -2,6 +2,7 @@ package imprt
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -9,34 +10,64 @@ import (
 // A glob over an existing directory that matches nothing is a silent no-op; a
 // glob whose base directory does not exist, or a malformed pattern, is an error.
 func TestGlobMatches(t *testing.T) {
-	dir := t.TempDir()
+	tests := []struct {
+		name    string
+		pattern string
+		setup   func(t *testing.T, root string)
+		want    []string
+		wantErr string
+	}{
+		{
+			name:    "empty match",
+			pattern: "*.yaml",
+		},
+		{
+			name:    "missing base directory",
+			pattern: "no_such_dir/*.yaml",
+			wantErr: "does not exist",
+		},
+		{
+			name:    "malformed pattern",
+			pattern: "[invalid",
+			wantErr: "glob",
+		},
+		{
+			name:    "directories are excluded",
+			pattern: "*",
+			setup: func(t *testing.T, root string) {
+				writeFile(t, filepath.Join(root, "sub", "a.yaml"), "a")
+				writeFile(t, filepath.Join(root, "b.yaml"), "b")
+			},
+			want: []string{"b.yaml"},
+		},
+	}
 
-	files, err := globMatches(dir, "*.yaml")
-	if err != nil {
-		t.Fatalf("unexpected error for empty match: %v", err)
-	}
-	if len(files) != 0 {
-		t.Fatalf("expected no matches, got %v", files)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			if tt.setup != nil {
+				tt.setup(t, root)
+			}
 
-	if _, err = globMatches(dir, "no_such_dir/*.yaml"); err == nil ||
-		!strings.Contains(err.Error(), "does not exist") {
-		t.Fatalf("expected missing-base-directory error, got %v", err)
-	}
+			files, err := globMatches(root, tt.pattern)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
-	if _, err = globMatches(dir, "[invalid"); err == nil {
-		t.Fatal("expected error for malformed pattern")
-	}
-
-	writeFile(t, filepath.Join(dir, "sub", "a.yaml"), "a")
-	writeFile(t, filepath.Join(dir, "b.yaml"), "b")
-	files, err = globMatches(dir, "*")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	want := []string{mustAbs(t, filepath.Join(dir, "b.yaml"))}
-	if len(files) != 1 || files[0] != want[0] {
-		t.Fatalf("expected files %v, got %v", want, files)
+			want := make([]string, len(tt.want))
+			for i, path := range tt.want {
+				want[i] = mustAbs(t, filepath.Join(root, path))
+			}
+			if !slices.Equal(files, want) {
+				t.Fatalf("expected files %v, got %v", want, files)
+			}
+		})
 	}
 }
 
