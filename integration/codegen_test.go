@@ -609,146 +609,134 @@ func TestDecoratorAssignableToDeclaredBaseType(t *testing.T) {
 	}
 }
 
-func TestGenericFunctionConstructor(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"events": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewChan[github.com/gendi-org/gendi/generator/testdata/generics.Event]",
-					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(100)},
-					},
-				},
-				Public: true,
+func TestGenericFunctionConstructors(t *testing.T) {
+	const genericPkg = "github.com/gendi-org/gendi/generator/testdata/generics"
+
+	tests := []struct {
+		name         string
+		constructor  di.Constructor
+		wantContains []string
+	}{
+		{
+			name: "named type argument",
+			constructor: di.Constructor{
+				Func: genericPkg + ".NewChan[" + genericPkg + ".Event]",
+				Args: []di.Argument{{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(100)}},
 			},
+			wantContains: []string{"NewChan[generics.Event]", "chan generics.Event"},
+		},
+		{
+			name: "generic result type",
+			constructor: di.Constructor{
+				Func: genericPkg + ".NewPool[" + genericPkg + ".Message]",
+				Args: []di.Argument{{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)}},
+			},
+			wantContains: []string{"NewPool[generics.Message]", "*generics.Pool[generics.Message]"},
+		},
+		{
+			name: "slice type argument",
+			constructor: di.Constructor{
+				Func: genericPkg + ".NewSlice[[]" + genericPkg + ".Event]",
+				Args: []di.Argument{{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)}},
+			},
+			wantContains: []string{"NewSlice[[]generics.Event]"},
+		},
+		{
+			name: "multiple type arguments",
+			constructor: di.Constructor{
+				Func: genericPkg + ".NewMap[string, " + genericPkg + ".Event]",
+			},
+			wantContains: []string{"NewMap[string, generics.Event]", "map[string]generics.Event"},
+		},
+		{
+			name: "channel type argument",
+			constructor: di.Constructor{
+				Func: genericPkg + ".NewChan[chan " + genericPkg + ".Event]",
+				Args: []di.Argument{{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(5)}},
+			},
+			wantContains: []string{"NewChan[chan generics.Event]", "chan chan generics.Event"},
 		},
 	}
 
-	out := generate(t, cfg)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &di.Config{
+				Services: map[string]di.Service{
+					"service": {
+						Constructor: tt.constructor,
+						Public:      true,
+					},
+				},
+			}
 
-	if !strings.Contains(out, "NewChan[generics.Event]") {
-		t.Fatalf("expected generic function call with type arguments, got:\n%s", out)
-	}
-	if !strings.Contains(out, "chan generics.Event") {
-		t.Fatalf("expected chan Event return type, got:\n%s", out)
+			out := generate(t, cfg)
+			for _, want := range tt.wantContains {
+				if !strings.Contains(out, want) {
+					t.Fatalf("expected generated code containing %q, got:\n%s", want, out)
+				}
+			}
+		})
 	}
 }
 
-func TestGenericPoolConstructor(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"message_pool": {
+func TestGenericValidationErrors(t *testing.T) {
+	const genericPkg = "github.com/gendi-org/gendi/generator/testdata/generics"
+
+	tests := []struct {
+		name            string
+		service         di.Service
+		wantErrContains []string
+	}{
+		{
+			name: "generic function without type arguments",
+			service: di.Service{
 				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewPool[github.com/gendi-org/gendi/generator/testdata/generics.Message]",
-					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
-					},
+					Func: genericPkg + ".NewChan",
+					Args: []di.Argument{{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(100)}},
 				},
-				Public: true,
 			},
+			wantErrContains: []string{"generic function", "requires"},
+		},
+		{
+			name: "generic type without type arguments",
+			service: di.Service{
+				Type: genericPkg + ".Pool",
+				Constructor: di.Constructor{
+					Func: genericPkg + ".NewPool[" + genericPkg + ".Message]",
+					Args: []di.Argument{{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)}},
+				},
+			},
+			wantErrContains: []string{"generic type", "requires"},
+		},
+		{
+			name: "non-generic type with type arguments",
+			service: di.Service{
+				Type: genericPkg + ".Event[string]",
+				Constructor: di.Constructor{
+					Func: genericPkg + ".NewChan[" + genericPkg + ".Event]",
+					Args: []di.Argument{{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)}},
+				},
+			},
+			wantErrContains: []string{"not generic"},
 		},
 	}
 
-	out := generate(t, cfg)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := tt.service
+			service.Public = true
+			cfg := &di.Config{Services: map[string]di.Service{"service": service}}
 
-	if !strings.Contains(out, "NewPool[generics.Message]") {
-		t.Fatalf("expected generic function call with type arguments, got:\n%s", out)
-	}
-	if !strings.Contains(out, "*generics.Pool[generics.Message]") {
-		t.Fatalf("expected *Pool[Message] return type, got:\n%s", out)
-	}
-}
-
-func TestGenericSliceTypeArg(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"event_slice": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewSlice[[]github.com/gendi-org/gendi/generator/testdata/generics.Event]",
-					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, "NewSlice[[]generics.Event]") {
-		t.Fatalf("expected generic function call with slice type argument, got:\n%s", out)
-	}
-}
-
-func TestGenericMapTypeArgs(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"event_map": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewMap[string, github.com/gendi-org/gendi/generator/testdata/generics.Event]",
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, "NewMap[string, generics.Event]") {
-		t.Fatalf("expected generic function call with map type arguments, got:\n%s", out)
-	}
-	if !strings.Contains(out, "map[string]generics.Event") {
-		t.Fatalf("expected map[string]Event return type, got:\n%s", out)
-	}
-}
-
-func TestGenericChanTypeArg(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"chan_of_chans": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewChan[chan github.com/gendi-org/gendi/generator/testdata/generics.Event]",
-					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(5)},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	out := generate(t, cfg)
-
-	if !strings.Contains(out, "NewChan[chan generics.Event]") {
-		t.Fatalf("expected generic function call with chan type argument, got:\n%s", out)
-	}
-	if !strings.Contains(out, "chan chan generics.Event") {
-		t.Fatalf("expected chan chan Event return type, got:\n%s", out)
-	}
-}
-
-func TestGenericFunctionWithoutTypeArgsError(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"events": {
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewChan",
-					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(100)},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	err := generateErr(t, cfg)
-	if err == nil {
-		t.Fatal("expected error for generic function without type arguments")
-	}
-	if !strings.Contains(err.Error(), "generic function") || !strings.Contains(err.Error(), "requires") {
-		t.Fatalf("expected error about missing type arguments, got: %v", err)
+			err := generateErr(t, cfg)
+			if err == nil {
+				t.Fatal("expected generation error")
+			}
+			for _, want := range tt.wantErrContains {
+				if !strings.Contains(err.Error(), want) {
+					t.Fatalf("expected error containing %q, got %v", want, err)
+				}
+			}
+		})
 	}
 }
 
@@ -772,56 +760,6 @@ func TestGenericTypeWithTypeArgs(t *testing.T) {
 
 	if !strings.Contains(out, "*generics.Pool[generics.Message]") {
 		t.Fatalf("expected *Pool[Message] type, got:\n%s", out)
-	}
-}
-
-func TestGenericTypeWithoutTypeArgsError(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"pool": {
-				Type: "github.com/gendi-org/gendi/generator/testdata/generics.Pool",
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewPool[github.com/gendi-org/gendi/generator/testdata/generics.Message]",
-					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	err := generateErr(t, cfg)
-	if err == nil {
-		t.Fatal("expected error for generic type without type arguments")
-	}
-	if !strings.Contains(err.Error(), "generic type") || !strings.Contains(err.Error(), "requires") {
-		t.Fatalf("expected error about missing type arguments, got: %v", err)
-	}
-}
-
-func TestNonGenericTypeWithTypeArgsError(t *testing.T) {
-	cfg := &di.Config{
-		Services: map[string]di.Service{
-			"event": {
-				Type: "github.com/gendi-org/gendi/generator/testdata/generics.Event[string]",
-				Constructor: di.Constructor{
-					Func: "github.com/gendi-org/gendi/generator/testdata/generics.NewChan[github.com/gendi-org/gendi/generator/testdata/generics.Event]",
-					Args: []di.Argument{
-						{Kind: di.ArgLiteral, Literal: di.NewIntLiteral(10)},
-					},
-				},
-				Public: true,
-			},
-		},
-	}
-
-	err := generateErr(t, cfg)
-	if err == nil {
-		t.Fatal("expected error for non-generic type with type arguments")
-	}
-	if !strings.Contains(err.Error(), "not generic") {
-		t.Fatalf("expected error about type not being generic, got: %v", err)
 	}
 }
 
