@@ -2,7 +2,6 @@ package typeres
 
 import (
 	"fmt"
-	"go/types"
 	"path/filepath"
 	"strings"
 )
@@ -32,15 +31,4 @@ func ComputeOutputPkgPath(modPath, modRoot, outFile string) (string, error) {
 	}
 
 	return modPath + "/" + rel, nil
-}
-
-// FormatTypeString formats a types.Type as a string, using short package names
-// when the package matches the output package path.
-func FormatTypeString(t types.Type, outputPkgPath string) string {
-	return types.TypeString(t, func(pkg *types.Package) string {
-		if pkg.Path() == outputPkgPath {
-			return ""
-		}
-		return pkg.Name()
-	})
 }
