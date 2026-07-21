@@ -41,7 +41,7 @@ func TestScalarKindCastDispatch(t *testing.T) {
 }
 
 func TestScalarKindResolverMethod(t *testing.T) {
-	resolverType := reflect.TypeOf(&Resolver{})
+	resolverType := reflect.TypeFor[*Resolver]()
 	for _, k := range allScalarKinds {
 		name := k.ResolverMethod()
 		if name == "" {

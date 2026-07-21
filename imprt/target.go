@@ -73,7 +73,7 @@ func (t target) excludedBy(masks []string, file string) (bool, error) {
 		return false, err
 	}
 	prefix := ""
-	for _, segment := range strings.Split(filepath.ToSlash(rel), "/") {
+	for segment := range strings.SplitSeq(filepath.ToSlash(rel), "/") {
 		prefix = path.Join(prefix, segment)
 		for _, mask := range masks {
 			matched, err := doublestar.Match(mask, prefix)
