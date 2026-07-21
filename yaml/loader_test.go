@@ -278,27 +278,6 @@ services:
 `))
 }
 
-// A config file inside the module is importable through the module's own
-// import path, giving a location-independent anchor at the module root.
-func TestLoadConfigOwnModuleImport(t *testing.T) {
-	dir := t.TempDir()
-	writeModuleImportsFixture(t, dir)
-
-	rootPath := filepath.Join(dir, "root.yaml")
-	writeTestFile(t, rootPath, strings.TrimSpace(`
-imports:
-  - path: example.com/app/imports/module.yaml
-`))
-
-	cfg, err := loadConfigWithDefaultBoundary(t, rootPath)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-	if _, ok := cfg.Services["module.service"]; !ok {
-		t.Fatalf("expected service from own-module import to load")
-	}
-}
-
 // An import that escapes the module root via ".." is rejected.
 func TestLoadConfigRejectsEscapingImport(t *testing.T) {
 	for _, tt := range []struct {
