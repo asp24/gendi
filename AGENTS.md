@@ -24,8 +24,6 @@ go build ./cmd/gendi
 go run ./cmd/gendi --config=examples/basic/gendi.yaml --out=examples/basic/internal/di --pkg=di
 
 # Regenerate all examples
-just gen-examples
-# OR
 go generate ./...
 ```
 
@@ -289,7 +287,7 @@ When updating generator behavior:
 1. Run tests to see failures
 2. Review generated output carefully
 3. Update golden files if changes are correct
-4. Regenerate examples with `just gen-examples`
+4. Regenerate examples with `go generate ./...`
 
 ## Commit Style
 
