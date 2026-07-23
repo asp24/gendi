@@ -14,8 +14,8 @@ import (
 // Cache handles loading and caching of Go packages into a single shared type
 // universe. Every package is decoded from compiler export data into one shared
 // imports map, so types from packages loaded by separate packages.Load calls
-// remain identical and comparable — a persistent Cache can be reused across
-// many configs (e.g. a batch master) and still yield one coherent universe.
+// remain identical and comparable — a Cache can be reused across many loads and
+// still yield one coherent universe.
 type Cache struct {
 	packages   map[string]*types.Package
 	fset       *token.FileSet
@@ -66,11 +66,7 @@ func (c *Cache) LoadWithCandidates(required, candidates []string) error {
 		return nil
 	}
 
-	cfg := &packages.Config{
-		Mode: packages.NeedName |
-			packages.NeedExportFile,
-		Dir: c.moduleRoot,
-	}
+	cfg := &packages.Config{Mode: packages.NeedName | packages.NeedExportFile, Dir: c.moduleRoot}
 	if c.buildTags != "" {
 		cfg.BuildFlags = []string{"-tags=" + c.buildTags}
 	}

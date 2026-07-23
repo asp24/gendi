@@ -30,11 +30,11 @@ func structFieldType(t *testing.T, c *Cache, pkgPath, structName, field string) 
 	return nil
 }
 
-// TestSharedUniverseAcrossSeparateLoads is the regression guard for the batch
-// master: two packages decoded by SEPARATE LoadWithCandidates calls (each doing
-// its own packages.Load) must still land in one type universe, so a type they
-// both reference is identical. This fails under a NeedTypes-per-call loader,
-// where every packages.Load builds an isolated universe.
+// TestSharedUniverseAcrossSeparateLoads is the regression guard for reusing one
+// Cache across loads: two packages decoded by SEPARATE LoadWithCandidates calls
+// (each doing its own packages.Load) must still land in one type universe, so a
+// type they both reference is identical. This fails under a NeedTypes-per-call
+// loader, where every packages.Load builds an isolated universe.
 func TestSharedUniverseAcrossSeparateLoads(t *testing.T) {
 	c := NewCache(".", "")
 
