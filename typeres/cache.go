@@ -3,15 +3,23 @@ package typeres
 import (
 	"errors"
 	"fmt"
+	"go/token"
 	"go/types"
+	"os"
 	"strings"
 
+	"golang.org/x/tools/go/gcexportdata"
 	"golang.org/x/tools/go/packages"
 )
 
-// Cache handles loading and caching of Go packages.
+// Cache handles loading and caching of Go packages into a single shared type
+// universe. Every package is decoded from compiler export data into one shared
+// imports map, so types from packages loaded by separate packages.Load calls
+// remain identical and comparable — a persistent Cache can be reused across
+// many configs (e.g. a batch master) and still yield one coherent universe.
 type Cache struct {
 	packages   map[string]*types.Package
+	fset       *token.FileSet
 	moduleRoot string
 	buildTags  string
 }
@@ -21,6 +29,7 @@ type Cache struct {
 func NewCache(moduleRoot, buildTags string) *Cache {
 	return &Cache{
 		packages:   make(map[string]*types.Package),
+		fset:       token.NewFileSet(),
 		moduleRoot: moduleRoot,
 		buildTags:  buildTags,
 	}
@@ -43,16 +52,24 @@ func (c *Cache) Load(paths []string) error {
 // LoadWithCandidates loads required paths together with candidate paths
 // derived from ambiguous qualified names (e.g. field access on a Go symbol,
 // where the package/symbol boundary is unknown). Candidates that do not
-// resolve to a real package are skipped instead of failing the load. A single
-// packages.Load call is used so all results share one type universe.
+// resolve to a real package are skipped instead of failing the load.
+//
+// Packages are located and built via one packages.Load (NeedExportFile, so the
+// go tool compiles them as needed and the export data is fresh), then decoded
+// with gcexportdata.Read into the shared imports map. Because that map is the
+// single type universe, every requested package is decoded from its own export
+// file — a package that only appears as an incomplete transitive dependency of
+// another is re-decoded when requested directly (see missing).
 func (c *Cache) LoadWithCandidates(required, candidates []string) error {
+	required = c.missing(required)
+	candidates = c.missing(candidates)
 	if len(required)+len(candidates) == 0 {
 		return nil
 	}
 
 	cfg := &packages.Config{
 		Mode: packages.NeedName |
-			packages.NeedTypes,
+			packages.NeedExportFile,
 		Dir: c.moduleRoot,
 	}
 	if c.buildTags != "" {
@@ -71,16 +88,10 @@ func (c *Cache) LoadWithCandidates(required, candidates []string) error {
 
 	var errs []string
 	for _, pkg := range pkgs {
-		if len(pkg.Errors) > 0 {
-			if candidateSet[pkg.PkgPath] || candidateSet[pkg.ID] {
-				continue
-			}
-			for _, pkgErr := range pkg.Errors {
-				errs = append(errs, pkgErr.Error())
-			}
-			continue
+		failure := c.decode(pkg)
+		if failure != "" && !candidateSet[pkg.PkgPath] && !candidateSet[pkg.ID] {
+			errs = append(errs, failure)
 		}
-		c.cachePackage(pkg)
 	}
 	if len(errs) > 0 {
 		return errors.New(strings.Join(errs, "; "))
@@ -89,16 +100,61 @@ func (c *Cache) LoadWithCandidates(required, candidates []string) error {
 	return nil
 }
 
-// cachePackage caches a loaded package's type information. Imports are not
-// walked: the load mode omits NeedImports, and every package the resolver
-// needs is requested explicitly by the caller.
-func (c *Cache) cachePackage(pkg *packages.Package) {
+// missing returns the subset of paths that still need loading: those absent
+// from the cache or present only as an incomplete package (a transitive
+// dependency decoded on behalf of another package). A path requested directly
+// must resolve to a complete package, so incomplete entries are re-decoded.
+func (c *Cache) missing(paths []string) []string {
+	out := paths[:0:0]
+	for _, p := range paths {
+		pkg, ok := c.packages[p]
+		if !ok || pkg == nil || !pkg.Complete() {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// decode reads a package's export data into the shared imports map, returning a
+// non-empty reason if the package is unusable (load errors, missing export
+// data, or an unreadable export file). Imports referenced by the export data
+// are resolved through the same map, keeping the whole universe consistent.
+func (c *Cache) decode(pkg *packages.Package) string {
 	key := pkg.PkgPath
 	if key == "" {
 		key = pkg.ID
 	}
 
-	if key != "" && pkg.Types != nil {
-		c.packages[key] = pkg.Types
+	if len(pkg.Errors) > 0 {
+		msgs := make([]string, len(pkg.Errors))
+		for i, e := range pkg.Errors {
+			msgs[i] = e.Error()
+		}
+		return strings.Join(msgs, "; ")
 	}
+	if key == "" {
+		return "" // nothing to key on; nothing to report
+	}
+	if pkg.ExportFile == "" {
+		return fmt.Sprintf("package %q has no export data", key)
+	}
+	// Already-complete entries are left untouched to satisfy Read's precondition.
+	if existing, ok := c.packages[key]; ok && existing != nil && existing.Complete() {
+		return ""
+	}
+
+	f, err := os.Open(pkg.ExportFile)
+	if err != nil {
+		return fmt.Sprintf("open export data for %q: %v", key, err)
+	}
+	defer f.Close()
+
+	r, err := gcexportdata.NewReader(f)
+	if err != nil {
+		return fmt.Sprintf("read export data for %q: %v", key, err)
+	}
+	if _, err := gcexportdata.Read(r, c.fset, c.packages, key); err != nil {
+		return fmt.Sprintf("decode export data for %q: %v", key, err)
+	}
+	return ""
 }
