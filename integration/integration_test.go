@@ -161,7 +161,7 @@ func TestWorkflow(t *testing.T) {
 		},
 		{
 			name:           "complex_tagged_injection",
-			expectedOutput: "Middleware chain (3):\n- auth\n- logging\n- metrics\nPublic getter returned 3 items\n",
+			expectedOutput: "Middleware chain (3):\n- auth\n- metrics\n- logging\nPublic getter returned 3 items\n",
 		},
 		{
 			name:           "generic_channel",

@@ -121,12 +121,12 @@ func (p *tagDesugarPhase) sortTagServices(tag *Tag) []*Service {
 
 	sorted := slices.Clone(tag.Services)
 
-	if tag.SortBy == "priority" {
+	if tag.SortBy != "" {
 		slices.SortFunc(sorted, func(a, b *Service) int {
-			pa := getServiceTagPriority(a, tag.Name)
-			pb := getServiceTagPriority(b, tag.Name)
-			if pa != pb {
-				return cmp.Compare(pb, pa) // Descending by priority
+			va := getServiceTagAttribute(a, tag.Name, tag.SortBy)
+			vb := getServiceTagAttribute(b, tag.Name, tag.SortBy)
+			if va != vb {
+				return cmp.Compare(vb, va) // Descending order
 			}
 			return cmp.Compare(a.ID, b.ID)
 		})
@@ -139,13 +139,13 @@ func (p *tagDesugarPhase) sortTagServices(tag *Tag) []*Service {
 	return sorted
 }
 
-// getServiceTagPriority extracts the priority attribute from a service's tag
-func getServiceTagPriority(svc *Service, tagName string) int {
+// getServiceTagAttribute extracts an attribute from a service's tag and converts to int
+func getServiceTagAttribute(svc *Service, tagName, attrName string) int {
 	for _, st := range svc.Tags {
 		if st.Tag.Name != tagName {
 			continue
 		}
-		if v, ok := st.Attributes["priority"]; ok {
+		if v, ok := st.Attributes[attrName]; ok {
 			switch val := v.(type) {
 			case int:
 				return val
