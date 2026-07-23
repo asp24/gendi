@@ -1,28 +1,5 @@
 # gendi - Compile-Time Dependency Injection for Go
 
-> [!CAUTION]
-> **Repository migration:** gendi has moved from `github.com/asp24/gendi` to
-> `github.com/gendi-org/gendi`. Update module dependencies and imports to the
-> new path. From your project's root directory, run:
->
-> ```bash
-> find . -type f -not -path './.git/*' -not -name go.sum -exec perl -pi -e 's{((?:raw\.githubusercontent|github)\.com)/asp24/gendi}{$1/gendi-org/gendi}g' {} + && go mod edit -droprequire=github.com/gendi-org/gendi && go get github.com/gendi-org/gendi@master && go mod tidy
-> ```
->
-> The old requirement must be dropped before fetching the new module, because its
-> pseudo-version still declares the previous module path. Use `@master` until the
-> first release published after the migration; `@latest` still resolves to a
-> release whose declared module path is the old one.
->
-> To migrate legacy typed parameters in `gendi.yaml` files, run:
->
-> ```bash
-> grep -rl --include='gendi.yaml' 'parameters:' . \
->   | xargs perl -0pi -e '
->       s/\n(\s+)([\w.]+):\n\1  type: [\w.\/]+\n\1  value: (.+)/\n$1$2: $3/g;
->       s/\n(\s+)([\w.]+):\n\1  value: (.+)\n\1  type: [\w.\/]+/\n$1$2: $3/g'
-> ```
-
 [![CI](https://github.com/gendi-org/gendi/actions/workflows/ci.yml/badge.svg)](https://github.com/gendi-org/gendi/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/gendi-org/gendi/branch/master/graph/badge.svg)](https://codecov.io/gh/gendi-org/gendi)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)

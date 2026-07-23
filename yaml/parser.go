@@ -4,8 +4,6 @@ package yaml
 import (
 	"fmt"
 	"math"
-	"os"
-	"strconv"
 	"strings"
 
 	"github.com/goccy/go-yaml/ast"
@@ -40,47 +38,21 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 
 	// Convert parameters
 	for name, param := range raw.Parameters {
-		valueNode := param.Value
-		deprecatedForm := false
-		if mapping, ok := param.Value.(*ast.MappingNode); ok {
-			// Deprecated {type, value} form: type is ignored (target types
-			// are contextual), value becomes the scalar default, any other
-			// key is a typo. TODO(#44): reject the whole form after one
-			// release.
-			for _, kv := range mapping.Values {
-				switch key := keyString(kv.Key); key {
-				case "type":
-					// Ignored.
-				case "value":
-					valueNode = kv.Value
-				default:
-					return nil, srcloc.Errorf(newLocation(filePath, kv.Key),
-						"parameter %q: unsupported key %q in the deprecated {type, value} form; use a plain scalar default", name, key)
-				}
-			}
-			if valueNode == param.Value {
-				return nil, srcloc.Errorf(newLocation(filePath, param.Node),
-					"parameter %q: the {type, value} form requires a value; use a plain scalar default", name)
-			}
-			deprecatedForm = true
+		if _, ok := param.Value.(*ast.MappingNode); ok {
+			// The {type, value} form is no longer supported: parameter
+			// target types are contextual, so declare a plain scalar default.
+			return nil, srcloc.Errorf(newLocation(filePath, param.Node),
+				"parameter %q: the {type, value} form is no longer supported; use a plain scalar default", name)
 		}
-		if valueNode == nil {
+		if param.Value == nil {
 			return nil, srcloc.Errorf(newLocation(filePath, param.Node), "parameter %q: null value is not supported", name)
 		}
-		lit, err := p.convertLiteral(valueNode, filePath)
+		lit, err := p.convertLiteral(param.Value, filePath)
 		if err != nil {
 			return nil, srcloc.AddContext(err, "parameter %q", name)
 		}
 		if lit.IsNull() {
 			return nil, srcloc.Errorf(newLocation(filePath, param.Node), "parameter %q: null value is not supported", name)
-		}
-		if deprecatedForm {
-			hint := fmt.Sprintf("%v", lit.Value)
-			if lit.Kind == di.LiteralString {
-				hint = strconv.Quote(lit.String())
-			}
-			_, _ = fmt.Fprintf(os.Stderr, "warning: %s: parameter %q: the {type, value} form is deprecated and will be removed; use a plain scalar default: %s: %s\n",
-				newLocation(filePath, param.Node), name, name, hint)
 		}
 		cfg.Parameters[name] = di.Parameter{
 			Value:     lit,

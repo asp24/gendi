@@ -58,8 +58,15 @@ services:
 	}
 }
 
-func TestMappingParameterDeprecatedFormStillLoads(t *testing.T) {
-	cfg, err := loadConfigString(t, `
+func TestMappingParameterRejected(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name: "type and value form",
+			yaml: `
 parameters:
   port:
     type: int
@@ -69,27 +76,14 @@ services:
   app:
     constructor:
       func: "test.NewApp"
-`)
-	if err != nil {
-		t.Fatalf("deprecated form must still load, got %v", err)
-	}
-	if got := cfg.Parameters["port"].Value; got.Kind != di.LiteralInt || got.Int() != 8080 {
-		t.Fatalf("expected int 8080 from value field, got %+v", got)
-	}
-}
-
-func TestMappingParameterRejected(t *testing.T) {
-	tests := []struct {
-		name    string
-		yaml    string
-		wantErr string
-	}{
+`,
+			wantErr: "the {type, value} form is no longer supported",
+		},
 		{
-			name: "unknown key",
+			name: "value only form",
 			yaml: `
 parameters:
   port:
-    typo: silently-ignored
     value: 7
 
 services:
@@ -97,21 +91,7 @@ services:
     constructor:
       func: "test.NewApp"
 `,
-			wantErr: `unsupported key "typo"`,
-		},
-		{
-			name: "without value",
-			yaml: `
-parameters:
-  port:
-    type: int
-
-services:
-  app:
-    constructor:
-      func: "test.NewApp"
-`,
-			wantErr: "requires a value",
+			wantErr: "the {type, value} form is no longer supported",
 		},
 		{
 			name: "null value",

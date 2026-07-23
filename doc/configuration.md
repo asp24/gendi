@@ -48,10 +48,9 @@ parameters:
   rate_limit: 99.5
 ```
 
-Null values are rejected. The old `{type, value}` mapping form is deprecated:
-it still loads (the `type` field is ignored, `value` becomes the default)
-with a warning on stderr suggesting the scalar form, and will become an
-error in a future release.
+Null values are rejected. The old `{type, value}` mapping form is no longer
+supported and is a generation-time error; declare a plain scalar default
+instead.
 
 ### Supported Target Types
 
