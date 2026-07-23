@@ -160,6 +160,10 @@ func TestWorkflow(t *testing.T) {
 			expectedOutput: "cache(metrics(log(base)))\n",
 		},
 		{
+			name:           "spread_variadic",
+			expectedOutput: "B\nA\n",
+		},
+		{
 			name:           "complex_tagged_injection",
 			expectedOutput: "Middleware chain (3):\n- auth\n- metrics\n- logging\nPublic getter returned 3 items\n",
 		},

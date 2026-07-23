@@ -1,0 +1,28 @@
+tags:
+  greeter:
+    element_type: "test.Greeter"
+    sort_by: "order"
+
+services:
+  greeter.a:
+    constructor:
+      func: "test.NewGreeter"
+      args: ["A"]
+    tags:
+      - name: greeter
+        order: 1
+
+  greeter.b:
+    constructor:
+      func: "test.NewGreeter"
+      args: ["B"]
+    tags:
+      - name: greeter
+        order: 2
+
+  app:
+    constructor:
+      func: "test.NewApp"
+      args:
+        - "!spread:!tagged:greeter"
+    public: true
