@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"go/types"
 	"os"
+	"slices"
 
 	"golang.org/x/tools/go/gcexportdata"
 	"golang.org/x/tools/go/packages"
@@ -76,7 +77,7 @@ func (c *Cache) LoadWithCandidates(required, candidates []string) error {
 		candidateSet[p] = true
 	}
 
-	pkgs, err := packages.Load(cfg, append(append([]string{}, required...), candidates...)...)
+	pkgs, err := packages.Load(cfg, slices.Concat(required, candidates)...)
 	if err != nil {
 		return fmt.Errorf("load packages: %w", err)
 	}
