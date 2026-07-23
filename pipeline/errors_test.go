@@ -37,7 +37,7 @@ func TestErrorCases(t *testing.T) {
 		},
 		{
 			name:        "invalid_parameter_form",
-			expectError: "requires a value",
+			expectError: "value must be a plain scalar, got a mapping",
 			phase:       "load",
 		},
 		{

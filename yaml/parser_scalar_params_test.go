@@ -58,8 +58,15 @@ services:
 	}
 }
 
-func TestMappingParameterDeprecatedFormStillLoads(t *testing.T) {
-	cfg, err := loadConfigString(t, `
+func TestMappingParameterRejected(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name: "mapping with several keys",
+			yaml: `
 parameters:
   port:
     type: int
@@ -69,27 +76,14 @@ services:
   app:
     constructor:
       func: "test.NewApp"
-`)
-	if err != nil {
-		t.Fatalf("deprecated form must still load, got %v", err)
-	}
-	if got := cfg.Parameters["port"].Value; got.Kind != di.LiteralInt || got.Int() != 8080 {
-		t.Fatalf("expected int 8080 from value field, got %+v", got)
-	}
-}
-
-func TestMappingParameterRejected(t *testing.T) {
-	tests := []struct {
-		name    string
-		yaml    string
-		wantErr string
-	}{
+`,
+			wantErr: "value must be a plain scalar, got a mapping",
+		},
 		{
-			name: "unknown key",
+			name: "mapping with single key",
 			yaml: `
 parameters:
   port:
-    typo: silently-ignored
     value: 7
 
 services:
@@ -97,21 +91,7 @@ services:
     constructor:
       func: "test.NewApp"
 `,
-			wantErr: `unsupported key "typo"`,
-		},
-		{
-			name: "without value",
-			yaml: `
-parameters:
-  port:
-    type: int
-
-services:
-  app:
-    constructor:
-      func: "test.NewApp"
-`,
-			wantErr: "requires a value",
+			wantErr: "value must be a plain scalar, got a mapping",
 		},
 		{
 			name: "null value",
