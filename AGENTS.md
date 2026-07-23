@@ -21,25 +21,12 @@ go test ./...
 go build ./cmd/gendi
 
 # Run the generator manually
-go run ./cmd/gendi --config=examples/basic/gendi.yaml --out=examples/basic/internal/di --pkg=di
-
-# Regenerate all examples
-go generate ./...
+go run ./cmd/gendi --config=path/to/gendi.yaml --out=path/to/internal/di --pkg=di
 ```
 
-### Running Examples
-```bash
-# Basic example
-cd examples/basic && go generate && go run .
-
-# Advanced example
-cd examples/advanced && go generate && go run .
-
-# Custom pass example
-cd examples/custom-pass
-go run ./tools/gendi --config=./cmd/gendi.yaml --out=./cmd --pkg=main
-go run ./cmd
-```
+### Demo Application
+A full, realistic service demonstrating gendi end-to-end lives in the separate
+repository `github.com/gendi-org/gendi-example-app`.
 
 ### Running a Single Test
 ```bash
@@ -73,7 +60,7 @@ The generator follows a multi-stage pipeline:
    - Optional transformation stage via `di.ApplyPasses()`
    - Passes implement `Pass` interface with `Process(*Config) (*Config, error)`
    - Used for custom conventions, auto-tagging, argument modification
-   - See `examples/custom-pass` for practical implementation
+   - See `github.com/gendi-org/gendi-example-app` (`tools/gendi/`) for a real generator wiring built-in and custom passes
 
 3. **Type Resolution** (`typeres/` package)
    - Uses `golang.org/x/tools/go/packages` to load Go types
@@ -287,7 +274,7 @@ When updating generator behavior:
 1. Run tests to see failures
 2. Review generated output carefully
 3. Update golden files if changes are correct
-4. Regenerate examples with `go generate ./...`
+4. Regenerate the demo app in its own repository
 
 ## Commit Style
 
@@ -336,7 +323,7 @@ func main() {
 }
 ```
 
-See `examples/custom-pass` for complete example.
+See `github.com/gendi-org/gendi-example-app` (`tools/gendi/`) for a real generator wiring built-in and custom passes.
 
 ## Common Patterns
 

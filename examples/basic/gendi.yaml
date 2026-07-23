@@ -1,5 +1,0 @@
-imports:
-  - ./app/gendi.yaml
-parameters:
-  dsn: "postgres://localhost/app"
-  log_prefix: "[app] "

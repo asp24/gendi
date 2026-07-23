@@ -1,9 +1,0 @@
-imports:
-  - github.com/gendi-org/gendi/stdlib/gendi.yaml
-  - ./../internal/**/gendi.yaml
-
-parameters:
-  db_dsn: "postgres://localhost/myapp"
-
-services:
-  logger: '@stdlib.slog'

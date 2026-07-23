@@ -33,7 +33,7 @@ jobs:
 
       - name: Test
         run: |
-          PKGS=$(go list ./... | grep -vE '/examples|/integration' | paste -sd,)
+          PKGS=$(go list ./... | grep -vE '/integration' | paste -sd,)
           go test -covermode=atomic -coverpkg="$PKGS" -coverprofile=coverage.txt ./...
 
       - name: Upload coverage to Codecov
