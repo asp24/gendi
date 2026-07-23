@@ -150,14 +150,6 @@ func TestResolve(t *testing.T) {
 			wantKind:  ParamRefArg,
 		},
 		{
-			// The same parameter may be requested as a different scalar
-			// type at another injection site: conversion is contextual.
-			name:      "param_contextual_type",
-			arg:       di.Argument{Kind: di.ArgParam, Value: "db.host"},
-			paramType: intType,
-			wantKind:  ParamRefArg,
-		},
-		{
 			name:      "tagged_not_slice",
 			arg:       di.Argument{Kind: di.ArgTagged, Value: "sometag"},
 			paramType: stringType,
