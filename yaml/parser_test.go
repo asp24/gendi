@@ -91,56 +91,56 @@ func TestParseServiceAliasDoesNotInheritSharedDefault(t *testing.T) {
 	}
 }
 
-func TestParseArgumentReference(t *testing.T) {
-	val := "@myService"
-	raw := &RawArgument{
-		Value: &val,
+func TestParseArgument(t *testing.T) {
+	tests := []struct {
+		name     string
+		raw      *RawArgument
+		wantKind di.ArgumentKind
+		check    func(t *testing.T, arg di.Argument)
+	}{
+		{
+			name:     "service reference",
+			raw:      &RawArgument{Value: strPtr("@myService")},
+			wantKind: di.ArgServiceRef,
+			check: func(t *testing.T, arg di.Argument) {
+				if arg.Value != "myService" {
+					t.Errorf("expected value 'myService', got '%s'", arg.Value)
+				}
+			},
+		},
+		{
+			name:     "literal string",
+			raw:      &RawArgument{Value: strPtr("just a string")},
+			wantKind: di.ArgLiteral,
+			check: func(t *testing.T, arg di.Argument) {
+				if arg.Literal.String() != "just a string" {
+					t.Errorf("expected literal value 'just a string', got '%s'", arg.Literal.String())
+				}
+			},
+		},
+		{
+			name:     "literal node",
+			raw:      &RawArgument{Node: mustParseNode(t, "42")},
+			wantKind: di.ArgLiteral,
+			check: func(t *testing.T, arg di.Argument) {
+				if arg.Literal.Int() != 42 {
+					t.Errorf("expected literal 42, got %d", arg.Literal.Int())
+				}
+			},
+		},
 	}
-	p := NewParser()
-	arg, err := p.convertArgumentWithFile(raw, "")
-	if err != nil {
-		t.Fatalf("convertArgumentWithFile failed: %v", err)
-	}
-	if arg.Kind != di.ArgServiceRef {
-		t.Errorf("expected kind ArgServiceRef, got %v", arg.Kind)
-	}
-	if arg.Value != "myService" {
-		t.Errorf("expected value 'myService', got '%s'", arg.Value)
-	}
-}
 
-func TestParseArgumentLiteralString(t *testing.T) {
-	val := "just a string"
-	raw := &RawArgument{
-		Value: &val,
-	}
-	p := NewParser()
-	arg, err := p.convertArgumentWithFile(raw, "")
-	if err != nil {
-		t.Fatalf("convertArgumentWithFile failed: %v", err)
-	}
-	if arg.Kind != di.ArgLiteral {
-		t.Errorf("expected kind ArgLiteral, got %v", arg.Kind)
-	}
-	if arg.Literal.String() != val {
-		t.Errorf("expected literal value '%s', got '%s'", val, arg.Literal.String())
-	}
-}
-
-func TestParseArgumentLiteralNode(t *testing.T) {
-	raw := &RawArgument{
-		Node: mustParseNode(t, "42"),
-	}
-	p := NewParser()
-	arg, err := p.convertArgumentWithFile(raw, "")
-	if err != nil {
-		t.Fatalf("convertArgumentWithFile failed: %v", err)
-	}
-	if arg.Kind != di.ArgLiteral {
-		t.Errorf("expected kind ArgLiteral, got %v", arg.Kind)
-	}
-	if arg.Literal.Int() != 42 {
-		t.Errorf("expected literal 42, got %d", arg.Literal.Int())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			arg, err := NewParser().convertArgumentWithFile(tt.raw, "")
+			if err != nil {
+				t.Fatalf("convertArgumentWithFile failed: %v", err)
+			}
+			if arg.Kind != tt.wantKind {
+				t.Errorf("expected kind %v, got %v", tt.wantKind, arg.Kind)
+			}
+			tt.check(t, arg)
+		})
 	}
 }
 
@@ -347,9 +347,19 @@ func TestServiceTagOnlyName(t *testing.T) {
 	}
 }
 
-func TestServiceTagYAMLParsing(t *testing.T) {
-	// Test that YAML parsing works with the new flattened syntax
-	yamlContent := `
+func TestServiceTagParsing(t *testing.T) {
+	type wantTag struct {
+		name  string
+		attrs map[string]any // int values compared via attrEqualsInt, others exactly
+	}
+	tests := []struct {
+		name string
+		yaml string
+		want []wantTag
+	}{
+		{
+			name: "mapping form with attributes",
+			yaml: `
 services:
   test.service:
     type: string
@@ -358,46 +368,15 @@ services:
         priority: 10
         path: /api/test
       - name: marker.tag
-`
-
-	var raw RawConfig
-	if err := yamllib.Unmarshal([]byte(yamlContent), &raw); err != nil {
-		t.Fatalf("failed to unmarshal YAML: %v", err)
-	}
-
-	svc, ok := raw.Services["test.service"]
-	if !ok {
-		t.Fatal("service 'test.service' not found")
-	}
-
-	if len(svc.Tags) != 2 {
-		t.Fatalf("expected 2 tags, got %d", len(svc.Tags))
-	}
-
-	// First tag: handler.http with attributes
-	tag1 := svc.Tags[0]
-	if tag1.Name != "handler.http" {
-		t.Errorf("expected tag name 'handler.http', got '%s'", tag1.Name)
-	}
-	if !attrEqualsInt(tag1.Attributes["priority"], 10) {
-		t.Errorf("expected priority=10, got %v (%T)", tag1.Attributes["priority"], tag1.Attributes["priority"])
-	}
-	if path, ok := tag1.Attributes["path"].(string); !ok || path != "/api/test" {
-		t.Errorf("expected path='/api/test', got %v", tag1.Attributes["path"])
-	}
-
-	// Second tag: marker.tag with no attributes
-	tag2 := svc.Tags[1]
-	if tag2.Name != "marker.tag" {
-		t.Errorf("expected tag name 'marker.tag', got '%s'", tag2.Name)
-	}
-	if len(tag2.Attributes) != 0 {
-		t.Errorf("expected no attributes for marker tag, got %v", tag2.Attributes)
-	}
-}
-
-func TestServiceTagStringShorthand(t *testing.T) {
-	yamlContent := `
+`,
+			want: []wantTag{
+				{name: "handler.http", attrs: map[string]any{"priority": int64(10), "path": "/api/test"}},
+				{name: "marker.tag"},
+			},
+		},
+		{
+			name: "string shorthand mixed with mapping",
+			yaml: `
 services:
   test.service:
     type: string
@@ -405,38 +384,52 @@ services:
       - marker.tag
       - name: handler.http
         priority: 10
-`
-
-	var raw RawConfig
-	if err := yamllib.Unmarshal([]byte(yamlContent), &raw); err != nil {
-		t.Fatalf("failed to unmarshal YAML: %v", err)
+`,
+			want: []wantTag{
+				{name: "marker.tag"},
+				{name: "handler.http", attrs: map[string]any{"priority": int64(10)}},
+			},
+		},
 	}
 
-	svc, ok := raw.Services["test.service"]
-	if !ok {
-		t.Fatal("service 'test.service' not found")
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var raw RawConfig
+			if err := yamllib.Unmarshal([]byte(tt.yaml), &raw); err != nil {
+				t.Fatalf("failed to unmarshal YAML: %v", err)
+			}
 
-	if len(svc.Tags) != 2 {
-		t.Fatalf("expected 2 tags, got %d", len(svc.Tags))
-	}
+			svc, ok := raw.Services["test.service"]
+			if !ok {
+				t.Fatal("service 'test.service' not found")
+			}
+			if len(svc.Tags) != len(tt.want) {
+				t.Fatalf("expected %d tags, got %d", len(tt.want), len(svc.Tags))
+			}
 
-	// First tag: string shorthand
-	tag1 := svc.Tags[0]
-	if tag1.Name != "marker.tag" {
-		t.Errorf("expected tag name 'marker.tag', got '%s'", tag1.Name)
-	}
-	if len(tag1.Attributes) != 0 {
-		t.Errorf("expected no attributes, got %v", tag1.Attributes)
-	}
-
-	// Second tag: map syntax
-	tag2 := svc.Tags[1]
-	if tag2.Name != "handler.http" {
-		t.Errorf("expected tag name 'handler.http', got '%s'", tag2.Name)
-	}
-	if !attrEqualsInt(tag2.Attributes["priority"], 10) {
-		t.Errorf("expected priority=10, got %v (%T)", tag2.Attributes["priority"], tag2.Attributes["priority"])
+			for i, want := range tt.want {
+				tag := svc.Tags[i]
+				if tag.Name != want.name {
+					t.Errorf("tag %d: expected name %q, got %q", i, want.name, tag.Name)
+				}
+				if len(tag.Attributes) != len(want.attrs) {
+					t.Errorf("tag %q: expected %d attributes, got %v", want.name, len(want.attrs), tag.Attributes)
+				}
+				for k, wantVal := range want.attrs {
+					got := tag.Attributes[k]
+					switch w := wantVal.(type) {
+					case int64:
+						if !attrEqualsInt(got, w) {
+							t.Errorf("tag %q attr %q: expected %d, got %v (%T)", want.name, k, w, got, got)
+						}
+					default:
+						if got != wantVal {
+							t.Errorf("tag %q attr %q: expected %v, got %v", want.name, k, wantVal, got)
+						}
+					}
+				}
+			}
+		})
 	}
 }
 
@@ -543,6 +536,10 @@ func TestValidateDefaultsRejectsInvalidFields(t *testing.T) {
 // Helper functions
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+func strPtr(s string) *string {
+	return &s
 }
 
 func resolveBoolPtr(b *bool) bool {
