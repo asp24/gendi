@@ -6,6 +6,63 @@ import (
 	"testing"
 )
 
+func TestLookupTypeComposite(t *testing.T) {
+	// Composite branches recurse on their element type. Using universe
+	// element types (int, string) keeps this a pure string-parsing test —
+	// no package loading required.
+	r := NewResolver("", "")
+
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"array", "[3]int", "[3]int"},
+		{"map", "map[string]int", "map[string]int"},
+		{"receive-only channel", "<-chan int", "<-chan int"},
+		{"send-only channel", "chan<- int", "chan<- int"},
+		{"nested map key", "map[[2]int]string", "map[[2]int]string"},
+		{"map of slice", "map[string][]int", "map[string][]int"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			typ, err := r.LookupType(tt.in)
+			if err != nil {
+				t.Fatalf("LookupType(%q): %v", tt.in, err)
+			}
+			if got := typ.String(); got != tt.want {
+				t.Fatalf("LookupType(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLookupTypeCompositeErrors(t *testing.T) {
+	r := NewResolver("", "")
+
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{"array missing bracket", "[3int"},
+		{"array non-numeric size", "[abc]int"},
+		{"array bad element", "[3]nope.Missing"},
+		{"map missing bracket", "map[string"},
+		{"map bad key", "map[nope.Missing]int"},
+		{"map bad value", "map[string]nope.Missing"},
+		{"channel bad element", "<-chan nope.Missing"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := r.LookupType(tt.in); err == nil {
+				t.Fatalf("LookupType(%q): expected error, got nil", tt.in)
+			}
+		})
+	}
+}
+
 func TestResolverUsesModuleRoot(t *testing.T) {
 	dir := t.TempDir()
 	modPath := "example.com/testmod"
