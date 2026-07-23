@@ -516,7 +516,7 @@ If these passes are registered with `cmd.Run`, use `[]di.Pass`.
 
 ## Complete Example
 
-See [examples/custom-pass](../examples/custom-pass) for a production-ready implementation featuring:
+See [gendi-example-app](https://github.com/gendi-org/gendi-example-app) (`tools/gendi/`) for a production-ready implementation featuring:
 
 ### Custom Pass: Channel Logger
 
@@ -565,9 +565,9 @@ func (p *ChannelLoggerPass) Process(cfg *di.Config) (*di.Config, error) {
 
 ### Running the Example
 
-```bash
-cd examples/custom-pass
+Clone [gendi-example-app](https://github.com/gendi-org/gendi-example-app), then:
 
+```bash
 # Run custom generator
 go run ./tools/gendi --config=./cmd/gendi.yaml --out=./cmd --pkg=main
 
@@ -683,6 +683,6 @@ func NewNullLiteral() Literal
 ## See Also
 
 - [Configuration Reference](./configuration.md)
-- [Custom Pass Example](../examples/custom-pass/)
+- [Custom Pass Example](https://github.com/gendi-org/gendi-example-app) (`tools/gendi/`)
 - [Technical Specification](./spec/README.md)
 - [API Documentation](https://pkg.go.dev/github.com/gendi-org/gendi)

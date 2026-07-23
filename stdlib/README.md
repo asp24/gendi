@@ -592,4 +592,4 @@ func main() {
 
 - [Configuration Reference](../doc/configuration.md)
 - [API Documentation](https://pkg.go.dev/github.com/gendi-org/gendi/stdlib)
-- [Examples](../examples/)
+- [Example App](https://github.com/gendi-org/gendi-example-app)

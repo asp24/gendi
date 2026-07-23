@@ -215,13 +215,7 @@ services:
 
 ## Examples
 
-| Example | Description | Run |
-|---------|-------------|-----|
-| [basic](./examples/basic) | Parameters, tagged injection, decorators | `cd examples/basic && go generate && go run .` |
-| [advanced](./examples/advanced) | Imports, overrides, decorator chains | `cd examples/advanced && go generate && go run .` |
-| [custom-pass](./examples/custom-pass) | Custom compiler passes, auto-tagging | `cd examples/custom-pass && go run ./tools/gendi --config=./cmd/gendi.yaml --out=./cmd --pkg=main && go run ./cmd` |
-| [spread](./examples/spread) | Spread operator for variadic functions | `cd examples/spread && go generate && go run .` |
-| [decorator](./examples/decorator) | Service decoration patterns | `cd examples/decorator && go generate && go run .` |
+The flagship demo lives in a separate repo: **[gendi-org/gendi-example-app](https://github.com/gendi-org/gendi-example-app)** — a realistic HTTP task-tracker service wired end-to-end by gendi, covering services, tagged injection, decorators, stdlib and built-in passes, imports, and integration tests.
 
 ## Documentation
 

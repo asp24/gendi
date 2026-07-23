@@ -905,4 +905,4 @@ services:
 - [Technical Specification](./spec/README.md)
 - [Custom Compiler Passes](./custom-passes.md)
 - [Standard Library Services](../stdlib/README.md)
-- [Examples](../examples/)
+- [Example App](https://github.com/gendi-org/gendi-example-app)
