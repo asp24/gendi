@@ -77,70 +77,62 @@ func TestResolveImportErrors(t *testing.T) {
 	}
 }
 
-func TestResolveImportLocalFile(t *testing.T) {
+func TestResolveImportLocal(t *testing.T) {
 	t.Parallel()
 
-	tempDir := t.TempDir()
-	resolver := newTestResolver(t, tempDir)
-
-	path := filepath.Join(tempDir, "config.yaml")
-	writeFile(t, path, "content")
-
-	result, err := resolver.ResolveImport(tempDir, "./config.yaml", nil)
-	if err != nil {
-		t.Fatalf("resolve local failed: %v", err)
+	tests := []struct {
+		name    string
+		files   []string
+		pattern string
+		wantRel []string
+	}{
+		{
+			name:    "file",
+			files:   []string{"config.yaml"},
+			pattern: "./config.yaml",
+			wantRel: []string{"config.yaml"},
+		},
+		{
+			name:    "glob",
+			files:   []string{"a.yaml", "b.yaml"},
+			pattern: "./*.yaml",
+			wantRel: []string{"a.yaml", "b.yaml"},
+		},
+		{
+			name:    "brace glob",
+			files:   []string{"dev.yaml", "prod.yaml", "test.yaml"},
+			pattern: "./{dev,prod}.yaml",
+			wantRel: []string{"dev.yaml", "prod.yaml"},
+		},
 	}
-	expected := []string{mustAbs(t, path)}
-	if !reflect.DeepEqual(candidatePaths(result), expected) {
-		t.Fatalf("expected %v, got %v", expected, result)
-	}
-	if result[0].Boundary != mustAbs(t, tempDir) {
-		t.Fatalf("got boundary %s, want %s", result[0].Boundary, tempDir)
-	}
-}
 
-func TestResolveImportLocalGlob(t *testing.T) {
-	t.Parallel()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	tempDir := t.TempDir()
-	resolver := newTestResolver(t, tempDir)
+			tempDir := t.TempDir()
+			resolver := newTestResolver(t, tempDir)
 
-	writeFile(t, filepath.Join(tempDir, "a.yaml"), "a")
-	writeFile(t, filepath.Join(tempDir, "b.yaml"), "b")
+			for _, f := range tt.files {
+				writeFile(t, filepath.Join(tempDir, f), f)
+			}
 
-	result, err := resolver.ResolveImport(tempDir, "./*.yaml", nil)
-	if err != nil {
-		t.Fatalf("resolve glob failed: %v", err)
-	}
-	expected := []string{
-		mustAbs(t, filepath.Join(tempDir, "a.yaml")),
-		mustAbs(t, filepath.Join(tempDir, "b.yaml")),
-	}
-	if !reflect.DeepEqual(candidatePaths(result), expected) {
-		t.Fatalf("expected %v, got %v", expected, result)
-	}
-}
+			result, err := resolver.ResolveImport(tempDir, tt.pattern, nil)
+			if err != nil {
+				t.Fatalf("resolve %q failed: %v", tt.pattern, err)
+			}
 
-func TestResolveImportLocalBraceGlob(t *testing.T) {
-	t.Parallel()
-
-	tempDir := t.TempDir()
-	resolver := newTestResolver(t, tempDir)
-
-	writeFile(t, filepath.Join(tempDir, "dev.yaml"), "dev")
-	writeFile(t, filepath.Join(tempDir, "prod.yaml"), "prod")
-	writeFile(t, filepath.Join(tempDir, "test.yaml"), "test")
-
-	result, err := resolver.ResolveImport(tempDir, "./{dev,prod}.yaml", nil)
-	if err != nil {
-		t.Fatalf("resolve brace glob failed: %v", err)
-	}
-	expected := []string{
-		mustAbs(t, filepath.Join(tempDir, "dev.yaml")),
-		mustAbs(t, filepath.Join(tempDir, "prod.yaml")),
-	}
-	if !reflect.DeepEqual(candidatePaths(result), expected) {
-		t.Fatalf("expected %v, got %v", expected, result)
+			expected := make([]string, len(tt.wantRel))
+			for i, rel := range tt.wantRel {
+				expected[i] = mustAbs(t, filepath.Join(tempDir, rel))
+			}
+			if !reflect.DeepEqual(candidatePaths(result), expected) {
+				t.Fatalf("expected %v, got %v", expected, result)
+			}
+			if result[0].Boundary != mustAbs(t, tempDir) {
+				t.Fatalf("got boundary %s, want %s", result[0].Boundary, tempDir)
+			}
+		})
 	}
 }
 
