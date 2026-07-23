@@ -1,19 +1,19 @@
 coverage:
   status:
-    # Overall coverage of the whole project must not fall below the base
-    # commit's coverage. `target: auto` compares against the PR base;
-    # `threshold: 0%` means no drop is tolerated.
+    # Overall coverage of the whole project. A soft gate: small fluctuations
+    # from refactoring or removing tested code shouldn't fail a PR, so a 1%
+    # drift is tolerated. `target: auto` compares against the PR base.
     project:
       default:
         target: auto
-        threshold: 0%
+        threshold: 1%
         if_ci_failed: error
-    # Coverage of the lines changed by the PR itself. Keeps new/modified
-    # code covered; `informational: true` reports but does not block.
+    # Coverage of the lines changed by the PR itself. The primary quality
+    # gate: new/modified code must be covered to at least 80%.
     patch:
       default:
-        target: auto
-        informational: true
+        target: 80%
+        threshold: 0%
 
 # Post a summary comment on each PR.
 comment:
