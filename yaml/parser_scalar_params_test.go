@@ -78,8 +78,15 @@ services:
 	}
 }
 
-func TestMappingParameterUnknownKeyRejected(t *testing.T) {
-	_, err := loadConfigString(t, `
+func TestMappingParameterRejected(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name: "unknown key",
+			yaml: `
 parameters:
   port:
     typo: silently-ignored
@@ -89,14 +96,12 @@ services:
   app:
     constructor:
       func: "test.NewApp"
-`)
-	if err == nil || !strings.Contains(err.Error(), `unsupported key "typo"`) {
-		t.Fatalf("expected unsupported key error, got %v", err)
-	}
-}
-
-func TestMappingParameterWithoutValueRejected(t *testing.T) {
-	_, err := loadConfigString(t, `
+`,
+			wantErr: `unsupported key "typo"`,
+		},
+		{
+			name: "without value",
+			yaml: `
 parameters:
   port:
     type: int
@@ -105,14 +110,12 @@ services:
   app:
     constructor:
       func: "test.NewApp"
-`)
-	if err == nil || !strings.Contains(err.Error(), "requires a value") {
-		t.Fatalf("expected missing value error, got %v", err)
-	}
-}
-
-func TestNullParameterRejected(t *testing.T) {
-	_, err := loadConfigString(t, `
+`,
+			wantErr: "requires a value",
+		},
+		{
+			name: "null value",
+			yaml: `
 parameters:
   port: ~
 
@@ -120,8 +123,17 @@ services:
   app:
     constructor:
       func: "test.NewApp"
-`)
-	if err == nil || !strings.Contains(err.Error(), "null value is not supported") {
-		t.Fatalf("expected null rejection, got %v", err)
+`,
+			wantErr: "null value is not supported",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := loadConfigString(t, tt.yaml)
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
+			}
+		})
 	}
 }
