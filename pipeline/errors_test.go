@@ -37,7 +37,7 @@ func TestErrorCases(t *testing.T) {
 		},
 		{
 			name:        "invalid_parameter_form",
-			expectError: "the {type, value} form is no longer supported",
+			expectError: "value must be a plain scalar, got a mapping",
 			phase:       "load",
 		},
 		{

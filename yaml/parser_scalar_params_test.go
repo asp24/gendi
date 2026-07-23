@@ -65,7 +65,7 @@ func TestMappingParameterRejected(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "type and value form",
+			name: "mapping with several keys",
 			yaml: `
 parameters:
   port:
@@ -77,10 +77,10 @@ services:
     constructor:
       func: "test.NewApp"
 `,
-			wantErr: "the {type, value} form is no longer supported",
+			wantErr: "value must be a plain scalar, got a mapping",
 		},
 		{
-			name: "value only form",
+			name: "mapping with single key",
 			yaml: `
 parameters:
   port:
@@ -91,7 +91,7 @@ services:
     constructor:
       func: "test.NewApp"
 `,
-			wantErr: "the {type, value} form is no longer supported",
+			wantErr: "value must be a plain scalar, got a mapping",
 		},
 		{
 			name: "null value",

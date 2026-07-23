@@ -740,15 +740,15 @@ func TestConvertLiteralTypes(t *testing.T) {
 func TestConvertConfigWithDirAndFile(t *testing.T) {
 	p := NewParser()
 
-	t.Run("parameter_mapping_form_rejected", func(t *testing.T) {
+	t.Run("parameter_mapping_value_rejected", func(t *testing.T) {
 		raw := &RawConfig{
 			Parameters: map[string]RawParameter{
-				"old": {Value: mustParseNode(t, "{type: int, value: 8080}")},
+				"port": {Value: mustParseNode(t, "{type: int, value: 8080}")},
 			},
 		}
 		_, err := p.ConvertConfigWithDirAndFile(raw, "", "")
-		if err == nil || !strings.Contains(err.Error(), "the {type, value} form is no longer supported") {
-			t.Fatalf("expected {type, value} form to be rejected, got: %v", err)
+		if err == nil || !strings.Contains(err.Error(), "value must be a plain scalar, got a mapping") {
+			t.Fatalf("expected a mapping value to be rejected, got: %v", err)
 		}
 	})
 

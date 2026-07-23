@@ -48,9 +48,7 @@ parameters:
   rate_limit: 99.5
 ```
 
-Null values are rejected. The old `{type, value}` mapping form is no longer
-supported and is a generation-time error; declare a plain scalar default
-instead.
+Each default must be a plain scalar; null and mapping values are rejected.
 
 ### Supported Target Types
 

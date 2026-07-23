@@ -39,10 +39,10 @@ func (p *Parser) ConvertConfigWithDirAndFile(raw *RawConfig, configDir string, f
 	// Convert parameters
 	for name, param := range raw.Parameters {
 		if _, ok := param.Value.(*ast.MappingNode); ok {
-			// The {type, value} form is no longer supported: parameter
-			// target types are contextual, so declare a plain scalar default.
+			// A parameter's target type is contextual, so its default must be
+			// a plain scalar; a mapping has no meaning here.
 			return nil, srcloc.Errorf(newLocation(filePath, param.Node),
-				"parameter %q: the {type, value} form is no longer supported; use a plain scalar default", name)
+				"parameter %q: value must be a plain scalar, got a mapping", name)
 		}
 		if param.Value == nil {
 			return nil, srcloc.Errorf(newLocation(filePath, param.Node), "parameter %q: null value is not supported", name)
