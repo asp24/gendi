@@ -6,7 +6,6 @@ import (
 	"go/token"
 	"go/types"
 	"os"
-	"strings"
 
 	"golang.org/x/tools/go/gcexportdata"
 	"golang.org/x/tools/go/packages"
@@ -86,15 +85,14 @@ func (c *Cache) LoadWithCandidates(required, candidates []string) error {
 		return fmt.Errorf("load packages: %w", err)
 	}
 
-	var errs []string
+	var errs []error
 	for _, pkg := range pkgs {
-		failure := c.decode(pkg)
-		if failure != "" && !candidateSet[pkg.PkgPath] && !candidateSet[pkg.ID] {
-			errs = append(errs, failure)
+		if err := c.decode(pkg); err != nil && !candidateSet[pkg.PkgPath] && !candidateSet[pkg.ID] {
+			errs = append(errs, err)
 		}
 	}
 	if len(errs) > 0 {
-		return errors.New(strings.Join(errs, "; "))
+		return errors.Join(errs...)
 	}
 
 	return nil
@@ -116,45 +114,45 @@ func (c *Cache) missing(paths []string) []string {
 }
 
 // decode reads a package's export data into the shared imports map, returning a
-// non-empty reason if the package is unusable (load errors, missing export
-// data, or an unreadable export file). Imports referenced by the export data
-// are resolved through the same map, keeping the whole universe consistent.
-func (c *Cache) decode(pkg *packages.Package) string {
+// non-nil error if the package is unusable (load errors, missing export data,
+// or an unreadable export file). Imports referenced by the export data are
+// resolved through the same map, keeping the whole universe consistent.
+func (c *Cache) decode(pkg *packages.Package) error {
+	if len(pkg.Errors) > 0 {
+		errs := make([]error, len(pkg.Errors))
+		for i, e := range pkg.Errors {
+			errs[i] = e
+		}
+		return errors.Join(errs...)
+	}
+
 	key := pkg.PkgPath
 	if key == "" {
 		key = pkg.ID
 	}
 
-	if len(pkg.Errors) > 0 {
-		msgs := make([]string, len(pkg.Errors))
-		for i, e := range pkg.Errors {
-			msgs[i] = e.Error()
-		}
-		return strings.Join(msgs, "; ")
-	}
-	if key == "" {
-		return "" // nothing to key on; nothing to report
-	}
 	if pkg.ExportFile == "" {
-		return fmt.Sprintf("package %q has no export data", key)
+		return fmt.Errorf("package %q has no export data", key)
 	}
+
 	// Already-complete entries are left untouched to satisfy Read's precondition.
 	if existing, ok := c.packages[key]; ok && existing != nil && existing.Complete() {
-		return ""
+		return nil
 	}
 
 	f, err := os.Open(pkg.ExportFile)
 	if err != nil {
-		return fmt.Sprintf("open export data for %q: %v", key, err)
+		return fmt.Errorf("open export data for %q: %w", key, err)
 	}
 	defer f.Close()
 
 	r, err := gcexportdata.NewReader(f)
 	if err != nil {
-		return fmt.Sprintf("read export data for %q: %v", key, err)
+		return fmt.Errorf("read export data for %q: %w", key, err)
 	}
 	if _, err := gcexportdata.Read(r, c.fset, c.packages, key); err != nil {
-		return fmt.Sprintf("decode export data for %q: %v", key, err)
+		return fmt.Errorf("decode export data for %q: %w", key, err)
 	}
-	return ""
+
+	return nil
 }
