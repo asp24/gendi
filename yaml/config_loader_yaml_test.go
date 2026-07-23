@@ -62,6 +62,21 @@ func writeFile(t *testing.T, dir, name, contents string) string {
 	return path
 }
 
+// writeTree writes each relPath->contents entry under dir, creating parent
+// directories as needed.
+func writeTree(t *testing.T, dir string, files map[string]string) {
+	t.Helper()
+	for rel, contents := range files {
+		full := filepath.Join(dir, rel)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", rel, err)
+		}
+		if err := os.WriteFile(full, []byte(contents), 0o644); err != nil {
+			t.Fatalf("write %s: %v", rel, err)
+		}
+	}
+}
+
 func TestLoadDeduplicatesDiamondImports(t *testing.T) {
 	dir := t.TempDir()
 
@@ -431,36 +446,56 @@ imports:
 
 // Exclusions are addressed like import paths, so absolute filesystem paths
 // are rejected in them too.
-func TestExcludeRejectsAbsolutePattern(t *testing.T) {
-	dir := t.TempDir()
-	servicesDir := filepath.Join(dir, "services")
-	if err := os.MkdirAll(servicesDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
+// An absolute exclusion pattern is rejected whether it points at a file or an
+// existing directory — it never silently excludes the target.
+func TestExcludeRejectsAbsolute(t *testing.T) {
+	tests := []struct {
+		name       string
+		files      map[string]string
+		importGlob string
+		absTarget  string // path relative to the temp dir, made absolute in the exclude list
+	}{
+		{
+			name: "file pattern",
+			files: map[string]string{
+				"services/app.yaml":  "parameters:\n  app: \"app\"\n",
+				"services/test.yaml": "parameters:\n  test: \"test\"\n",
+			},
+			importGlob: "./services/*.yaml",
+			absTarget:  "services/test.yaml",
+		},
+		{
+			name: "directory",
+			files: map[string]string{
+				"services/app.yaml":           "parameters:\n  app: \"app\"\n",
+				"services/internal/skip.yaml": "parameters:\n  skip_me: \"skip\"\n",
+			},
+			importGlob: "./services/**/*.yaml",
+			absTarget:  "services/internal",
+		},
 	}
 
-	writeFile(t, servicesDir, "app.yaml", `
-parameters:
-  app: "app"
-`)
-	testPath := writeFile(t, servicesDir, "test.yaml", `
-parameters:
-  test: "test"
-`)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeTree(t, dir, tt.files)
 
-	rootPath := writeFile(t, dir, "gendi.yaml", fmt.Sprintf(`
+			rootPath := writeFile(t, dir, "gendi.yaml", fmt.Sprintf(`
 imports:
-  - path: ./services/*.yaml
+  - path: %s
     exclude:
       - %q
-`, testPath))
+`, tt.importGlob, filepath.Join(dir, tt.absTarget)))
 
-	loader := defaultLoader(t, rootPath)
-	_, err := loader.Load(rootPath, boundaryFor(t, rootPath))
-	if err == nil {
-		t.Fatal("expected error for absolute exclusion pattern")
-	}
-	if !strings.Contains(err.Error(), "absolute") {
-		t.Fatalf("error should mention absolute paths, got: %v", err)
+			loader := defaultLoader(t, rootPath)
+			_, err := loader.Load(rootPath, boundaryFor(t, rootPath))
+			if err == nil {
+				t.Fatal("expected error for absolute exclusion")
+			}
+			if !strings.Contains(err.Error(), "absolute") {
+				t.Fatalf("error should mention absolute paths, got: %v", err)
+			}
+		})
 	}
 }
 
@@ -509,41 +544,6 @@ imports:
 	}
 	if _, ok := cfg.Parameters["skip_me"]; ok {
 		t.Error("expected skip_me parameter to be excluded")
-	}
-}
-
-// An absolute pattern pointing at an existing directory is rejected like any
-// other absolute exclusion — it does not silently exclude the subtree.
-func TestExcludeRejectsAbsoluteDirectory(t *testing.T) {
-	dir := t.TempDir()
-	internalDir := filepath.Join(dir, "services", "internal")
-	if err := os.MkdirAll(internalDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-
-	writeFile(t, filepath.Join(dir, "services"), "app.yaml", `
-parameters:
-  app: "app"
-`)
-	writeFile(t, internalDir, "skip.yaml", `
-parameters:
-  skip_me: "skip"
-`)
-
-	rootPath := writeFile(t, dir, "gendi.yaml", fmt.Sprintf(`
-imports:
-  - path: ./services/**/*.yaml
-    exclude:
-      - %q
-`, internalDir))
-
-	loader := defaultLoader(t, rootPath)
-	_, err := loader.Load(rootPath, boundaryFor(t, rootPath))
-	if err == nil {
-		t.Fatal("expected error for absolute directory exclusion")
-	}
-	if !strings.Contains(err.Error(), "absolute") {
-		t.Fatalf("error should mention absolute paths, got: %v", err)
 	}
 }
 
@@ -649,86 +649,67 @@ func TestLoad_UnmarshalError_HasLocation(t *testing.T) {
 	}
 }
 
-func TestExcludeDirectory(t *testing.T) {
-	dir := t.TempDir()
-	servicesDir := filepath.Join(dir, "services")
-	internalDir := filepath.Join(servicesDir, "internal")
-	if err := os.MkdirAll(internalDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
+// A directory exclusion — spelled exactly or via a glob that matches the
+// directory — excludes that directory's whole subtree.
+func TestExcludeDirectorySubtree(t *testing.T) {
+	tests := []struct {
+		name         string
+		files        map[string]string
+		exclude      string
+		wantLoaded   []string
+		wantExcluded []string
+	}{
+		{
+			name: "exact directory path",
+			files: map[string]string{
+				"services/app.yaml":             "parameters:\n  app: \"app\"\n",
+				"services/internal/secret.yaml": "parameters:\n  secret: \"secret\"\n",
+				"services/internal/debug.yaml":  "parameters:\n  debug: \"debug\"\n",
+			},
+			exclude:      "./services/internal",
+			wantLoaded:   []string{"app"},
+			wantExcluded: []string{"secret", "debug"},
+		},
+		{
+			name: "glob matching directory",
+			files: map[string]string{
+				"services/app.yaml":           "parameters:\n  app: \"app\"\n",
+				"services/internal/skip.yaml": "parameters:\n  skip_me: \"skip\"\n",
+			},
+			exclude:      "./services/int*",
+			wantLoaded:   []string{"app"},
+			wantExcluded: []string{"skip_me"},
+		},
 	}
 
-	writeFile(t, servicesDir, "app.yaml", `
-parameters:
-  app: "app"
-`)
-	writeFile(t, internalDir, "secret.yaml", `
-parameters:
-  secret: "secret"
-`)
-	writeFile(t, internalDir, "debug.yaml", `
-parameters:
-  debug: "debug"
-`)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeTree(t, dir, tt.files)
 
-	rootPath := writeFile(t, dir, "gendi.yaml", `
+			rootPath := writeFile(t, dir, "gendi.yaml", fmt.Sprintf(`
 imports:
   - path: ./services/**/*.yaml
     exclude:
-      - ./services/internal
-`)
+      - %s
+`, tt.exclude))
 
-	loader := defaultLoader(t, rootPath)
-	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	if _, ok := cfg.Parameters["app"]; !ok {
-		t.Error("expected app parameter to be loaded")
-	}
-	if _, ok := cfg.Parameters["secret"]; ok {
-		t.Error("expected secret parameter to be excluded")
-	}
-	if _, ok := cfg.Parameters["debug"]; ok {
-		t.Error("expected debug parameter to be excluded")
-	}
-}
-
-// A glob exclusion that matches a directory excludes that directory's whole
-// subtree (master behavior, regressed by the resolver-chain rerouting).
-func TestExcludeGlobMatchingDirectory(t *testing.T) {
-	dir := t.TempDir()
-	internalDir := filepath.Join(dir, "services", "internal")
-	if err := os.MkdirAll(internalDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-
-	writeFile(t, filepath.Join(dir, "services"), "app.yaml", `
-parameters:
-  app: "app"
-`)
-	writeFile(t, internalDir, "skip.yaml", `
-parameters:
-  skip_me: "skip"
-`)
-
-	rootPath := writeFile(t, dir, "gendi.yaml", `
-imports:
-  - path: ./services/**/*.yaml
-    exclude:
-      - ./services/int*
-`)
-
-	loader := defaultLoader(t, rootPath)
-	cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if _, ok := cfg.Parameters["app"]; !ok {
-		t.Error("expected app parameter to be loaded")
-	}
-	if _, ok := cfg.Parameters["skip_me"]; ok {
-		t.Error("expected files under the glob-matched directory to be excluded")
+			loader := defaultLoader(t, rootPath)
+			cfg, err := loader.Load(rootPath, boundaryFor(t, rootPath))
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			for _, p := range tt.wantLoaded {
+				if _, ok := cfg.Parameters[p]; !ok {
+					t.Errorf("expected %q parameter to be loaded", p)
+				}
+			}
+			for _, p := range tt.wantExcluded {
+				if _, ok := cfg.Parameters[p]; ok {
+					t.Errorf("expected %q parameter to be excluded", p)
+				}
+			}
+		})
 	}
 }
 
