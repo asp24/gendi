@@ -1,0 +1,13 @@
+services:
+  logger:
+    constructor:
+      func: "test.NewLogger"
+
+  worker:
+    constructor:
+      func: "test.NewWorker"
+      args:
+        - "@logger"
+    tags:
+      - name: slog
+        channel: worker
