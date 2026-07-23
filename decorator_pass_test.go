@@ -256,95 +256,82 @@ func TestDecoratorPassKeepsSharedFlagsIndependent(t *testing.T) {
 	}
 }
 
-func TestDecoratorPassCycleDetection(t *testing.T) {
-	// Cycle A -> B -> C -> A will be caught by "cannot be decorated" check
-	// When processing C (decorates A), it will find that A.Decorates="b" (non-empty)
-	cfg := &Config{
-		Services: map[string]Service{
-			"a": {
-				Decorates: "b",
-				Constructor: Constructor{
-					Func: "app.NewA",
+func TestDecoratorPassErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     *Config
+		wantErr string
+	}{
+		{
+			// Cycle A -> B -> C -> A is caught by the "cannot be decorated"
+			// check: processing C (decorates A) finds A.Decorates="b" non-empty.
+			name: "cycle detection",
+			cfg: &Config{
+				Services: map[string]Service{
+					"a": {Decorates: "b", Constructor: Constructor{Func: "app.NewA"}},
+					"b": {Decorates: "c", Constructor: Constructor{Func: "app.NewB"}},
+					"c": {Decorates: "a", Constructor: Constructor{Func: "app.NewC"}},
 				},
 			},
-			"b": {
-				Decorates: "c",
-				Constructor: Constructor{
-					Func: "app.NewB",
+			wantErr: "cannot be decorated",
+		},
+		{
+			name: "decorator cannot be decorated",
+			cfg: &Config{
+				Services: map[string]Service{
+					"base": {Constructor: Constructor{Func: "app.NewBase"}},
+					"decA": {Decorates: "base", Constructor: Constructor{Func: "app.NewDecoratorA"}},
+					"decB": {Decorates: "decA", Constructor: Constructor{Func: "app.NewDecoratorB"}},
 				},
 			},
-			"c": {
-				Decorates: "a",
-				Constructor: Constructor{
-					Func: "app.NewC",
+			wantErr: "cannot be decorated",
+		},
+		{
+			name: "unknown base",
+			cfg: &Config{
+				Services: map[string]Service{
+					"decorator": {Decorates: "unknown", Constructor: Constructor{Func: "app.NewDecorator"}},
 				},
 			},
+			wantErr: "unknown service",
+		},
+		{
+			name: "rejects spread inner",
+			cfg: &Config{
+				Services: map[string]Service{
+					"base": {Constructor: Constructor{Func: "app.NewBase"}},
+					"decorator": {
+						Decorates: "base",
+						Constructor: Constructor{
+							Func: "app.NewDecorator",
+							Args: []Argument{{Kind: ArgSpread, Value: "@.inner"}},
+						},
+					},
+				},
+			},
+			wantErr: "!spread:@.inner is not supported",
+		},
+		{
+			name: "rejects reserved .inner suffix service ID",
+			cfg: &Config{
+				Services: map[string]Service{
+					"decorator.inner": {Constructor: Constructor{Func: "app.NewInner"}},
+				},
+			},
+			wantErr: "cannot use reserved .inner suffix",
 		},
 	}
 
-	pass := &DecoratorPass{}
-	_, err := pass.Process(cfg)
-	if err == nil {
-		t.Fatalf("expected cycle detection error")
-	}
-	// Cycles are caught by "cannot be decorated" check
-	if !strings.Contains(err.Error(), "cannot be decorated") {
-		t.Fatalf("expected cannot-be-decorated error for cycle, got: %v", err)
-	}
-}
-
-func TestDecoratorPassDecoratorCannotBeDecorated(t *testing.T) {
-	cfg := &Config{
-		Services: map[string]Service{
-			"base": {
-				Constructor: Constructor{
-					Func: "app.NewBase",
-				},
-			},
-			"decA": {
-				Decorates: "base",
-				Constructor: Constructor{
-					Func: "app.NewDecoratorA",
-				},
-			},
-			"decB": {
-				Decorates: "decA",
-				Constructor: Constructor{
-					Func: "app.NewDecoratorB",
-				},
-			},
-		},
-	}
-
-	pass := &DecoratorPass{}
-	_, err := pass.Process(cfg)
-	if err == nil {
-		t.Fatalf("expected error when decorating decorator")
-	}
-	if !strings.Contains(err.Error(), "cannot be decorated") {
-		t.Fatalf("expected 'cannot be decorated' error, got: %v", err)
-	}
-}
-
-func TestDecoratorPassUnknownBase(t *testing.T) {
-	cfg := &Config{
-		Services: map[string]Service{
-			"decorator": {
-				Decorates: "unknown",
-				Constructor: Constructor{
-					Func: "app.NewDecorator",
-				},
-			},
-		},
-	}
-
-	pass := &DecoratorPass{}
-	_, err := pass.Process(cfg)
-	if err == nil {
-		t.Fatalf("expected error when decorating unknown service")
-	}
-	if !strings.Contains(err.Error(), "unknown service") {
-		t.Fatalf("expected 'unknown service' error, got: %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := (&DecoratorPass{}).Process(tt.cfg)
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
 	}
 }
 
@@ -423,57 +410,6 @@ func TestDecoratorPassMultipleArgsWithInner(t *testing.T) {
 	// Third arg unchanged
 	if decSvc.Constructor.Args[2].Kind != ArgParam || decSvc.Constructor.Args[2].Value != "timeout" {
 		t.Fatalf("expected third arg to be %%timeout%%")
-	}
-}
-
-func TestDecoratorPassRejectsSpreadInner(t *testing.T) {
-	cfg := &Config{
-		Services: map[string]Service{
-			"base": {
-				Constructor: Constructor{
-					Func: "app.NewBase",
-				},
-			},
-			"decorator": {
-				Decorates: "base",
-				Constructor: Constructor{
-					Func: "app.NewDecorator",
-					Args: []Argument{
-						{Kind: ArgSpread, Value: "@.inner"},
-					},
-				},
-			},
-		},
-	}
-
-	pass := &DecoratorPass{}
-	_, err := pass.Process(cfg)
-	if err == nil {
-		t.Fatalf("expected error for !spread:@.inner")
-	}
-	if !strings.Contains(err.Error(), "!spread:@.inner is not supported") {
-		t.Fatalf("expected unsupported spread-inner error, got: %v", err)
-	}
-}
-
-func TestDecoratorPassRejectsReservedInnerSuffixServiceID(t *testing.T) {
-	cfg := &Config{
-		Services: map[string]Service{
-			"decorator.inner": {
-				Constructor: Constructor{
-					Func: "app.NewInner",
-				},
-			},
-		},
-	}
-
-	pass := &DecoratorPass{}
-	_, err := pass.Process(cfg)
-	if err == nil {
-		t.Fatalf("expected error for reserved .inner suffix")
-	}
-	if !strings.Contains(err.Error(), "cannot use reserved .inner suffix") {
-		t.Fatalf("expected reserved .inner suffix error, got: %v", err)
 	}
 }
 
