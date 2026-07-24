@@ -38,25 +38,3 @@ func NewSlogJSONHandler(w io.Writer, level slog.Level) slog.Handler {
 		Level: level,
 	})
 }
-
-// NewSlogLogger creates a new slog.Logger with the given handler.
-//
-// Example:
-//
-//	services:
-//	  log_handler:
-//	    constructor:
-//	      func: "github.com/gendi-org/gendi/stdlib.NewSlogJSONHandler"
-//	      args:
-//	        - "@log_output"
-//	        - "%log_level%"
-//
-//	  logger:
-//	    constructor:
-//	      func: "github.com/gendi-org/gendi/stdlib.NewSlogLogger"
-//	      args:
-//	        - "@log_handler"
-//	    public: true
-func NewSlogLogger(handler slog.Handler) *slog.Logger {
-	return slog.New(handler)
-}

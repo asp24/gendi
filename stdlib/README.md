@@ -246,15 +246,14 @@ services:
         - -4  # Debug level
 ```
 
-**`NewSlogLogger(handler slog.Handler) *slog.Logger`**
-
-Creates logger from handler.
+To build the `*slog.Logger` itself, call `log/slog.New` directly — no stdlib
+wrapper is needed:
 
 ```yaml
 services:
   custom_logger:
     constructor:
-      func: "github.com/gendi-org/gendi/stdlib.NewSlogLogger"
+      func: "log/slog.New"
       args:
         - "@custom_handler"
 ```
@@ -431,7 +430,7 @@ services:
 
   stdlib.slog:
     constructor:
-      func: "$this.NewSlogLogger"
+      func: "log/slog.New"
       args:
         - "@stdlib.slog.handler.text"
     shared: true

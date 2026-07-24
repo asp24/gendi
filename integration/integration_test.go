@@ -184,6 +184,14 @@ func TestWorkflow(t *testing.T) {
 			expectedOutput: "host=localhost dsn=postgres://localhost/defaults\n",
 		},
 		{
+			name: "stdlib_services",
+			expectedOutput: "http client timeout: 30s\n" +
+				"pooled client timeout: 30s\n" +
+				"pooled transport set: true\n" +
+				"logger ready: true\n" +
+				"json handler ready: true\n",
+		},
+		{
 			name:           "ident_collision",
 			wantCompileErr: true,
 		},

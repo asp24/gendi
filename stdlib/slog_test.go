@@ -36,17 +36,3 @@ func TestNewSlogJSONHandler(t *testing.T) {
 		t.Errorf("Log output should contain JSON msg field, got: %s", output)
 	}
 }
-
-func TestNewSlogLogger(t *testing.T) {
-	var buf bytes.Buffer
-	handler := slog.NewTextHandler(&buf, nil)
-	logger := NewSlogLogger(handler)
-	if logger == nil {
-		t.Fatal("NewSlogLogger returned nil")
-	}
-
-	logger.Info("hello")
-	if !bytes.Contains(buf.Bytes(), []byte("hello")) {
-		t.Errorf("Log output should contain 'hello', got: %s", buf.String())
-	}
-}
