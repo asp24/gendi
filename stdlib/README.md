@@ -128,16 +128,18 @@ services:
 ### I/O Writers
 
 **Service IDs:**
-- `stdlib.stdout` - Standard output (`os.Stdout`)
-- `stdlib.stderr` - Standard error (`os.Stderr`)
+- `stdlib.slog.writer` - Log output writer, backed by `os.Stderr`
+
+Use the `NewSlogWriter` factory to adapt any standard file (`os.Stderr`,
+`os.Stdout`, ...) into an `io.Writer` service:
 
 ```yaml
 services:
-  file_logger:
+  file_logger.writer:
     constructor:
-      func: "myapp.NewFileLogger"
+      func: "github.com/gendi-org/gendi/stdlib.NewSlogWriter"
       args:
-        - "@stdlib.stdout"
+        - "!go:os.Stdout"
 ```
 
 ## Factory Functions
@@ -228,7 +230,7 @@ services:
     constructor:
       func: "github.com/gendi-org/gendi/stdlib.NewSlogTextHandler"
       args:
-        - "@stdlib.stdout"
+        - "@stdlib.slog.writer"
         - 0  # Info level
 ```
 
@@ -242,45 +244,35 @@ services:
     constructor:
       func: "github.com/gendi-org/gendi/stdlib.NewSlogJSONHandler"
       args:
-        - "@stdlib.stderr"
+        - "!go:os.Stderr"
         - -4  # Debug level
 ```
 
-**`NewSlogLogger(handler slog.Handler) *slog.Logger`**
-
-Creates logger from handler.
+To build the `*slog.Logger` itself, call `log/slog.New` directly — no stdlib
+wrapper is needed:
 
 ```yaml
 services:
   custom_logger:
     constructor:
-      func: "github.com/gendi-org/gendi/stdlib.NewSlogLogger"
+      func: "log/slog.New"
       args:
         - "@custom_handler"
 ```
 
 ### I/O
 
-**`NewStdout() io.Writer`**
+**`NewSlogWriter(f *os.File) io.Writer`**
 
-Returns `os.Stdout`.
-
-```yaml
-services:
-  stdout:
-    constructor:
-      func: "github.com/gendi-org/gendi/stdlib.NewStdout"
-```
-
-**`NewStderr() io.Writer`**
-
-Returns `os.Stderr`.
+Adapts a standard file such as `os.Stderr` or `os.Stdout` into an `io.Writer`.
 
 ```yaml
 services:
-  stderr:
+  writer:
     constructor:
-      func: "github.com/gendi-org/gendi/stdlib.NewStderr"
+      func: "github.com/gendi-org/gendi/stdlib.NewSlogWriter"
+      args:
+        - "!go:os.Stdout"
 ```
 
 ### Slices
@@ -362,82 +354,65 @@ The stdlib `gendi.yaml` file contains:
 
 ```yaml
 parameters:
-  stdlib.http.timeout:
-    type: time.Duration
-    value: "30s"
-  stdlib.http.max_idle_conns:
-    type: int
-    value: 100
-  stdlib.http.max_idle_conns_per_host:
-    type: int
-    value: 10
-  stdlib.http.idle_conn_timeout:
-    type: time.Duration
-    value: "90s"
-  stdlib.slog.level:
-    type: int
-    value: 0
+  # HTTP client settings
+  stdlib.http.timeout: "30s"
+  stdlib.http.max_idle_conns: 100
+  stdlib.http.max_idle_conns_per_host: 10
+  stdlib.http.idle_conn_timeout: "90s"
+  # Logging settings
+  stdlib.slog.level: 0  # slog.LevelInfo
 
 services:
+  stdlib.http.client:
+    constructor:
+      func: "github.com/gendi-org/gendi/stdlib.NewHTTPClient"
+      args:
+        - "%stdlib.http.timeout%"
+
   stdlib.http.transport:
     constructor:
-      func: "$this.NewHTTPTransport"
+      func: "github.com/gendi-org/gendi/stdlib.NewHTTPTransport"
       args:
         - "%stdlib.http.max_idle_conns%"
         - "%stdlib.http.max_idle_conns_per_host%"
         - "%stdlib.http.idle_conn_timeout%"
-    shared: true
 
   stdlib.http.client_with_transport:
     constructor:
-      func: "$this.NewHTTPClientWithTransport"
+      func: "github.com/gendi-org/gendi/stdlib.NewHTTPClientWithTransport"
       args:
         - "%stdlib.http.timeout%"
         - "@stdlib.http.transport"
-    shared: true
 
-  stdlib.http.client:
+  stdlib.slog.writer:
     constructor:
-      func: "$this.NewHTTPClient"
+      func: "github.com/gendi-org/gendi/stdlib.NewSlogWriter"
       args:
-        - "%stdlib.http.timeout%"
-    shared: true
-
-  stdlib.stdout:
-    constructor:
-      func: "$this.NewStdout"
-    shared: true
-
-  stdlib.stderr:
-    constructor:
-      func: "$this.NewStderr"
-    shared: true
+        - "!go:os.Stderr"
 
   stdlib.slog.handler.text:
     constructor:
-      func: "$this.NewSlogTextHandler"
+      func: "github.com/gendi-org/gendi/stdlib.NewSlogTextHandler"
       args:
-        - "@stdlib.stdout"
+        - "@stdlib.slog.writer"
         - "%stdlib.slog.level%"
-    shared: true
 
   stdlib.slog.handler.json:
     constructor:
-      func: "$this.NewSlogJSONHandler"
+      func: "github.com/gendi-org/gendi/stdlib.NewSlogJSONHandler"
       args:
-        - "@stdlib.stdout"
+        - "@stdlib.slog.writer"
         - "%stdlib.slog.level%"
-    shared: true
+
+  stdlib.slog.handler: '@stdlib.slog.handler.text'
 
   stdlib.slog:
     constructor:
-      func: "$this.NewSlogLogger"
+      func: "log/slog.New"
       args:
-        - "@stdlib.slog.handler.text"
-    shared: true
+        - "@stdlib.slog.handler"
 
-  stdlib.logger:
-    alias: "stdlib.slog"
+  stdlib.logger: '@stdlib.slog'
 ```
 
 ## Examples

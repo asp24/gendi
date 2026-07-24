@@ -1,0 +1,17 @@
+imports:
+  - github.com/gendi-org/gendi/stdlib/gendi.yaml
+
+services:
+  # Consume every service defined by the stdlib config so none is pruned as
+  # unreachable — this forces generation to resolve and type-check every
+  # constructor func in stdlib/gendi.yaml, and compilation to prove the
+  # generated calls are valid Go.
+  app:
+    constructor:
+      func: "test.NewApp"
+      args:
+        - "@stdlib.http.client"
+        - "@stdlib.http.client_with_transport"
+        - "@stdlib.logger"
+        - "@stdlib.slog.handler.json"
+    public: true

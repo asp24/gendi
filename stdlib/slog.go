@@ -3,7 +3,23 @@ package stdlib
 import (
 	"io"
 	"log/slog"
+	"os"
 )
+
+// NewSlogWriter adapts a standard file such as os.Stderr or os.Stdout into an
+// io.Writer for slog handlers to write to.
+//
+// Example:
+//
+//	services:
+//	  stdlib.slog.writer:
+//	    constructor:
+//	      func: "github.com/gendi-org/gendi/stdlib.NewSlogWriter"
+//	      args:
+//	        - "!go:os.Stderr"
+func NewSlogWriter(f *os.File) io.Writer {
+	return f
+}
 
 // NewSlogTextHandler creates a text handler that writes to the given writer.
 //
@@ -37,26 +53,4 @@ func NewSlogJSONHandler(w io.Writer, level slog.Level) slog.Handler {
 	return slog.NewJSONHandler(w, &slog.HandlerOptions{
 		Level: level,
 	})
-}
-
-// NewSlogLogger creates a new slog.Logger with the given handler.
-//
-// Example:
-//
-//	services:
-//	  log_handler:
-//	    constructor:
-//	      func: "github.com/gendi-org/gendi/stdlib.NewSlogJSONHandler"
-//	      args:
-//	        - "@log_output"
-//	        - "%log_level%"
-//
-//	  logger:
-//	    constructor:
-//	      func: "github.com/gendi-org/gendi/stdlib.NewSlogLogger"
-//	      args:
-//	        - "@log_handler"
-//	    public: true
-func NewSlogLogger(handler slog.Handler) *slog.Logger {
-	return slog.New(handler)
 }
