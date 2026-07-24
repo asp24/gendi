@@ -52,16 +52,16 @@ services:
         - "%stdlib.http.timeout%"
         - "@stdlib.http.transport"
 
+  # ===================
+  # Logging Services
+  # ===================
+
   # Log output writer (standard error)
   stdlib.slog.writer:
     constructor:
       func: "github.com/gendi-org/gendi/stdlib.NewSlogWriter"
       args:
         - "!go:os.Stderr"
-
-  # ===================
-  # Logging Services
-  # ===================
 
   stdlib.slog.handler.text:
     constructor:
