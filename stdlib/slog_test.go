@@ -3,8 +3,16 @@ package stdlib
 import (
 	"bytes"
 	"log/slog"
+	"os"
 	"testing"
 )
+
+func TestNewSlogWriter(t *testing.T) {
+	w := NewSlogWriter(os.Stderr)
+	if w != os.Stderr {
+		t.Errorf("NewSlogWriter(os.Stderr) = %v, want os.Stderr", w)
+	}
+}
 
 func TestNewSlogTextHandler(t *testing.T) {
 	var buf bytes.Buffer

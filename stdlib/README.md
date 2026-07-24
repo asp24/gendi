@@ -128,16 +128,18 @@ services:
 ### I/O Writers
 
 **Service IDs:**
-- `stdlib.stdout` - Standard output (`os.Stdout`)
-- `stdlib.stderr` - Standard error (`os.Stderr`)
+- `stdlib.slog.writer` - Log output writer, backed by `os.Stderr`
+
+Use the `NewSlogWriter` factory to adapt any standard file (`os.Stderr`,
+`os.Stdout`, ...) into an `io.Writer` service:
 
 ```yaml
 services:
-  file_logger:
+  file_logger.writer:
     constructor:
-      func: "myapp.NewFileLogger"
+      func: "github.com/gendi-org/gendi/stdlib.NewSlogWriter"
       args:
-        - "@stdlib.stdout"
+        - "!go:os.Stdout"
 ```
 
 ## Factory Functions
@@ -228,7 +230,7 @@ services:
     constructor:
       func: "github.com/gendi-org/gendi/stdlib.NewSlogTextHandler"
       args:
-        - "@stdlib.stdout"
+        - "@stdlib.slog.writer"
         - 0  # Info level
 ```
 
@@ -242,7 +244,7 @@ services:
     constructor:
       func: "github.com/gendi-org/gendi/stdlib.NewSlogJSONHandler"
       args:
-        - "@stdlib.stderr"
+        - "!go:os.Stderr"
         - -4  # Debug level
 ```
 
@@ -260,26 +262,17 @@ services:
 
 ### I/O
 
-**`NewStdout() io.Writer`**
+**`NewSlogWriter(f *os.File) io.Writer`**
 
-Returns `os.Stdout`.
-
-```yaml
-services:
-  stdout:
-    constructor:
-      func: "github.com/gendi-org/gendi/stdlib.NewStdout"
-```
-
-**`NewStderr() io.Writer`**
-
-Returns `os.Stderr`.
+Adapts a standard file such as `os.Stderr` or `os.Stdout` into an `io.Writer`.
 
 ```yaml
 services:
-  stderr:
+  writer:
     constructor:
-      func: "github.com/gendi-org/gendi/stdlib.NewStderr"
+      func: "github.com/gendi-org/gendi/stdlib.NewSlogWriter"
+      args:
+        - "!go:os.Stdout"
 ```
 
 ### Slices
@@ -402,21 +395,18 @@ services:
         - "%stdlib.http.timeout%"
     shared: true
 
-  stdlib.stdout:
+  stdlib.slog.writer:
     constructor:
-      func: "$this.NewStdout"
-    shared: true
-
-  stdlib.stderr:
-    constructor:
-      func: "$this.NewStderr"
+      func: "$this.NewSlogWriter"
+      args:
+        - "!go:os.Stderr"
     shared: true
 
   stdlib.slog.handler.text:
     constructor:
       func: "$this.NewSlogTextHandler"
       args:
-        - "@stdlib.stdout"
+        - "@stdlib.slog.writer"
         - "%stdlib.slog.level%"
     shared: true
 
@@ -424,7 +414,7 @@ services:
     constructor:
       func: "$this.NewSlogJSONHandler"
       args:
-        - "@stdlib.stdout"
+        - "@stdlib.slog.writer"
         - "%stdlib.slog.level%"
     shared: true
 
